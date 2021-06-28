@@ -3,12 +3,17 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
+	"path"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	api "github.com/influxdata/influxdb-client-go/v2/api"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -34,15 +39,42 @@ func prometheusHandler() gin.HandlerFunc {
 	}
 }
 
+func readFile(file string, influxWriteAPI api.WriteAPI, cache *redis.Client) {
+	f, err := os.Open(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	i := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		log.Debug(strings.Split(line, ";")[0])
+		i++
+		if i == 9 {
+			break
+		}
+	}
+	log.Debugf("Done!")
+}
+
 func main() {
+	// configure logger
+	log.SetLevel(log.DebugLevel)
+
+	// connect to databases
+	mypath := path.Join("/Volumes", "Pascals Drive", "Argos Miner", "TrackingDB_Part2.csv")
 	influx := influxdb2.NewClientWithOptions("http://localhost:8086", "-EuU9TmvtAr27Cr_3bJvakriAVr7RNS04TsF_xD35-1XWZpog7Iz9dubOQMsCX9NUpRskLlHZSnhEZKvwineog==", influxdb2.DefaultOptions())
-	// Use blocking write client for writes to desired bucket
 	writeAPI := influx.WriteAPI("ciis", "go_test")
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
+
+	go readFile(mypath, writeAPI, rdb)
 
 	r := gin.Default()
 	r.GET("/", func(c *gin.Context) {
