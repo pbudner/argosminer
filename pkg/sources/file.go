@@ -13,21 +13,21 @@ import (
 )
 
 type fileSource struct {
-	Path               string
-	ReadFrom           string
-	Watcher            *watcher.Watcher
-	Parser             parsers.Parser
-	StreamingAlgorithm algorithms.StreamingAlgorithm
-	lastFilePosition   int64
+	Path             string
+	ReadFrom         string
+	Watcher          *watcher.Watcher
+	Parser           parsers.Parser
+	Receivers        []algorithms.StreamingAlgorithm
+	lastFilePosition int64
 }
 
-func NewFileSource(path, readFrom string, parser parsers.Parser, streamingAlgorithm algorithms.StreamingAlgorithm) fileSource {
+func NewFileSource(path, readFrom string, parser parsers.Parser, receivers []algorithms.StreamingAlgorithm) fileSource {
 	fs := fileSource{
-		Path:               path,
-		ReadFrom:           readFrom,
-		Parser:             parser,
-		StreamingAlgorithm: streamingAlgorithm,
-		lastFilePosition:   0,
+		Path:             path,
+		ReadFrom:         readFrom,
+		Parser:           parser,
+		Receivers:        receivers,
+		lastFilePosition: 0,
 	}
 
 	return fs
@@ -65,7 +65,12 @@ func (fs *fileSource) readFile() {
 		}
 
 		if event != nil {
-			log.Debug(event.Timestamp)
+			for _, receiver := range fs.Receivers {
+				err := receiver.Append(*event)
+				if err != nil {
+					log.Error(err)
+				}
+			}
 		}
 	}
 

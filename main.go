@@ -10,8 +10,10 @@ import (
 	"github.com/go-redis/redis/v8"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/pbudner/argosminer-collector/config"
+	"github.com/pbudner/argosminer-collector/pkg/algorithms"
 	"github.com/pbudner/argosminer-collector/pkg/parsers"
 	"github.com/pbudner/argosminer-collector/pkg/sources"
+	"github.com/pbudner/argosminer-collector/pkg/stores"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -24,6 +26,7 @@ var receivedEvents = prometheus.NewCounter(prometheus.CounterOpts{
 })
 
 var ctx = context.Background()
+var rdb *redis.Client
 
 func init() {
 	// configure logger
@@ -37,6 +40,12 @@ func init() {
 		log.Fatal(err)
 	}
 
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
 	for _, source := range cfg.Sources {
 		if source.FileConfig.Path != "" {
 			log.Debugf("Starting a file source...")
@@ -46,7 +55,10 @@ func init() {
 				parser = parsers.NewCsvParser(source.CsvParser)
 			}
 
-			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser)
+			receivers := make([]algorithms.StreamingAlgorithm, 1)
+			receivers[0] = algorithms.NewDfgStreamingAlgorithm(stores.NewRedisStore(rdb))
+
+			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receivers)
 			go fs.Run()
 		}
 	}
@@ -65,11 +77,6 @@ func main() {
 	// connect to databases
 	influx := influxdb2.NewClientWithOptions("http://localhost:8086", "-EuU9TmvtAr27Cr_3bJvakriAVr7RNS04TsF_xD35-1XWZpog7Iz9dubOQMsCX9NUpRskLlHZSnhEZKvwineog==", influxdb2.DefaultOptions())
 	writeAPI := influx.WriteAPI("ciis", "go_test")
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
 
 	r := gin.Default()
 	r.GET("/", func(c *gin.Context) {
