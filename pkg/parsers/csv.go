@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pbudner/argosminer-collector/config"
+	"github.com/pbudner/argosminer-collector/pkg/config"
 	"github.com/pbudner/argosminer-collector/pkg/events"
 	log "github.com/sirupsen/logrus"
 )
