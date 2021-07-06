@@ -26,6 +26,9 @@ var receivedEvents = prometheus.NewCounter(prometheus.CounterOpts{
 var ctx = context.Background()
 
 func init() {
+	// configure logger
+	log.SetLevel(log.DebugLevel)
+
 	prometheus.MustRegister(receivedEvents)
 
 	var cfg, err = config.NewConfig()
@@ -40,11 +43,11 @@ func init() {
 			var parser parsers.Parser
 			if source.CsvParser.Delimiter != "" {
 				log.Debugf("Initializing a CSV parser..")
-				parser = parsers.NewCsvParser()
+				parser = parsers.NewCsvParser(source.CsvParser)
 			}
 
 			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser)
-			fs.Run()
+			go fs.Run()
 		}
 	}
 }
@@ -58,8 +61,6 @@ func prometheusHandler() gin.HandlerFunc {
 }
 
 func main() {
-	// configure logger
-	log.SetLevel(log.DebugLevel)
 
 	// connect to databases
 	influx := influxdb2.NewClientWithOptions("http://localhost:8086", "-EuU9TmvtAr27Cr_3bJvakriAVr7RNS04TsF_xD35-1XWZpog7Iz9dubOQMsCX9NUpRskLlHZSnhEZKvwineog==", influxdb2.DefaultOptions())

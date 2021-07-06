@@ -10,7 +10,7 @@ sources:
       process-instance-column: 4
       activity-column: 12
       timestamp-column: 9
-      timestamp-format: '%d/%m/%Y %H:%M:%S,%f'
+      timestamp-format: '02/01/2006 15:04:05.000000'
       timestamp-tz-iana-key: Europe/Berlin
       ignore-when:
         - column: 10
