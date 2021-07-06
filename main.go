@@ -3,17 +3,15 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
-	"path"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
-	api "github.com/influxdata/influxdb-client-go/v2/api"
+	"github.com/pbudner/argosminer-collector/config"
+	"github.com/pbudner/argosminer-collector/pkg/parsers"
+	"github.com/pbudner/argosminer-collector/pkg/sources"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -29,6 +27,26 @@ var ctx = context.Background()
 
 func init() {
 	prometheus.MustRegister(receivedEvents)
+
+	var cfg, err = config.NewConfig()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, source := range cfg.Sources {
+		if source.FileConfig.Path != "" {
+			log.Debugf("Starting a file source...")
+			var parser parsers.Parser
+			if source.CsvParser.Delimiter != "" {
+				log.Debugf("Initializing a CSV parser..")
+				parser = parsers.NewCsvParser()
+			}
+
+			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser)
+			fs.Run()
+		}
+	}
 }
 
 func prometheusHandler() gin.HandlerFunc {
@@ -39,33 +57,11 @@ func prometheusHandler() gin.HandlerFunc {
 	}
 }
 
-func readFile(file string, influxWriteAPI api.WriteAPI, cache *redis.Client) {
-	f, err := os.Open(file)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	i := 0
-	for scanner.Scan() {
-		line := scanner.Text()
-		log.Debug(strings.Split(line, ";")[0])
-		i++
-		if i == 9 {
-			break
-		}
-	}
-	log.Debugf("Done!")
-}
-
 func main() {
 	// configure logger
 	log.SetLevel(log.DebugLevel)
 
 	// connect to databases
-	mypath := path.Join("/Volumes", "Pascals Drive", "Argos Miner", "TrackingDB_Part2.csv")
 	influx := influxdb2.NewClientWithOptions("http://localhost:8086", "-EuU9TmvtAr27Cr_3bJvakriAVr7RNS04TsF_xD35-1XWZpog7Iz9dubOQMsCX9NUpRskLlHZSnhEZKvwineog==", influxdb2.DefaultOptions())
 	writeAPI := influx.WriteAPI("ciis", "go_test")
 	rdb := redis.NewClient(&redis.Options{
@@ -73,8 +69,6 @@ func main() {
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
-
-	go readFile(mypath, writeAPI, rdb)
 
 	r := gin.Default()
 	r.GET("/", func(c *gin.Context) {

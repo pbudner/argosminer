@@ -1,0 +1,18 @@
+---
+sources:
+  - enabled: true
+    file-config:
+      #path: '/Volumes/Pascals Drive/Argos Miner/TrackingDB_Part2.csv'
+      path: '/Users/pascalbudner/Desktop/test/test.txt'
+      read-from: beginning
+    csv-parser:
+      delimiter: ';'
+      process-instance-column: 4
+      activity-column: 12
+      timestamp-column: 9
+      timestamp-format: '%d/%m/%Y %H:%M:%S,%f'
+      timestamp-tz-iana-key: Europe/Berlin
+      ignore-when:
+        - column: 10
+          condition: '!='
+          value: gestartet
