@@ -43,7 +43,7 @@ func init() {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "", // no password set
-		DB:       0,  // use default DB
+		DB:       1,  // use default DB
 	})
 
 	for _, source := range cfg.Sources {
@@ -104,5 +104,5 @@ func main() {
 	})
 
 	r.GET("/metrics", prometheusHandler())
-	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	r.Run()
 }

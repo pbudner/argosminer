@@ -4,7 +4,7 @@ sources:
     file-config:
       #path: '/Volumes/Pascals Drive/Argos Miner/TrackingDB_Part2.csv'
       path: '/Users/pascalbudner/Desktop/test/test.txt'
-      read-from: beginning
+      read-from: start
     csv-parser:
       delimiter: ';'
       process-instance-column: 4

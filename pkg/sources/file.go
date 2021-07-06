@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pbudner/argosminer-collector/pkg/algorithms"
@@ -24,7 +25,7 @@ type fileSource struct {
 func NewFileSource(path, readFrom string, parser parsers.Parser, receivers []algorithms.StreamingAlgorithm) fileSource {
 	fs := fileSource{
 		Path:             path,
-		ReadFrom:         readFrom,
+		ReadFrom:         strings.ToLower(readFrom),
 		Parser:           parser,
 		Receivers:        receivers,
 		lastFilePosition: 0,
@@ -48,9 +49,21 @@ func (fs *fileSource) readFile() {
 		log.Fatal(err)
 	}
 
+	if fs.lastFilePosition == 0 {
+		if fs.ReadFrom == "beginning" || fs.ReadFrom == "start" {
+			fs.lastFilePosition = 0
+		} else {
+			pos, err := f.Seek(0, 2)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			fs.lastFilePosition = pos
+		}
+	}
 	_, err = f.Seek(fs.lastFilePosition, 0) // 0 beginning, 1 current, 2 end
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
 	}
 
 	defer f.Close()
