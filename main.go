@@ -14,7 +14,7 @@ import (
 
 func init() {
 	// configure logger
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(log.InfoLevel)
 
 	var cfg, err = config.NewConfig()
 
@@ -36,7 +36,7 @@ func init() {
 		if source.FileConfig.Path != "" {
 			log.Debugf("Starting a file source...")
 			var parser parsers.Parser
-			if source.CsvParser.Delimiter != "" {
+			if source.CsvParser.ActivityColumn >= 0 {
 				log.Debugf("Initializing a CSV parser..")
 				parser = parsers.NewCsvParser(source.CsvParser)
 			}
