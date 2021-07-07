@@ -1,32 +1,83 @@
 package algorithms
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/pbudner/argosminer-collector/pkg/events"
 	"github.com/pbudner/argosminer-collector/pkg/stores"
 	log "github.com/sirupsen/logrus"
 )
 
 type dfgStreamingAlgorithm struct {
-	Store stores.Store
+	StoreGenerator       stores.StoreGenerator
+	CaseStore            stores.Store
+	DirectlyFollowsStore stores.Store
+	ActivityStore        stores.Store
+	StartActivityStore   stores.Store
 }
 
-func NewDfgStreamingAlgorithm(store stores.Store) dfgStreamingAlgorithm {
+func NewDfgStreamingAlgorithm(storeGenerator stores.StoreGenerator) *dfgStreamingAlgorithm {
 	algo := dfgStreamingAlgorithm{
-		Store: store,
+		StoreGenerator: storeGenerator,
 	}
 
-	return algo
+	algo.initStores()
+	return &algo
 }
 
-func (algo dfgStreamingAlgorithm) Append(event events.Event) error {
-	val, err := algo.Store.Increment(event.ActivityName)
+func (a *dfgStreamingAlgorithm) Append(event events.Event) error {
+	cleanedActivityName := cleanActivityName(event.ActivityName)
+	caseInstance := event.ProcessInstanceId
+	// timestamp := event.Timestamp.Unix()
+	log.Debugf("received activity %s with timestamp %s", event.ActivityName, event.Timestamp)
+
+	// increment general activity counter
+	_, err := a.ActivityStore.Increment(cleanedActivityName)
 	if err != nil {
 		return err
 	}
-	log.Infof("%s: %s [%d]", event.Timestamp, event.ActivityName, val)
+
+	if !a.CaseStore.Contains(caseInstance) {
+		// 1. we have not seen this case so far
+		a.StartActivityStore.Increment(cleanedActivityName)
+		a.DirectlyFollowsStore.Increment(fmt.Sprintf("->%s", cleanedActivityName))
+	} else {
+		// 2. we have seen this case
+		rawStart, err := a.CaseStore.Get(caseInstance)
+		if err != nil {
+			return err
+		}
+
+		start := rawStart.(string)
+		relation := fmt.Sprintf("%s->%s", start, cleanedActivityName)
+		_, err = a.DirectlyFollowsStore.Increment(relation)
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("incremented directly-follows relation %s", relation)
+	}
+
+	// always set the last seen activity for the current case to the current activity
+	a.CaseStore.Set(caseInstance, cleanedActivityName)
 	return nil
 }
 
-func (algo dfgStreamingAlgorithm) Close() {
-	// do nothing
+func (a *dfgStreamingAlgorithm) Close() {
+	a.ActivityStore.Close()
+	a.CaseStore.Close()
+	a.DirectlyFollowsStore.Close()
+	a.StartActivityStore.Close()
+}
+
+func (a *dfgStreamingAlgorithm) initStores() {
+	a.ActivityStore = a.StoreGenerator(10)
+	a.CaseStore = a.StoreGenerator(11)
+	a.DirectlyFollowsStore = a.StoreGenerator(12)
+	a.StartActivityStore = a.StoreGenerator(13)
+}
+
+func cleanActivityName(activityName string) string {
+	return strings.TrimSpace(activityName)
 }

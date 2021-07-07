@@ -5,4 +5,7 @@ type Store interface {
 	Get(key string) (interface{}, error)
 	Increment(key string) (uint64, error)
 	Contains(key string) bool
+	Close()
 }
+
+type StoreGenerator func(interface{}) Store

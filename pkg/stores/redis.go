@@ -14,7 +14,15 @@ type redisStore struct {
 	ctx         context.Context
 }
 
-func NewRedisStore(redisClient *redis.Client) *redisStore {
+func NewRedisStoreGenerator(redisOptions redis.Options) StoreGenerator {
+	return func(storeId interface{}) Store {
+		redisOptions.DB = storeId.(int)
+		return NewRedisStore(redisOptions)
+	}
+}
+
+func NewRedisStore(redisOptions redis.Options) *redisStore {
+	redisClient := redis.NewClient(&redisOptions)
 	store := redisStore{
 		redisClient: redisClient,
 		ctx:         context.TODO(),

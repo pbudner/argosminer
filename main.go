@@ -40,11 +40,10 @@ func init() {
 		log.Fatal(err)
 	}
 
-	rdb := redis.NewClient(&redis.Options{
+	redisOptions := redis.Options{
 		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       1,  // use default DB
-	})
+		Password: "",
+	}
 
 	for _, source := range cfg.Sources {
 		if source.FileConfig.Path != "" {
@@ -56,7 +55,7 @@ func init() {
 			}
 
 			receivers := make([]algorithms.StreamingAlgorithm, 1)
-			receivers[0] = algorithms.NewDfgStreamingAlgorithm(stores.NewRedisStore(rdb))
+			receivers[0] = algorithms.NewDfgStreamingAlgorithm(stores.NewRedisStoreGenerator(redisOptions))
 
 			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receivers)
 			go fs.Run()
