@@ -1,7 +1,6 @@
 package sources
 
 import (
-	"bufio"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/pbudner/argosminer-collector/pkg/algorithms"
 	"github.com/pbudner/argosminer-collector/pkg/parsers"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/radovskyb/watcher"
 	log "github.com/sirupsen/logrus"
 )
@@ -21,23 +19,6 @@ type fileSource struct {
 	Parser           parsers.Parser
 	Receivers        []algorithms.StreamingAlgorithm
 	lastFilePosition int64
-}
-
-var receivedEvents = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer_filesource",
-	Name:      "received_events",
-	Help:      "Total number of received events.",
-})
-
-var receivedEventsWithError = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer_filesource",
-	Name:      "received_events_error",
-	Help:      "Total number of received events that produced an error.",
-})
-
-func init() {
-	prometheus.MustRegister(receivedEvents)
-	prometheus.MustRegister(receivedEventsWithError)
 }
 
 func NewFileSource(path, readFrom string, parser parsers.Parser, receivers []algorithms.StreamingAlgorithm) fileSource {
@@ -86,26 +67,10 @@ func (fs *fileSource) readFile() {
 
 	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		receivedEvents.Inc()
-		line := scanner.Text()
-		event, err := fs.Parser.Parse(line)
-		if err != nil {
-			log.Error(err)
-			receivedEventsWithError.Inc()
-			continue
-		}
-
-		if event != nil {
-			for _, receiver := range fs.Receivers {
-				err := receiver.Append(*event)
-				if err != nil {
-					log.Error(err)
-					receivedEventsWithError.Inc()
-				}
-			}
-		}
+	err = fs.Parser.Parse(f, fs.Receivers)
+	if err != nil {
+		log.Error(err)
+		return
 	}
 
 	newPosition, err := f.Seek(0, 1)
