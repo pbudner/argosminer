@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	log "github.com/sirupsen/logrus"
@@ -55,7 +56,7 @@ func (s *redisStore) Get(key string) (interface{}, error) {
 	return ret.Val(), nil
 }
 
-func (s *redisStore) Increment(key string) (uint64, error) {
+func (s *redisStore) Increment(key string, timestamp time.Time) (uint64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	ret := s.redisClient.Incr(s.ctx, key)
@@ -83,6 +84,10 @@ func (s *redisStore) EncodeDirectlyFollowsRelation(from string, to string) strin
 		return to
 	}
 	return fmt.Sprintf("%s -> %s", from, to)
+}
+
+func (s *redisStore) EncodeActivity(activity string) string {
+	return activity
 }
 
 func (s *redisStore) Close() {

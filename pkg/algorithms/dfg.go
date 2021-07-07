@@ -1,7 +1,6 @@
 package algorithms
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/pbudner/argosminer-collector/pkg/events"
@@ -29,22 +28,22 @@ func NewDfgStreamingAlgorithm(storeGenerator stores.StoreGenerator) *dfgStreamin
 func (a *dfgStreamingAlgorithm) Append(event events.Event) error {
 	cleanedActivityName := cleanActivityName(event.ActivityName)
 	caseInstance := event.ProcessInstanceId
-	// timestamp := event.Timestamp.Unix()
+	timestamp := event.Timestamp
 	log.Debugf("received activity %s with timestamp %s", event.ActivityName, event.Timestamp)
 
 	// increment general activity counter
-	_, err := a.ActivityStore.Increment(cleanedActivityName)
+	_, err := a.ActivityStore.Increment(a.ActivityStore.EncodeActivity(cleanedActivityName), timestamp)
 	if err != nil {
 		return err
 	}
 
 	if !a.CaseStore.Contains(caseInstance) {
 		// 1. we have not seen this case so far
-		_, err = a.StartActivityStore.Increment(cleanedActivityName)
+		_, err = a.StartActivityStore.Increment(a.StartActivityStore.EncodeActivity(cleanedActivityName), timestamp)
 		if err != nil {
 			return err
 		}
-		_, err = a.DirectlyFollowsStore.Increment(fmt.Sprintf("->%s", cleanedActivityName))
+		_, err = a.DirectlyFollowsStore.Increment(a.DirectlyFollowsStore.EncodeDirectlyFollowsRelation("", cleanedActivityName), timestamp)
 		if err != nil {
 			return err
 		}
@@ -55,8 +54,8 @@ func (a *dfgStreamingAlgorithm) Append(event events.Event) error {
 			return err
 		}
 		start := rawStart.(string)
-		relation := fmt.Sprintf("%s->%s", start, cleanedActivityName)
-		_, err = a.DirectlyFollowsStore.Increment(relation)
+		relation := a.DirectlyFollowsStore.EncodeDirectlyFollowsRelation(start, cleanedActivityName)
+		_, err = a.DirectlyFollowsStore.Increment(relation, timestamp)
 		if err != nil {
 			return err
 		}

@@ -3,6 +3,7 @@ package stores
 import (
 	"fmt"
 	"sync"
+	"time"
 )
 
 type memoryStore struct {
@@ -36,7 +37,7 @@ func (s *memoryStore) Get(key string) (interface{}, error) {
 	return value, nil
 }
 
-func (s *memoryStore) Increment(key string) (uint64, error) {
+func (s *memoryStore) Increment(key string, timestamp time.Time) (uint64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	rawValue, ok := s.store[key]
@@ -67,6 +68,10 @@ func (s *memoryStore) EncodeDirectlyFollowsRelation(from string, to string) stri
 		return to
 	}
 	return fmt.Sprintf("%s -> %s", from, to)
+}
+
+func (s *memoryStore) EncodeActivity(activity string) string {
+	return activity
 }
 
 func (s *memoryStore) Close() {

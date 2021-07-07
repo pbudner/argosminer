@@ -39,7 +39,7 @@ func init() {
 	influxServerURL := "http://localhost:8086"
 	influxToken := "-EuU9TmvtAr27Cr_3bJvakriAVr7RNS04TsF_xD35-1XWZpog7Iz9dubOQMsCX9NUpRskLlHZSnhEZKvwineog=="
 	influxOrg := "ciis"
-	influxBucket := "new_process_mining"
+	influxBucket := "process_mining"
 
 	for _, source := range cfg.Sources {
 		if source.FileConfig.Path != "" {

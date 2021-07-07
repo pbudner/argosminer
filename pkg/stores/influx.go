@@ -3,11 +3,14 @@ package stores
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	influxapi "github.com/influxdata/influxdb-client-go/v2/api"
+	log "github.com/sirupsen/logrus"
 )
 
 type influxStore struct {
@@ -26,7 +29,7 @@ func NewInfluxStoreGenerator(serverURL string, token string, bucket string, orga
 
 func NewInfluxStore(serverURL string, token string, bucket string, organization string, redisOptions redis.Options) *influxStore {
 	redisStore := NewRedisStore(redisOptions)
-	client := influxdb2.NewClientWithOptions(serverURL, token, influxdb2.DefaultOptions())
+	client := influxdb2.NewClientWithOptions(serverURL, token, influxdb2.DefaultOptions().SetPrecision(time.Second))
 	writeAPI := client.WriteAPI(organization, bucket)
 
 	store := influxStore{
@@ -52,12 +55,13 @@ func (s *influxStore) Get(key string) (interface{}, error) {
 	return s.redisStore.Get(key)
 }
 
-func (s *influxStore) Increment(key string) (uint64, error) {
+func (s *influxStore) Increment(key string, timestamp time.Time) (uint64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	incr, err := s.redisStore.Increment(key)
-	// line := fmt.Sprintf("my_counter,app=go counter=%d", counter)
-	// writeAPI.WriteRecord(line)
+	incr, err := s.redisStore.Increment(key, timestamp)
+	line := fmt.Sprintf("%s count=%du %d", key, incr, timestamp.Unix())
+	log.Debug(line)
+	s.influxWriteAPI.WriteRecord(line)
 	return incr, err
 }
 
@@ -69,15 +73,25 @@ func (s *influxStore) Contains(key string) bool {
 
 func (s *influxStore) EncodeDirectlyFollowsRelation(from string, to string) string {
 	if from == "" {
-		return fmt.Sprintf("to=%s", to)
+		return fmt.Sprintf("dfrelation,to=%s", escape(to))
 	}
-	return fmt.Sprintf("from=%s,to=%s", from, to)
+	return fmt.Sprintf("dfrelation,from=%s,to=%s", escape(from), escape(to))
+}
+
+func (s *influxStore) EncodeActivity(activity string) string {
+	return fmt.Sprintf("activity,name=%s", escape(activity))
 }
 
 func (s *influxStore) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.redisStore.Close()
-	s.influxWriteAPI.Flush()
+	// s.influxWriteAPI.Flush()
 	s.influxClient.Close()
+}
+
+func escape(str string) string {
+	str = strings.Replace(str, " ", "\\ ", -1)
+	str = strings.Replace(str, ",", "\\,", -1)
+	return str
 }
