@@ -5,6 +5,7 @@ type Store interface {
 	Get(key string) (interface{}, error)
 	Increment(key string) (uint64, error)
 	Contains(key string) bool
+	EncodeDirectlyFollowsRelation(from string, to string) string
 	Close()
 }
 

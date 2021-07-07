@@ -2,6 +2,7 @@ package stores
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/go-redis/redis/v8"
@@ -9,7 +10,7 @@ import (
 )
 
 type redisStore struct {
-	mu          sync.Mutex
+	mu          *sync.Mutex
 	redisClient *redis.Client
 	ctx         context.Context
 }
@@ -24,6 +25,7 @@ func NewRedisStoreGenerator(redisOptions redis.Options) StoreGenerator {
 func NewRedisStore(redisOptions redis.Options) *redisStore {
 	redisClient := redis.NewClient(&redisOptions)
 	store := redisStore{
+		mu:          &sync.Mutex{},
 		redisClient: redisClient,
 		ctx:         context.TODO(),
 	}
@@ -74,6 +76,13 @@ func (s *redisStore) Contains(key string) bool {
 		return false
 	}
 	return ret.Val() > 0
+}
+
+func (s *redisStore) EncodeDirectlyFollowsRelation(from string, to string) string {
+	if from == "" {
+		return to
+	}
+	return fmt.Sprintf("%s -> %s", from, to)
 }
 
 func (s *redisStore) Close() {

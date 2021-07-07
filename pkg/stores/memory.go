@@ -6,12 +6,13 @@ import (
 )
 
 type memoryStore struct {
-	mu    sync.Mutex
+	mu    *sync.Mutex
 	store map[string]interface{}
 }
 
 func NewMemoryStore() *memoryStore {
 	store := memoryStore{
+		mu:    &sync.Mutex{},
 		store: make(map[string]interface{}),
 	}
 	return &store
@@ -59,6 +60,13 @@ func (s *memoryStore) Contains(key string) bool {
 	defer s.mu.Unlock()
 	_, ok := s.store[key]
 	return ok
+}
+
+func (s *memoryStore) EncodeDirectlyFollowsRelation(from string, to string) string {
+	if from == "" {
+		return to
+	}
+	return fmt.Sprintf("%s -> %s", from, to)
 }
 
 func (s *memoryStore) Close() {
