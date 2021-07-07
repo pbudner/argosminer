@@ -40,22 +40,26 @@ func (a *dfgStreamingAlgorithm) Append(event events.Event) error {
 
 	if !a.CaseStore.Contains(caseInstance) {
 		// 1. we have not seen this case so far
-		a.StartActivityStore.Increment(cleanedActivityName)
-		a.DirectlyFollowsStore.Increment(fmt.Sprintf("->%s", cleanedActivityName))
+		_, err = a.StartActivityStore.Increment(cleanedActivityName)
+		if err != nil {
+			return err
+		}
+		_, err = a.DirectlyFollowsStore.Increment(fmt.Sprintf("->%s", cleanedActivityName))
+		if err != nil {
+			return err
+		}
 	} else {
 		// 2. we have seen this case
 		rawStart, err := a.CaseStore.Get(caseInstance)
 		if err != nil {
 			return err
 		}
-
 		start := rawStart.(string)
 		relation := fmt.Sprintf("%s->%s", start, cleanedActivityName)
 		_, err = a.DirectlyFollowsStore.Increment(relation)
 		if err != nil {
 			return err
 		}
-
 		log.Debugf("incremented directly-follows relation %s", relation)
 	}
 
