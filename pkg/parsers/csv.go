@@ -7,6 +7,7 @@ import (
 
 	"github.com/pbudner/argosminer-collector/pkg/config"
 	"github.com/pbudner/argosminer-collector/pkg/events"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -16,6 +17,16 @@ type csvParser struct {
 }
 
 type conditionLiteral func([]string) (bool, error)
+
+var skippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
+	Subsystem: "argosminer_csv_parser",
+	Name:      "skipped_events",
+	Help:      "Total number of skipped events.",
+})
+
+func init() {
+	prometheus.MustRegister(skippedEvents)
+}
 
 func NewCsvParser(config config.CsvParser) csvParser {
 	conditionFuncs := make([]conditionLiteral, len(config.IgnoreWhen))
@@ -47,6 +58,7 @@ func (p csvParser) Parse(input string) (*events.Event, error) {
 		}
 
 		if lineShouldBeIgnored {
+			skippedEvents.Inc()
 			log.Debug("skipping a line as an ignore condition is fulfilled")
 			return nil, nil
 		}
@@ -60,7 +72,7 @@ func (p csvParser) Parse(input string) (*events.Event, error) {
 	processInstanceId := strings.Trim(eventColumns[p.config.ProcessInstanceColumn], " ")
 	activityName := strings.Trim(eventColumns[p.config.ActivityColumn], " ")
 	rawTimestamp := eventColumns[p.config.TimestampColumn]
-	rawTimestamp = strings.Replace(rawTimestamp, ",", ".", -1) // this is a hotfix that could be removed in Go 1.17: https://github.com/golang/go/commit/f02a26be
+	rawTimestamp = strings.Replace(rawTimestamp, ",", ".", -1) //TODO Remove this is a hotfix with Go 1.17: https://github.com/golang/go/commit/f02a26be
 	var timestamp time.Time
 	var err error
 	if p.config.TimestampTzIanakey != "" {

@@ -140,6 +140,9 @@ func (fs *fileSource) initWatcher() {
 		log.Error(err)
 	}
 
+	// starting a first file scan
+	fs.readFile()
+
 	if err := fs.Watcher.Start(time.Millisecond * 1000); err != nil {
 		log.Error(err)
 	}
