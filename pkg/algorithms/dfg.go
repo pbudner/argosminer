@@ -5,6 +5,7 @@ import (
 
 	"github.com/pbudner/argosminer-collector/pkg/events"
 	"github.com/pbudner/argosminer-collector/pkg/stores"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -14,6 +15,16 @@ type dfgStreamingAlgorithm struct {
 	DirectlyFollowsStore stores.Store
 	ActivityStore        stores.Store
 	StartActivityStore   stores.Store
+}
+
+var receivedEvents = prometheus.NewCounter(prometheus.CounterOpts{
+	Subsystem: "argosminer_dfg_algorithm",
+	Name:      "received_events",
+	Help:      "Total number of received events.",
+})
+
+func init() {
+	prometheus.MustRegister(receivedEvents)
 }
 
 func NewDfgStreamingAlgorithm(storeGenerator stores.StoreGenerator) *dfgStreamingAlgorithm {
@@ -26,6 +37,7 @@ func NewDfgStreamingAlgorithm(storeGenerator stores.StoreGenerator) *dfgStreamin
 }
 
 func (a *dfgStreamingAlgorithm) Append(event events.Event) error {
+	receivedEvents.Inc()
 	cleanedActivityName := cleanActivityName(event.ActivityName)
 	caseInstance := event.ProcessInstanceId
 	timestamp := event.Timestamp

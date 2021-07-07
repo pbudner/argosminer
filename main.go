@@ -8,22 +8,13 @@ import (
 	"github.com/pbudner/argosminer-collector/pkg/parsers"
 	"github.com/pbudner/argosminer-collector/pkg/sources"
 	"github.com/pbudner/argosminer-collector/pkg/stores"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
 
-var receivedEvents = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer",
-	Name:      "received_events",
-	Help:      "Total number of received events.",
-})
-
 func init() {
 	// configure logger
 	log.SetLevel(log.DebugLevel)
-
-	prometheus.MustRegister(receivedEvents)
 
 	var cfg, err = config.NewConfig()
 
@@ -69,7 +60,6 @@ func prometheusHandler() gin.HandlerFunc {
 func main() {
 	r := gin.Default()
 	r.GET("/", func(c *gin.Context) {
-		receivedEvents.Inc()
 		c.JSON(200, gin.H{
 			"message": "Hello, World!",
 		})
