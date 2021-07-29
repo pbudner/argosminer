@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 	"github.com/pbudner/argosminer-collector/pkg/algorithms"
 	"github.com/pbudner/argosminer-collector/pkg/config"
 	"github.com/pbudner/argosminer-collector/pkg/parsers"
@@ -22,27 +22,29 @@ func init() {
 		log.Fatal(err)
 	}
 
-	redisOptions := redis.Options{
-		Addr:     "localhost:6379",
+	/*redisOptions := redis.Options{
+		Addr:     "my_redis:6379",
 		Password: "",
 	}
 
-	influxServerURL := "http://localhost:8086"
-	influxToken := "-EuU9TmvtAr27Cr_3bJvakriAVr7RNS04TsF_xD35-1XWZpog7Iz9dubOQMsCX9NUpRskLlHZSnhEZKvwineog=="
+	influxServerURL := "http://influxdb:8086"
+	influxToken := "KN7GrB6K8826DhwNa3v4BejeOZLke8FxpbbrANnZYy5S_DqVG6M5EPbYtDTeENV3zalLDhymYC_ByPVDfMF9uA=="
 	influxOrg := "ciis"
-	influxBucket := "process_mining"
+	influxBucket := "process_mining"*/
 
 	for _, source := range cfg.Sources {
 		if source.FileConfig.Path != "" {
 			log.Debugf("Starting a file source...")
 			var parser parsers.Parser
-			if source.CsvParser.ActivityColumn >= 0 {
+			if source.CsvParser.Delimiter != "" {
 				log.Debugf("Initializing a CSV parser..")
 				parser = parsers.NewCsvParser(source.CsvParser)
 			}
 
+			store := stores.NewMemoryStoreGenerator()
+			//store := stores.NewInfluxStoreGenerator(influxServerURL, influxToken, influxBucket, influxOrg, redisOptions)
 			receivers := make([]algorithms.StreamingAlgorithm, 1)
-			receivers[0] = algorithms.NewDfgStreamingAlgorithm(stores.NewInfluxStoreGenerator(influxServerURL, influxToken, influxBucket, influxOrg, redisOptions))
+			receivers[0] = algorithms.NewDfgStreamingAlgorithm(store)
 			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receivers)
 			go fs.Run()
 		}
@@ -59,6 +61,7 @@ func prometheusHandler() gin.HandlerFunc {
 
 func main() {
 	r := gin.Default()
+	pprof.Register(r)
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "Hello, World!",

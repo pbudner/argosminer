@@ -1,12 +1,8 @@
 package parsers
 
-import (
-	"io"
-
-	"github.com/pbudner/argosminer-collector/pkg/algorithms"
-)
+import "github.com/pbudner/argosminer-collector/pkg/events"
 
 type Parser interface {
-	Parse(reader io.Reader, receivers []algorithms.StreamingAlgorithm) error
+	Parse(input string) (*events.Event, error)
 	Close()
 }

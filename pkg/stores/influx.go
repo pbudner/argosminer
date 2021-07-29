@@ -15,7 +15,7 @@ import (
 
 type influxStore struct {
 	mu             *sync.Mutex
-	redisStore     redisStore
+	localStore     Store
 	influxClient   influxdb2.Client
 	influxWriteAPI influxapi.WriteAPI
 	ctx            context.Context
@@ -28,13 +28,13 @@ func NewInfluxStoreGenerator(serverURL string, token string, bucket string, orga
 }
 
 func NewInfluxStore(serverURL string, token string, bucket string, organization string, redisOptions redis.Options) *influxStore {
-	redisStore := NewRedisStore(redisOptions)
+	localStore := NewMemoryStore()
 	client := influxdb2.NewClientWithOptions(serverURL, token, influxdb2.DefaultOptions().SetPrecision(time.Second))
 	writeAPI := client.WriteAPI(organization, bucket)
 
 	store := influxStore{
 		mu:             &sync.Mutex{},
-		redisStore:     *redisStore,
+		localStore:     localStore,
 		influxClient:   client,
 		influxWriteAPI: writeAPI,
 		ctx:            context.TODO(),
@@ -45,20 +45,20 @@ func NewInfluxStore(serverURL string, token string, bucket string, organization 
 func (s *influxStore) Set(key string, value interface{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.redisStore.Set(key, value)
+	return s.localStore.Set(key, value)
 }
 
 func (s *influxStore) Get(key string) (interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.redisStore.Get(key)
+	return s.localStore.Get(key)
 }
 
 func (s *influxStore) Increment(key string, timestamp time.Time) (uint64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	incr, err := s.redisStore.Increment(key, timestamp)
+	incr, err := s.localStore.Increment(key, timestamp)
 	line := fmt.Sprintf("%s count=%du %d", key, incr, timestamp.Unix())
 	log.Debug(line)
 	s.influxWriteAPI.WriteRecord(line)
@@ -68,7 +68,7 @@ func (s *influxStore) Increment(key string, timestamp time.Time) (uint64, error)
 func (s *influxStore) Contains(key string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.redisStore.Contains(key)
+	return s.localStore.Contains(key)
 }
 
 func (s *influxStore) EncodeDirectlyFollowsRelation(from string, to string) string {
@@ -85,8 +85,8 @@ func (s *influxStore) EncodeActivity(activity string) string {
 func (s *influxStore) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.redisStore.Close()
-	// s.influxWriteAPI.Flush()
+	s.localStore.Close()
+	s.influxWriteAPI.Flush()
 	s.influxClient.Close()
 }
 

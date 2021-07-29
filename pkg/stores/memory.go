@@ -11,6 +11,12 @@ type memoryStore struct {
 	store map[string]interface{}
 }
 
+func NewMemoryStoreGenerator() StoreGenerator {
+	return func(_ interface{}) Store {
+		return NewMemoryStore()
+	}
+}
+
 func NewMemoryStore() *memoryStore {
 	store := memoryStore{
 		mu:    &sync.Mutex{},
