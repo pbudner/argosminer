@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/pbudner/argosminer-collector/pkg/algorithms"
 	"github.com/pbudner/argosminer-collector/pkg/config"
@@ -32,6 +31,10 @@ func init() {
 	influxOrg := "ciis"
 	influxBucket := "process_mining"*/
 
+	//store := stores.NewMemoryStoreGenerator()
+	//store := stores.NewInfluxStoreGenerator(influxServerURL, influxToken, influxBucket, influxOrg, redisOptions)
+	store := stores.NewTstorageStoreGenerator()
+
 	for _, source := range cfg.Sources {
 		if source.FileConfig.Path != "" {
 			log.Debugf("Starting a file source...")
@@ -41,8 +44,6 @@ func init() {
 				parser = parsers.NewCsvParser(source.CsvParser)
 			}
 
-			store := stores.NewMemoryStoreGenerator()
-			//store := stores.NewInfluxStoreGenerator(influxServerURL, influxToken, influxBucket, influxOrg, redisOptions)
 			receivers := make([]algorithms.StreamingAlgorithm, 1)
 			receivers[0] = algorithms.NewDfgStreamingAlgorithm(store)
 			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receivers)
@@ -61,7 +62,7 @@ func prometheusHandler() gin.HandlerFunc {
 
 func main() {
 	r := gin.Default()
-	pprof.Register(r)
+	// pprof.Register(r)
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "Hello, World!",
