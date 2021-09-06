@@ -51,7 +51,6 @@ func (s *influxStore) Set(key string, value interface{}) error {
 func (s *influxStore) Get(key string) (interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	return s.localStore.Get(key)
 }
 
