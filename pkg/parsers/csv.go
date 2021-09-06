@@ -74,7 +74,7 @@ func (p csvParser) Parse(input string) (*events.Event, error) {
 	processInstanceId := strings.Trim(eventColumns[p.config.ProcessInstanceColumn], " ")
 	activityName := strings.Trim(eventColumns[p.config.ActivityColumn], " ")
 	rawTimestamp := eventColumns[p.config.TimestampColumn]
-	rawTimestamp = strings.Replace(rawTimestamp, ",", ".", -1) //TODO Remove this is a hotfix with Go 1.17: https://github.com/golang/go/commit/f02a26be
+	// rawTimestamp = strings.Replace(rawTimestamp, ",", ".", -1) //TODO Remove this is a hotfix with Go 1.17: https://github.com/golang/go/commit/f02a26be
 	var timestamp time.Time
 	var err error
 	if p.config.TimestampTzIanakey != "" {

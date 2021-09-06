@@ -15,6 +15,7 @@ require (
 	github.com/mattn/go-isatty v0.0.13 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
+	github.com/nakabonne/tstorage v0.2.2 // indirect
 	github.com/prometheus/client_golang v1.11.0 // indirect
 	github.com/radovskyb/watcher v1.0.7 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
