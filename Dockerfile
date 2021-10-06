@@ -1,5 +1,5 @@
 # multi stage build
-FROM golang:1.16
+FROM golang:1.17
 WORKDIR /go/src/github.com/pbudner/argosminer-collector/  
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
