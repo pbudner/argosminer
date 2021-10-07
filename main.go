@@ -21,16 +21,6 @@ func init() {
 		log.Fatal(err)
 	}
 
-	/*redisOptions := redis.Options{
-		Addr:     "my_redis:6379",
-		Password: "",
-	}
-
-	influxServerURL := "http://influxdb:8086"
-	influxToken := "KN7GrB6K8826DhwNa3v4BejeOZLke8FxpbbrANnZYy5S_DqVG6M5EPbYtDTeENV3zalLDhymYC_ByPVDfMF9uA=="
-	influxOrg := "ciis"
-	influxBucket := "process_mining"*/
-
 	//store := stores.NewMemoryStoreGenerator()
 	//store := stores.NewInfluxStoreGenerator(influxServerURL, influxToken, influxBucket, influxOrg, redisOptions)
 	store := stores.NewTstorageStoreGenerator()
@@ -66,6 +56,7 @@ func main() {
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "Hello, World!",
+			"version": "v0.0.1"
 		})
 	})
 
