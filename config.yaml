@@ -3,7 +3,6 @@ sources:
   - enabled: true
     file-config:
       path: '/Volumes/Pascals Drive/Argos Miner/TrackingDB_Part2.csv'
-      #path: '/Users/pascalbudner/Desktop/test/test.txt'
       read-from: start
     csv-parser:
       delimiter: ';'

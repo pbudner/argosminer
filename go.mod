@@ -3,6 +3,7 @@ module github.com/pbudner/argosminer-collector
 go 1.16
 
 require (
+	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/gin-contrib/pprof v1.3.0 // indirect
 	github.com/gin-gonic/gin v1.7.2 // indirect
