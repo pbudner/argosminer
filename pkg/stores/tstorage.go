@@ -27,7 +27,7 @@ func NewTstorageStore() *tstorageStore {
 	localStore := NewMemoryStore()
 	storage, _ := tstorage.NewStorage(
 		tstorage.WithTimestampPrecision(tstorage.Seconds),
-		tstorage.WithDataPath("./data"),
+		tstorage.WithDataPath("./data_new"),
 	)
 
 	store := tstorageStore{

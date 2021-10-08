@@ -2,9 +2,12 @@ package sources
 
 import (
 	"bufio"
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pbudner/argosminer-collector/pkg/algorithms"
@@ -53,15 +56,51 @@ func NewFileSource(path, readFrom string, parser parsers.Parser, receivers []alg
 }
 
 func (fs *fileSource) Close() {
+	err := os.WriteFile("test.txt", []byte(fmt.Sprintf("Position: %d", fs.lastFilePosition)), 0644)
+	if err != nil {
+		log.Error(err)
+	}
 	fs.Watcher.Close()
 	fs.Parser.Close()
 }
 
-func (fs *fileSource) Run() {
-	fs.initWatcher()
+func (fs *fileSource) Run(ctx context.Context, wg *sync.WaitGroup) {
+	log.Debug("Initializing file watcher..")
+	defer wg.Done()
+	fs.Watcher = watcher.New()
+	fs.Watcher.FilterOps(watcher.Write, watcher.Rename, watcher.Create)
+
+	go func() {
+		fs.readFile(ctx)
+		for {
+			select {
+			case <-ctx.Done():
+				fs.Close()
+				return
+			case event := <-fs.Watcher.Event:
+				if event.Path == fs.Path {
+					fs.readFile(ctx)
+				}
+			case err := <-fs.Watcher.Error:
+				log.Error(err)
+			case <-fs.Watcher.Closed:
+				return
+			}
+		}
+	}()
+
+	if err := fs.Watcher.Add(filepath.Dir(fs.Path)); err != nil {
+		log.Error(err)
+	}
+
+	if err := fs.Watcher.Start(time.Millisecond * 1000); err != nil {
+		log.Error(err)
+	}
+
+	log.Info("Shutting down FileWatcher..")
 }
 
-func (fs *fileSource) readFile() {
+func (fs *fileSource) readFile(ctx context.Context) {
 	f, err := os.Open(fs.Path)
 	if err != nil {
 		log.Fatal(err)
@@ -86,23 +125,37 @@ func (fs *fileSource) readFile() {
 
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		receivedEvents.Inc()
-		line := scanner.Text()
-		line = strings.ReplaceAll(line, "\"", "")
-		event, err := fs.Parser.Parse(line)
-		if err != nil {
-			log.Error(err)
-			receivedEventsWithError.Inc()
-			continue
-		}
 
-		if event != nil {
-			for _, receiver := range fs.Receivers {
-				err := receiver.Append(*event)
-				if err != nil {
-					log.Error(err)
-					receivedEventsWithError.Inc()
+	for scanner.Scan() {
+		select {
+		case <-ctx.Done():
+			log.Info("Aborting readFile operation..")
+
+			newPosition, err := f.Seek(0, 1)
+			if err != nil {
+				log.Error(err)
+			}
+
+			fs.lastFilePosition = newPosition
+			return
+		default:
+			receivedEvents.Inc()
+			line := scanner.Text()
+			line = strings.ReplaceAll(line, "\"", "")
+			event, err := fs.Parser.Parse(line)
+			if err != nil {
+				log.Error(err)
+				receivedEventsWithError.Inc()
+				continue
+			}
+
+			if event != nil {
+				for _, receiver := range fs.Receivers {
+					err := receiver.Append(*event)
+					if err != nil {
+						log.Error(err)
+						receivedEventsWithError.Inc()
+					}
 				}
 			}
 		}
@@ -114,38 +167,4 @@ func (fs *fileSource) readFile() {
 	}
 
 	fs.lastFilePosition = newPosition
-}
-
-func (fs *fileSource) initWatcher() {
-	log.Debug("Initializing the file watcher..")
-	fs.Watcher = watcher.New()
-	fs.Watcher.FilterOps(watcher.Write, watcher.Rename, watcher.Create)
-
-	go func() {
-		for {
-			select {
-			case event := <-fs.Watcher.Event:
-				if event.Path == fs.Path {
-					fs.readFile()
-				}
-			case err := <-fs.Watcher.Error:
-				log.Error(err)
-			case <-fs.Watcher.Closed:
-				return
-			}
-		}
-	}()
-
-	if err := fs.Watcher.Add(filepath.Dir(fs.Path)); err != nil {
-		log.Error(err)
-	}
-
-	// starting a first file scan
-	fs.readFile()
-
-	if err := fs.Watcher.Start(time.Millisecond * 1000); err != nil {
-		log.Error(err)
-	}
-
-	log.Debug("Closing file watcher.")
 }

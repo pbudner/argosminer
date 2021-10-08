@@ -8,7 +8,7 @@ import (
 	"github.com/boltdb/bolt"
 )
 
-func main() {
+func main2() {
 	db, err := bolt.Open("collector.db", 0600, &bolt.Options{Timeout: 5 * time.Second})
 	if err != nil {
 		log.Fatal(err)
