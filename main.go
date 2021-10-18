@@ -13,7 +13,9 @@ import (
 	"github.com/pbudner/argosminer-collector/algorithms"
 	"github.com/pbudner/argosminer-collector/config"
 	"github.com/pbudner/argosminer-collector/parsers"
-	"github.com/pbudner/argosminer-collector/sources"
+	"github.com/pbudner/argosminer-collector/parsers/csv"
+	"github.com/pbudner/argosminer-collector/sources/file"
+	"github.com/pbudner/argosminer-collector/sources/kafka"
 	"github.com/pbudner/argosminer-collector/stores"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -57,18 +59,38 @@ func main() {
 	store := stores.NewTstorageStoreGenerator()
 
 	for _, source := range cfg.Sources {
-		if source.FileConfig.Path != "" { // File Source
+		if !source.Enabled {
+			continue
+		}
+
+		// File Source
+		if source.FileConfig.Path != "" {
 			log.Debugf("Starting a file source...")
 			wg.Add(1)
 			var parser parsers.Parser
 			if source.CsvParser.Delimiter != "" {
 				log.Debugf("Initializing a CSV parser..")
-				parser = parsers.NewCsvParser(source.CsvParser)
+				parser = csv.NewCsvParser(source.CsvParser)
 			}
 
 			receivers := make([]algorithms.StreamingAlgorithm, 1)
 			receivers[0] = algorithms.NewDfgStreamingAlgorithm(store)
-			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receivers)
+			fs := file.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receivers)
+			go fs.Run(ctx, wg)
+		}
+
+		// Kafka Source
+		if source.KafkaConfig.Topic != "" {
+			log.Debugf("Starting a kafka source...")
+			wg.Add(1)
+			var parser parsers.Parser
+			if source.CsvParser.Delimiter != "" {
+				log.Debugf("Initializing a CSV parser..")
+				parser = csv.NewCsvParser(source.CsvParser)
+			}
+			receivers := make([]algorithms.StreamingAlgorithm, 1)
+			receivers[0] = algorithms.NewDfgStreamingAlgorithm(store)
+			fs := kafka.NewKafkaSource(source.KafkaConfig, parser, receivers)
 			go fs.Run(ctx, wg)
 		}
 	}

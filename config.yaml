@@ -1,6 +1,6 @@
 ---
 sources:
-  - enabled: true
+  - enabled: false
     file-config:
       path: '/Volumes/Pascals Drive/Argos Miner/TrackingDB_Part2.csv'
       read-from: start
@@ -15,3 +15,13 @@ sources:
         - column: 10
           condition: '!='
           value: gestartet
+  - enabled: true
+    kafka-config:
+      brokers:
+      - 'localhost:9092'
+      group-id: kafka-reader-1
+      topic: pmlogs
+      min-bytes: 10e3 # 10KB
+      max-bytes: 10e6 # 10MB
+    json-parser:
+      

@@ -1,6 +1,6 @@
 package algorithms
 
-import "github.com/pbudner/argosminer-collector/pkg/events"
+import "github.com/pbudner/argosminer-collector/events"
 
 type StreamingAlgorithm interface {
 	Append(event events.Event) error

@@ -1,18 +1,17 @@
-package parsers
+package csv
 
 import (
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/pbudner/argosminer-collector/pkg/config"
-	"github.com/pbudner/argosminer-collector/pkg/events"
+	"github.com/pbudner/argosminer-collector/events"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
 
 type csvParser struct {
-	config     config.CsvParser
+	config     CsvParserConfig
 	conditions []conditionLiteral
 }
 
@@ -28,7 +27,7 @@ func init() {
 	prometheus.MustRegister(skippedEvents)
 }
 
-func NewCsvParser(config config.CsvParser) csvParser {
+func NewCsvParser(config CsvParserConfig) csvParser {
 	conditionFuncs := make([]conditionLiteral, len(config.IgnoreWhen))
 	for i, ignoreWhen := range config.IgnoreWhen {
 		conditionFuncs[i] = func(eventColumns []string) (bool, error) {

@@ -4,27 +4,17 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/pbudner/argosminer-collector/parsers/csv"
+	"github.com/pbudner/argosminer-collector/sources/file"
+	"github.com/pbudner/argosminer-collector/sources/kafka"
 	"gopkg.in/yaml.v2"
 )
 
 type Source struct {
-	Enabled    bool             `yaml:"enabled"`
-	FileConfig FileSourceConfig `yaml:"file-config"`
-	CsvParser  CsvParser        `yaml:"csv-parser"`
-}
-
-type CsvParser struct {
-	Delimiter             string `yaml:"delimiter"`
-	ActivityColumn        uint   `yaml:"activity-column"`
-	ProcessInstanceColumn uint   `yaml:"process-instance-column"`
-	TimestampColumn       uint   `yaml:"timestamp-column"`
-	TimestampFormat       string `yaml:"timestamp-format"`      // https://golang.org/src/time/format.go
-	TimestampTzIanakey    string `yaml:"timestamp-tz-iana-key"` // https://golang.org/src/time/format.go
-	IgnoreWhen            []struct {
-		Column    uint   `yaml:"column"`
-		Condition string `yaml:"condition"`
-		Value     string `yaml:"value"`
-	} `yaml:"ignore-when"`
+	Enabled     bool                    `yaml:"enabled"`
+	FileConfig  file.FileSourceConfig   `yaml:"file-config"`
+	KafkaConfig kafka.KafkaSourceConfig `yaml:"kafka-config"`
+	CsvParser   csv.CsvParserConfig     `yaml:"csv-parser"`
 }
 
 type Config struct {

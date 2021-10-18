@@ -3,8 +3,8 @@ package algorithms
 import (
 	"strings"
 
-	"github.com/pbudner/argosminer-collector/pkg/events"
-	"github.com/pbudner/argosminer-collector/pkg/stores"
+	"github.com/pbudner/argosminer-collector/events"
+	"github.com/pbudner/argosminer-collector/stores"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
