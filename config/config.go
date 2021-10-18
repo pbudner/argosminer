@@ -8,14 +8,9 @@ import (
 )
 
 type Source struct {
-	Enabled    bool       `yaml:"enabled"`
-	FileConfig FileSource `yaml:"file-config"`
-	CsvParser  CsvParser  `yaml:"csv-parser"`
-}
-
-type FileSource struct {
-	Path     string `yaml:"path"`
-	ReadFrom string `yaml:"read-from"`
+	Enabled    bool             `yaml:"enabled"`
+	FileConfig FileSourceConfig `yaml:"file-config"`
+	CsvParser  CsvParser        `yaml:"csv-parser"`
 }
 
 type CsvParser struct {

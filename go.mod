@@ -19,6 +19,7 @@ require (
 	github.com/nakabonne/tstorage v0.2.2 // indirect
 	github.com/prometheus/client_golang v1.11.0 // indirect
 	github.com/radovskyb/watcher v1.0.7 // indirect
+	github.com/segmentio/kafka-go v0.4.21 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/ugorji/go v1.2.6 // indirect
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e // indirect

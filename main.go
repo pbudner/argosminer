@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pbudner/argosminer-collector/pkg/algorithms"
-	"github.com/pbudner/argosminer-collector/pkg/config"
-	"github.com/pbudner/argosminer-collector/pkg/parsers"
-	"github.com/pbudner/argosminer-collector/pkg/sources"
-	"github.com/pbudner/argosminer-collector/pkg/stores"
+	"github.com/pbudner/argosminer-collector/algorithms"
+	"github.com/pbudner/argosminer-collector/config"
+	"github.com/pbudner/argosminer-collector/parsers"
+	"github.com/pbudner/argosminer-collector/sources"
+	"github.com/pbudner/argosminer-collector/stores"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -76,8 +76,8 @@ func main() {
 	r := gin.Default()
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
-			"message": "Hello, World!",
-			"version": "v0.0.1",
+			"message": "Hello, world!",
+			"version": "0.1",
 		})
 	})
 
