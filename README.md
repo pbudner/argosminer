@@ -2,7 +2,7 @@
 
 <img src="assets/logo.svg" height="60px" />
 
-ArgosMiner is a process mining system. It collects event logs from various sources and monitors the underlying discovered process models over time. 
+ArgosMiner is a process mining system. It collects events from various sources and monitors the underlying discovered process models over time. 
 
 The following features distinguish ArgosMiner from other process mining systems:
 - foo
