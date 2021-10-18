@@ -24,4 +24,8 @@ sources:
       min-bytes: 10e3 # 10KB
       max-bytes: 10e6 # 10MB
     json-parser:
-      
+      activity-path: activity
+      process-instance-path: process_instance_id
+      timestamp-path: '@timestamp'
+      timestamp-format: '2006-01-02T15:04:05.000-0700'
+      timestamp-tz-iana-key: Europe/Berlin

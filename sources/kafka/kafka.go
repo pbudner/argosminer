@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/pbudner/argosminer-collector/algorithms"
 	"github.com/pbudner/argosminer-collector/parsers"
@@ -62,11 +63,29 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 	for {
 		m, err := r.ReadMessage(ctx) // TODO: Handle commits on our own
 		if err != nil {
+			log.Error("An unexpected error occurred during ReadMessage:", err)
 			break
 		}
 
-		fmt.Println(string(m.Value))
-		break
+		event, err := s.Parser.Parse(string(m.Value))
+		if err != nil {
+			log.Error(err)
+			receivedEventsWithError.Inc()
+			continue
+		}
+		fmt.Println(event)
+		time.Sleep(1 * time.Second)
+
+		continue // TODO: Remove mo
+		if event != nil {
+			for _, receiver := range s.Receivers {
+				err := receiver.Append(*event)
+				if err != nil {
+					log.Error(err)
+					receivedEventsWithError.Inc()
+				}
+			}
+		}
 	}
 
 	if err := r.Close(); err != nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/pbudner/argosminer-collector/config"
 	"github.com/pbudner/argosminer-collector/parsers"
 	"github.com/pbudner/argosminer-collector/parsers/csv"
+	"github.com/pbudner/argosminer-collector/parsers/json"
 	"github.com/pbudner/argosminer-collector/sources/file"
 	"github.com/pbudner/argosminer-collector/sources/kafka"
 	"github.com/pbudner/argosminer-collector/stores"
@@ -87,6 +88,10 @@ func main() {
 			if source.CsvParser.Delimiter != "" {
 				log.Debugf("Initializing a CSV parser..")
 				parser = csv.NewCsvParser(source.CsvParser)
+			}
+			if source.JsonParser.ActivityPath != "" {
+				log.Debugf("Initializing a CSV parser..")
+				parser = json.NewJsonParser(source.JsonParser)
 			}
 			receivers := make([]algorithms.StreamingAlgorithm, 1)
 			receivers[0] = algorithms.NewDfgStreamingAlgorithm(store)

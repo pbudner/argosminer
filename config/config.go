@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/pbudner/argosminer-collector/parsers/csv"
+	"github.com/pbudner/argosminer-collector/parsers/json"
 	"github.com/pbudner/argosminer-collector/sources/file"
 	"github.com/pbudner/argosminer-collector/sources/kafka"
 	"gopkg.in/yaml.v2"
@@ -15,6 +16,7 @@ type Source struct {
 	FileConfig  file.FileSourceConfig   `yaml:"file-config"`
 	KafkaConfig kafka.KafkaSourceConfig `yaml:"kafka-config"`
 	CsvParser   csv.CsvParserConfig     `yaml:"csv-parser"`
+	JsonParser  json.JsonParserConfig   `yaml:"json-parser"`
 }
 
 type Config struct {
