@@ -97,7 +97,7 @@ func (fs *fileSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		log.Error(err)
 	}
 
-	log.Info("Shutting down FileWatcher..")
+	log.Info("Closed file source")
 }
 
 func (fs *fileSource) readFile(ctx context.Context) {

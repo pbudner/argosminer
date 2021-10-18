@@ -11,6 +11,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pbudner/argosminer-collector/algorithms"
+	"github.com/pbudner/argosminer-collector/algorithms/dfg"
+	"github.com/pbudner/argosminer-collector/algorithms/null"
 	"github.com/pbudner/argosminer-collector/config"
 	"github.com/pbudner/argosminer-collector/parsers"
 	"github.com/pbudner/argosminer-collector/parsers/csv"
@@ -75,7 +77,7 @@ func main() {
 			}
 
 			receivers := make([]algorithms.StreamingAlgorithm, 1)
-			receivers[0] = algorithms.NewDfgStreamingAlgorithm(store)
+			receivers[0] = dfg.NewDfgStreamingAlgorithm(store)
 			fs := file.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receivers)
 			go fs.Run(ctx, wg)
 		}
@@ -94,7 +96,7 @@ func main() {
 				parser = json.NewJsonParser(source.JsonParser)
 			}
 			receivers := make([]algorithms.StreamingAlgorithm, 1)
-			receivers[0] = algorithms.NewDfgStreamingAlgorithm(store)
+			receivers[0] = null.NewDevNullAlgorithm(store)
 			fs := kafka.NewKafkaSource(source.KafkaConfig, parser, receivers)
 			go fs.Run(ctx, wg)
 		}

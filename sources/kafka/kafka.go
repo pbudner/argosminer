@@ -76,7 +76,6 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		fmt.Println(event)
 		time.Sleep(1 * time.Second)
 
-		continue // TODO: Remove mo
 		if event != nil {
 			for _, receiver := range s.Receivers {
 				err := receiver.Append(*event)
@@ -92,5 +91,5 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		log.Error("Failed to close kafka source reader:", err)
 	}
 
-	log.Info("Shutting kafka source..")
+	log.Info("Closed kafka source")
 }
