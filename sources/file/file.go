@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pbudner/argosminer-collector/algorithms"
-	"github.com/pbudner/argosminer-collector/parsers"
+	"github.com/pbudner/argosminer/algorithms"
+	"github.com/pbudner/argosminer/parsers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/radovskyb/watcher"
 	log "github.com/sirupsen/logrus"

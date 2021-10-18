@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pbudner/argosminer-collector/parsers/csv"
-	"github.com/pbudner/argosminer-collector/parsers/json"
-	"github.com/pbudner/argosminer-collector/sources/file"
-	"github.com/pbudner/argosminer-collector/sources/kafka"
+	"github.com/pbudner/argosminer/parsers/csv"
+	"github.com/pbudner/argosminer/parsers/json"
+	"github.com/pbudner/argosminer/sources/file"
+	"github.com/pbudner/argosminer/sources/kafka"
 	"gopkg.in/yaml.v2"
 )
 

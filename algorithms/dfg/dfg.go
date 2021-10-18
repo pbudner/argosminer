@@ -3,8 +3,8 @@ package dfg
 import (
 	"strings"
 
-	"github.com/pbudner/argosminer-collector/events"
-	"github.com/pbudner/argosminer-collector/stores"
+	"github.com/pbudner/argosminer/events"
+	"github.com/pbudner/argosminer/stores"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )

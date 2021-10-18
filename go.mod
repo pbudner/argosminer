@@ -1,4 +1,4 @@
-module github.com/pbudner/argosminer-collector
+module github.com/pbudner/argosminer
 
 go 1.17
 
