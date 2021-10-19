@@ -1,6 +1,9 @@
 package events
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type Event struct {
 	ProcessInstanceId string
@@ -14,4 +17,8 @@ func NewEvent(processInstanceId string, activityName string, timestamp time.Time
 		ActivityName:      activityName,
 		Timestamp:         timestamp,
 	}
+}
+
+func (e *Event) String() string {
+	return fmt.Sprintf("{\"timestamp\":\"%s\",\"activity_name\":\"%s\",\"process_instance_id\":\"%s\"}", e.Timestamp, e.ActivityName, e.ProcessInstanceId)
 }

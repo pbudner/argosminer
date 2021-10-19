@@ -3,7 +3,6 @@ package sources
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -15,12 +14,13 @@ import (
 )
 
 type KafkaSourceConfig struct {
-	Brokers  []string      `yaml:"brokers"`
-	GroupID  string        `yaml:"group-id"`
-	Topic    string        `yaml:"topic"`
-	MinBytes int           `yaml:"min-bytes"`
-	MaxBytes int           `yaml:"max-bytes"`
-	Timeout  time.Duration `yaml:"timeout"`
+	Brokers            []string      `yaml:"brokers"`
+	GroupID            string        `yaml:"group-id"`
+	Topic              string        `yaml:"topic"`
+	MinBytes           int           `yaml:"min-bytes"`
+	MaxBytes           int           `yaml:"max-bytes"`
+	Timeout            time.Duration `yaml:"timeout"`
+	StartFromBeginning bool          `yaml:"start_from_beginning"`
 }
 
 type kafkaSource struct {
@@ -82,14 +82,14 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 	})
 
 	for {
-		log.Debug("Waiting for kafka message..")
-		m, err := r.FetchMessage(ctx)
+		m, err := r.ReadMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				log.Info("Shutting down kafka source..")
 			} else {
 				log.Error("An unexpected error occurred during ReadMessage:", err)
 			}
+
 			break
 		}
 
@@ -99,8 +99,6 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 			receivedKafkaEventsWithError.Inc()
 			continue
 		}
-		fmt.Println(event)
-		time.Sleep(1 * time.Second)
 
 		if event != nil {
 			for _, receiver := range s.Receivers {
@@ -115,6 +113,8 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		if err := r.CommitMessages(ctx, m); err != nil {
 			log.Error("Failed to commit messages:", err)
 		}
+
+		time.Sleep(1 * time.Second)
 	}
 
 	if err := r.Close(); err != nil {
