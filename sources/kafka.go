@@ -1,4 +1,4 @@
-package kafka
+package sources
 
 import (
 	"context"
@@ -13,6 +13,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type KafkaSourceConfig struct {
+	Brokers  []string `yaml:"brokers"`
+	GroupID  string   `yaml:"group-id"`
+	Topic    string   `yaml:"topic"`
+	MinBytes int      `yaml:"min-bytes"`
+	MaxBytes int      `yaml:"max-bytes"`
+}
+
 type kafkaSource struct {
 	Config    KafkaSourceConfig
 	Reader    *kafka.Reader
@@ -20,21 +28,21 @@ type kafkaSource struct {
 	Receivers []algorithms.StreamingAlgorithm
 }
 
-var receivedEvents = prometheus.NewCounter(prometheus.CounterOpts{
+var receivedKafkaEvents = prometheus.NewCounter(prometheus.CounterOpts{
 	Subsystem: "argosminer_source_kafka",
 	Name:      "received_events",
 	Help:      "Total number of received events.",
 })
 
-var receivedEventsWithError = prometheus.NewCounter(prometheus.CounterOpts{
+var receivedKafkaEventsWithError = prometheus.NewCounter(prometheus.CounterOpts{
 	Subsystem: "argosminer_source_kafka",
 	Name:      "received_events_error",
 	Help:      "Total number of received events that produced an error.",
 })
 
 func init() {
-	prometheus.MustRegister(receivedEvents)
-	prometheus.MustRegister(receivedEventsWithError)
+	prometheus.MustRegister(receivedKafkaEvents)
+	prometheus.MustRegister(receivedKafkaEventsWithError)
 }
 
 func NewKafkaSource(config KafkaSourceConfig, parser parsers.Parser, receivers []algorithms.StreamingAlgorithm) kafkaSource {
@@ -70,7 +78,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		event, err := s.Parser.Parse(string(m.Value))
 		if err != nil {
 			log.Error(err)
-			receivedEventsWithError.Inc()
+			receivedKafkaEventsWithError.Inc()
 			continue
 		}
 		fmt.Println(event)
@@ -81,7 +89,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 				err := receiver.Append(*event)
 				if err != nil {
 					log.Error(err)
-					receivedEventsWithError.Inc()
+					receivedKafkaEventsWithError.Inc()
 				}
 			}
 		}

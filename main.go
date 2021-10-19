@@ -17,8 +17,7 @@ import (
 	"github.com/pbudner/argosminer/parsers"
 	"github.com/pbudner/argosminer/parsers/csv"
 	"github.com/pbudner/argosminer/parsers/json"
-	"github.com/pbudner/argosminer/sources/file"
-	"github.com/pbudner/argosminer/sources/kafka"
+	"github.com/pbudner/argosminer/sources"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -78,7 +77,7 @@ func main() {
 
 			receivers := make([]algorithms.StreamingAlgorithm, 1)
 			receivers[0] = dfg.NewDfgStreamingAlgorithm(store)
-			fs := file.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receivers)
+			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receivers)
 			go fs.Run(ctx, wg)
 		}
 
@@ -97,7 +96,7 @@ func main() {
 			}
 			receivers := make([]algorithms.StreamingAlgorithm, 1)
 			receivers[0] = null.NewDevNullAlgorithm(store)
-			fs := kafka.NewKafkaSource(source.KafkaConfig, parser, receivers)
+			fs := sources.NewKafkaSource(source.KafkaConfig, parser, receivers)
 			go fs.Run(ctx, wg)
 		}
 	}
@@ -124,7 +123,7 @@ func main() {
 	}()
 
 	// wait here before closing all workers
-	termChan := make(chan os.Signal)
+	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM)
 	<-termChan // Blocks here until interrupted
 	log.Info("SIGTERM received. Shutdown initiated\n")

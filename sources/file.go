@@ -1,4 +1,4 @@
-package file
+package sources
 
 import (
 	"bufio"
@@ -17,6 +17,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type FileSourceConfig struct {
+	Path     string `yaml:"path"`
+	ReadFrom string `yaml:"read-from"`
+}
+
 type fileSource struct {
 	Path             string
 	ReadFrom         string
@@ -26,21 +31,21 @@ type fileSource struct {
 	lastFilePosition int64
 }
 
-var receivedEvents = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer_filesource",
+var receivedFileEvents = prometheus.NewCounter(prometheus.CounterOpts{
+	Subsystem: "argosminer_source_file",
 	Name:      "received_events",
 	Help:      "Total number of received events.",
 })
 
-var receivedEventsWithError = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer_filesource",
+var receivedFileEventsWithError = prometheus.NewCounter(prometheus.CounterOpts{
+	Subsystem: "argosminer_source_file",
 	Name:      "received_events_error",
 	Help:      "Total number of received events that produced an error.",
 })
 
 func init() {
-	prometheus.MustRegister(receivedEvents)
-	prometheus.MustRegister(receivedEventsWithError)
+	prometheus.MustRegister(receivedFileEvents)
+	prometheus.MustRegister(receivedFileEventsWithError)
 }
 
 func NewFileSource(path, readFrom string, parser parsers.Parser, receivers []algorithms.StreamingAlgorithm) fileSource {
@@ -139,13 +144,13 @@ func (fs *fileSource) readFile(ctx context.Context) {
 			fs.lastFilePosition = newPosition
 			return
 		default:
-			receivedEvents.Inc()
+			receivedFileEvents.Inc()
 			line := scanner.Text()
 			line = strings.ReplaceAll(line, "\"", "")
 			event, err := fs.Parser.Parse(line)
 			if err != nil {
 				log.Error(err)
-				receivedEventsWithError.Inc()
+				receivedFileEventsWithError.Inc()
 				continue
 			}
 
@@ -154,7 +159,7 @@ func (fs *fileSource) readFile(ctx context.Context) {
 					err := receiver.Append(*event)
 					if err != nil {
 						log.Error(err)
-						receivedEventsWithError.Inc()
+						receivedFileEventsWithError.Inc()
 					}
 				}
 			}
