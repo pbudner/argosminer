@@ -2,6 +2,7 @@ package sources
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -14,11 +15,12 @@ import (
 )
 
 type KafkaSourceConfig struct {
-	Brokers  []string `yaml:"brokers"`
-	GroupID  string   `yaml:"group-id"`
-	Topic    string   `yaml:"topic"`
-	MinBytes int      `yaml:"min-bytes"`
-	MaxBytes int      `yaml:"max-bytes"`
+	Brokers  []string      `yaml:"brokers"`
+	GroupID  string        `yaml:"group-id"`
+	Topic    string        `yaml:"topic"`
+	MinBytes int           `yaml:"min-bytes"`
+	MaxBytes int           `yaml:"max-bytes"`
+	Timeout  time.Duration `yaml:"timeout"`
 }
 
 type kafkaSource struct {
@@ -45,12 +47,16 @@ func init() {
 	prometheus.MustRegister(receivedKafkaEventsWithError)
 }
 
-func NewKafkaSource(config KafkaSourceConfig, parser parsers.Parser, receivers []algorithms.StreamingAlgorithm) kafkaSource {
+func NewKafkaSource(config KafkaSourceConfig, parser parsers.Parser) kafkaSource {
 	return kafkaSource{
 		Config:    config,
 		Parser:    parser,
-		Receivers: receivers,
+		Receivers: []algorithms.StreamingAlgorithm{},
 	}
+}
+
+func (s *kafkaSource) AddReceiver(receiver algorithms.StreamingAlgorithm) {
+	s.Receivers = append(s.Receivers, receiver)
 }
 
 func (s *kafkaSource) Close() {
@@ -60,18 +66,30 @@ func (s *kafkaSource) Close() {
 func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 	log.Debug("Initializing kafka source..")
 	defer wg.Done()
+	dialer := &kafka.Dialer{
+		Timeout:   s.Config.Timeout,
+		DualStack: true,
+		// SASLMechanism: mechanism,
+		// TODO: Add TLS * SASL/SCRAM auth options & timeout for connection dialing via Dialer struct
+	}
 	r := kafka.NewReader(kafka.ReaderConfig{
+		Dialer:   dialer,
 		Brokers:  s.Config.Brokers,
 		GroupID:  s.Config.GroupID,
 		Topic:    s.Config.Topic,
 		MinBytes: s.Config.MinBytes,
 		MaxBytes: s.Config.MaxBytes,
-	}) // TODO: Add TLS * SASL/SCRAM auth options
+	})
 
 	for {
-		m, err := r.ReadMessage(ctx) // TODO: Handle commits on our own
+		log.Debug("Waiting for kafka message..")
+		m, err := r.FetchMessage(ctx)
 		if err != nil {
-			log.Error("An unexpected error occurred during ReadMessage:", err)
+			if errors.Is(err, context.Canceled) {
+				log.Info("Shutting down kafka source..")
+			} else {
+				log.Error("An unexpected error occurred during ReadMessage:", err)
+			}
 			break
 		}
 
@@ -93,11 +111,15 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 				}
 			}
 		}
+
+		if err := r.CommitMessages(ctx, m); err != nil {
+			log.Error("Failed to commit messages:", err)
+		}
 	}
 
 	if err := r.Close(); err != nil {
 		log.Error("Failed to close kafka source reader:", err)
 	}
 
-	log.Info("Closed kafka source")
+	log.Info("Successfully closed kafka source")
 }

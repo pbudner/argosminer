@@ -4,6 +4,7 @@ import (
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 type devNullAlgorithm struct {
@@ -25,6 +26,7 @@ func NewDevNullAlgorithm(storeGenerator stores.StoreGenerator) *devNullAlgorithm
 }
 
 func (a *devNullAlgorithm) Append(event events.Event) error {
+	log.Debug(event.Timestamp)
 	// nothing to do here
 	return nil
 }

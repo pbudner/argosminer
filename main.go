@@ -11,7 +11,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pbudner/argosminer/algorithms"
-	"github.com/pbudner/argosminer/algorithms/dfg"
 	"github.com/pbudner/argosminer/algorithms/null"
 	"github.com/pbudner/argosminer/config"
 	"github.com/pbudner/argosminer/parsers"
@@ -31,7 +30,7 @@ var processStartedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 
 func init() {
 	// configure logger
-	log.SetLevel(log.InfoLevel)
+	log.SetLevel(log.DebugLevel)
 
 	// register global prometheus metrics
 	prometheus.MustRegister(processStartedGauge)
@@ -60,43 +59,47 @@ func main() {
 	//store := stores.NewInfluxStoreGenerator(influxServerURL, influxToken, influxBucket, influxOrg, redisOptions)
 	store := stores.NewTstorageStoreGenerator()
 
+	receivers := make([]algorithms.StreamingAlgorithm, 1)
+	receivers[0] = null.NewDevNullAlgorithm(store)
+
 	for _, source := range cfg.Sources {
 		if !source.Enabled {
 			continue
 		}
 
 		// File Source
-		if source.FileConfig.Path != "" {
+		if source.FileConfig != nil {
 			log.Debugf("Starting a file source...")
 			wg.Add(1)
 			var parser parsers.Parser
 			if source.CsvParser.Delimiter != "" {
 				log.Debugf("Initializing a CSV parser..")
-				parser = csv.NewCsvParser(source.CsvParser)
+				parser = csv.NewCsvParser(*source.CsvParser)
 			}
-
-			receivers := make([]algorithms.StreamingAlgorithm, 1)
-			receivers[0] = dfg.NewDfgStreamingAlgorithm(store)
 			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receivers)
 			go fs.Run(ctx, wg)
 		}
 
 		// Kafka Source
-		if source.KafkaConfig.Topic != "" {
+		if source.KafkaConfig != nil {
 			log.Debugf("Starting a kafka source...")
 			wg.Add(1)
 			var parser parsers.Parser
-			if source.CsvParser.Delimiter != "" {
+			if source.CsvParser != nil {
 				log.Debugf("Initializing a CSV parser..")
-				parser = csv.NewCsvParser(source.CsvParser)
+				parser = csv.NewCsvParser(*source.CsvParser)
 			}
-			if source.JsonParser.ActivityPath != "" {
+
+			if source.JsonParser != nil {
 				log.Debugf("Initializing a CSV parser..")
-				parser = json.NewJsonParser(source.JsonParser)
+				parser = json.NewJsonParser(*source.JsonParser)
 			}
-			receivers := make([]algorithms.StreamingAlgorithm, 1)
-			receivers[0] = null.NewDevNullAlgorithm(store)
-			fs := sources.NewKafkaSource(source.KafkaConfig, parser, receivers)
+
+			fs := sources.NewKafkaSource(*source.KafkaConfig, parser)
+			for _, receiver := range receivers {
+				fs.AddReceiver(receiver)
+			}
+
 			go fs.Run(ctx, wg)
 		}
 	}
