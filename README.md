@@ -12,8 +12,10 @@ The following features distinguish ArgosMiner from other process mining systems:
 tbd.
 - Using valyala/fastjson as we access multiple fields witihn the JSON string
 
-## Install
+### Performance Improvements
+- Kafka: Using asynchronous commits (e.g., every second) resulted in a performance of more than 100.000 messages per second (Kafka Source + Raw Parser + Null Receiver)
 
+## Install
 There are various ways of installing ArgosMiner.
 
 ### Precompiled Binaries

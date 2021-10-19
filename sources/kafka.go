@@ -3,6 +3,7 @@ package sources
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,8 +20,9 @@ type KafkaSourceConfig struct {
 	Topic              string        `yaml:"topic"`
 	MinBytes           int           `yaml:"min-bytes"`
 	MaxBytes           int           `yaml:"max-bytes"`
+	CommitInterval     time.Duration `yaml:"commit-interval"`
 	Timeout            time.Duration `yaml:"timeout"`
-	StartFromBeginning bool          `yaml:"start_from_beginning"`
+	StartFromBeginning bool          `yaml:"start-from-beginning"`
 }
 
 type kafkaSource struct {
@@ -73,13 +75,16 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		// TODO: Add TLS * SASL/SCRAM auth options & timeout for connection dialing via Dialer struct
 	}
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Dialer:   dialer,
-		Brokers:  s.Config.Brokers,
-		GroupID:  s.Config.GroupID,
-		Topic:    s.Config.Topic,
-		MinBytes: s.Config.MinBytes,
-		MaxBytes: s.Config.MaxBytes,
+		Dialer:         dialer,
+		Brokers:        s.Config.Brokers,
+		GroupID:        s.Config.GroupID,
+		Topic:          s.Config.Topic,
+		MinBytes:       s.Config.MinBytes,
+		MaxBytes:       s.Config.MaxBytes,
+		CommitInterval: s.Config.CommitInterval,
 	})
+
+	brokerList := strings.Join(s.Config.Brokers, ",")
 
 	for {
 		m, err := r.ReadMessage(ctx)
@@ -93,10 +98,12 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 			break
 		}
 
+		receivedKafkaEvents.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
+
 		event, err := s.Parser.Parse(string(m.Value))
 		if err != nil {
 			log.Error(err)
-			receivedKafkaEventsWithError.WithLabelValues(s.Config.Brokers[0], s.Config.Topic, s.Config.GroupID).Inc()
+			receivedKafkaEventsWithError.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 			continue
 		}
 
@@ -105,7 +112,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 				err := receiver.Append(event)
 				if err != nil {
 					log.Error(err)
-					receivedKafkaEventsWithError.WithLabelValues(s.Config.Brokers[0], s.Config.Topic, s.Config.GroupID).Inc()
+					receivedKafkaEventsWithError.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 				}
 			}
 		}

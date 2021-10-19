@@ -19,8 +19,9 @@ sources:
     kafka-config:
       brokers:
       - 'localhost:9092'
-      group-id: kafka-reader-2
+      group-id: kafka-reader-6
       timeout: 5s
+      commit-interval: 1s
       topic: pmlogs
       min-bytes: 10e3 # 10KB
       max-bytes: 10e6 # 10MB

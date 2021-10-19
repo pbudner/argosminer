@@ -31,7 +31,7 @@ type jsonParser struct {
 type jsonConditionLiteral func(string) (bool, error)
 
 var jsonSkippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer_parser_json",
+	Subsystem: "argosminer_parsers_json",
 	Name:      "skipped_events",
 	Help:      "Total number of skipped events.",
 })

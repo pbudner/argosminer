@@ -32,7 +32,7 @@ type csvParser struct {
 type csvConditionLiteral func([]string) (bool, error)
 
 var csvSkippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer_parser_csv",
+	Subsystem: "argosminer_parsers_csv",
 	Name:      "skipped_events",
 	Help:      "Total number of skipped events.",
 })

@@ -83,14 +83,14 @@ func main() {
 			wg.Add(1)
 			var parser parsers.Parser
 			if source.CsvParser != nil {
-				log.Debugf("Initializing a CSV parser..")
 				parser = parsers.NewCsvParser(*source.CsvParser)
 			}
 
 			if source.JsonParser != nil {
-				log.Debugf("Initializing a CSV parser..")
 				parser = parsers.NewJsonParser(*source.JsonParser)
 			}
+
+			parser = parsers.NewRawParser()
 
 			fs := sources.NewKafkaSource(*source.KafkaConfig, parser)
 			for _, receiver := range receiverList {
