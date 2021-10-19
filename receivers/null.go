@@ -33,7 +33,6 @@ func NewDevNullReceiver(storeGenerator stores.StoreGenerator) *devNullReceiver {
 
 func (a *devNullReceiver) Append(event *events.Event) error {
 	receivedNullEventsCounter.WithLabelValues(a.Id.String()).Inc()
-	log.Debug(event.Timestamp)
 	return nil
 }
 
