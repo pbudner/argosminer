@@ -3,9 +3,9 @@ package parsers
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/pbudner/argosminer/events"
+	"github.com/pbudner/argosminer/parsers/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
@@ -25,8 +25,9 @@ type CsvParserConfig struct {
 }
 
 type csvParser struct {
-	config     CsvParserConfig
-	conditions []csvConditionLiteral
+	config          CsvParserConfig
+	conditions      []csvConditionLiteral
+	timestampParser utils.TimestampParser
 }
 
 type csvConditionLiteral func([]string) (bool, error)
@@ -59,8 +60,9 @@ func NewCsvParser(config CsvParserConfig) csvParser {
 		}
 	}
 	return csvParser{
-		config:     config,
-		conditions: conditionFuncs,
+		config:          config,
+		conditions:      conditionFuncs,
+		timestampParser: utils.NewTimestampParser(config.TimestampFormat, config.TimestampTzIanakey),
 	}
 }
 
@@ -86,24 +88,9 @@ func (p csvParser) Parse(input string) (*events.Event, error) {
 
 	processInstanceId := strings.Trim(eventColumns[p.config.ProcessInstanceColumn], " ")
 	activityName := strings.Trim(eventColumns[p.config.ActivityColumn], " ")
-	rawTimestamp := eventColumns[p.config.TimestampColumn]
-	var timestamp time.Time
-	var err error
-	if p.config.TimestampTzIanakey != "" {
-		tz, err := time.LoadLocation(p.config.TimestampTzIanakey)
-		if err != nil {
-			return nil, err
-		}
-
-		timestamp, err = time.ParseInLocation(p.config.TimestampFormat, rawTimestamp, tz)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		timestamp, err = time.Parse(p.config.TimestampFormat, rawTimestamp)
-		if err != nil {
-			return nil, err
-		}
+	timestamp, err := p.timestampParser.Parse(eventColumns[p.config.TimestampColumn])
+	if err != nil {
+		return nil, err
 	}
 
 	event := events.NewEvent(processInstanceId, activityName, timestamp.UTC())

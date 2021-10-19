@@ -100,7 +100,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 		receivedKafkaEvents.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 
-		event, err := s.Parser.Parse(string(m.Value))
+		event, err := s.Parser.Parse(m.Value)
 		if err != nil {
 			log.Error(err)
 			receivedKafkaEventsWithError.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()

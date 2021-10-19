@@ -1,10 +1,8 @@
 package parsers
 
 import (
-	"strings"
-	"time"
-
 	"github.com/pbudner/argosminer/events"
+	"github.com/pbudner/argosminer/parsers/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
@@ -24,11 +22,12 @@ type JsonParserConfig struct {
 }
 
 type jsonParser struct {
-	config     JsonParserConfig
-	conditions []jsonConditionLiteral
+	config          JsonParserConfig
+	conditions      []jsonConditionLiteral
+	timestampParser utils.TimestampParser
 }
 
-type jsonConditionLiteral func(string) (bool, error)
+type jsonConditionLiteral func([]byte) (bool, error)
 
 var jsonSkippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
 	Subsystem: "argosminer_parsers_json",
@@ -43,8 +42,8 @@ func init() {
 func NewJsonParser(config JsonParserConfig) jsonParser {
 	conditionFuncs := make([]jsonConditionLiteral, len(config.IgnoreWhen))
 	for i, ignoreWhen := range config.IgnoreWhen {
-		conditionFuncs[i] = func(json string) (bool, error) {
-			val := gjson.Get(json, ignoreWhen.Path).String()
+		conditionFuncs[i] = func(json []byte) (bool, error) {
+			val := gjson.GetBytes(json, ignoreWhen.Path).String()
 
 			if ignoreWhen.Condition == "==" {
 				return val == ignoreWhen.Value, nil
@@ -54,12 +53,13 @@ func NewJsonParser(config JsonParserConfig) jsonParser {
 		}
 	}
 	return jsonParser{
-		config:     config,
-		conditions: conditionFuncs,
+		config:          config,
+		conditions:      conditionFuncs,
+		timestampParser: utils.NewTimestampParser(config.TimestampFormat, config.TimestampTzIanakey),
 	}
 }
 
-func (p jsonParser) Parse(input string) (*events.Event, error) {
+func (p jsonParser) Parse(input []byte) (*events.Event, error) {
 	for _, condition := range p.conditions {
 		lineShouldBeIgnored, err := condition(input)
 		if err != nil {
@@ -75,31 +75,13 @@ func (p jsonParser) Parse(input string) (*events.Event, error) {
 
 	// TODO: Sanity checks
 
-	processInstanceId := strings.Trim(gjson.Get(input, p.config.ProcessInstancePath).String(), " ")
-	activityName := strings.Trim(gjson.Get(input, p.config.ActivityPath).String(), " ")
-	rawTimestamp := strings.Trim(gjson.Get(input, p.config.TimestampPath).String(), " ")
-	var timestamp time.Time
-	var err error
-
-	// TODO: Move timestamp parsing to a shared base
-	if p.config.TimestampTzIanakey != "" {
-		tz, err := time.LoadLocation(p.config.TimestampTzIanakey)
-		if err != nil {
-			return nil, err
-		}
-
-		timestamp, err = time.ParseInLocation(p.config.TimestampFormat, rawTimestamp, tz)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		timestamp, err = time.Parse(p.config.TimestampFormat, rawTimestamp)
-		if err != nil {
-			return nil, err
-		}
+	results := gjson.GetManyBytes(input, p.config.ProcessInstancePath, p.config.ActivityPath, p.config.TimestampPath)
+	timestamp, err := p.timestampParser.Parse(results[2].Str)
+	if err != nil {
+		return nil, err
 	}
 
-	event := events.NewEvent(processInstanceId, activityName, timestamp.UTC())
+	event := events.NewEvent(results[0].Str, results[1].Str, *timestamp)
 	return &event, nil
 }
 

@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// this receiver is primarily used for performance testing as it does not cost significant performance
 type devNullReceiver struct {
 	Id uuid.UUID
 }
@@ -32,6 +33,7 @@ func NewDevNullReceiver(storeGenerator stores.StoreGenerator) *devNullReceiver {
 
 func (a *devNullReceiver) Append(event *events.Event) error {
 	receivedNullEventsCounter.WithLabelValues(a.Id.String()).Inc()
+	log.Debug(event.Timestamp)
 	return nil
 }
 

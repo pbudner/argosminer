@@ -41,7 +41,7 @@ func NewDfgStreamingAlgorithm(storeGenerator stores.StoreGenerator) *dfgStreamin
 
 func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	receivedNullEventsCounter.WithLabelValues(a.Id.String()).Inc()
-	cleanedActivityName := cleanActivityName(event.ActivityName)
+	cleanedActivityName := cleanActivityName(string(event.ActivityName))
 	caseInstance := event.ProcessInstanceId
 	timestamp := event.Timestamp
 	log.Debugf("received activity %s with timestamp %s", event.ActivityName, event.Timestamp)
@@ -52,7 +52,7 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 		return err
 	}
 
-	if !a.CaseStore.Contains(caseInstance) {
+	if !a.CaseStore.Contains(string(caseInstance)) {
 		// 1. we have not seen this case so far
 		_, err = a.StartActivityStore.Increment(a.StartActivityStore.EncodeActivity(cleanedActivityName), timestamp)
 		if err != nil {
@@ -64,7 +64,7 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 		}
 	} else {
 		// 2. we have seen this case
-		rawStart, err := a.CaseStore.Get(caseInstance)
+		rawStart, err := a.CaseStore.Get(string(caseInstance))
 		if err != nil {
 			return err
 		}
@@ -78,7 +78,7 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	}
 
 	// always set the last seen activity for the current case to the current activity
-	a.CaseStore.Set(caseInstance, cleanedActivityName)
+	a.CaseStore.Set(string(caseInstance), cleanedActivityName)
 	return nil
 }
 

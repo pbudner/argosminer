@@ -13,7 +13,8 @@ tbd.
 - Using valyala/fastjson as we access multiple fields witihn the JSON string
 
 ### Performance Improvements
-- Kafka: Using asynchronous commits (e.g., every second) resulted in a performance of more than 100.000 messages per second (Kafka Source + Raw Parser + Null Receiver)
+- Kafka: Using asynchronous commits (e.g., every second) resulted in a performance of more than 100.000 messages/second (Kafka Source + Raw Parser + Null Receiver), which is more than sufficient for our purposes. Drawback: After a failure, we might ingest duplicate events.
+- JSON Parser: From 15.000 messages/second to 
 
 ## Install
 There are various ways of installing ArgosMiner.

@@ -5,6 +5,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// this parser is primarily used for performance testing as it does not cost significant performance
 type rawParser struct {
 	Event *events.Event
 }

@@ -147,7 +147,7 @@ func (fs *fileSource) readFile(ctx context.Context) {
 			receivedFileEvents.WithLabelValues(fs.Path).Inc()
 			line := scanner.Text()
 			line = strings.ReplaceAll(line, "\"", "")
-			event, err := fs.Parser.Parse(line)
+			event, err := fs.Parser.Parse([]byte(line))
 			if err != nil {
 				log.Error(err)
 				receivedFileEventsWithError.WithLabelValues(fs.Path).Inc()
