@@ -36,7 +36,7 @@ func NewDfgStreamingAlgorithm(storeGenerator stores.StoreGenerator) *dfgStreamin
 	return &algo
 }
 
-func (a *dfgStreamingAlgorithm) Append(event events.Event) error {
+func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	receivedEvents.Inc()
 	cleanedActivityName := cleanActivityName(event.ActivityName)
 	caseInstance := event.ProcessInstanceId

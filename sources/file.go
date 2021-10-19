@@ -156,7 +156,7 @@ func (fs *fileSource) readFile(ctx context.Context) {
 
 			if event != nil {
 				for _, receiver := range fs.Receivers {
-					err := receiver.Append(*event)
+					err := receiver.Append(event)
 					if err != nil {
 						log.Error(err)
 						receivedFileEventsWithError.Inc()

@@ -25,7 +25,7 @@ func NewDevNullAlgorithm(storeGenerator stores.StoreGenerator) *devNullAlgorithm
 	return &algo
 }
 
-func (a *devNullAlgorithm) Append(event events.Event) error {
+func (a *devNullAlgorithm) Append(event *events.Event) error {
 	log.Info(event.String())
 	// nothing to do here
 	return nil

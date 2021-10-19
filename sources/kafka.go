@@ -102,7 +102,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 		if event != nil {
 			for _, receiver := range s.Receivers {
-				err := receiver.Append(*event)
+				err := receiver.Append(event)
 				if err != nil {
 					log.Error(err)
 					receivedKafkaEventsWithError.Inc()
