@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pbudner/argosminer/algorithms"
 	"github.com/pbudner/argosminer/parsers"
+	"github.com/pbudner/argosminer/receivers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/segmentio/kafka-go"
 	log "github.com/sirupsen/logrus"
@@ -27,20 +27,20 @@ type kafkaSource struct {
 	Config    KafkaSourceConfig
 	Reader    *kafka.Reader
 	Parser    parsers.Parser
-	Receivers []algorithms.StreamingAlgorithm
+	Receivers []receivers.StreamingReceiver
 }
 
-var receivedKafkaEvents = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer_source_kafka",
-	Name:      "received_events",
+var receivedKafkaEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Subsystem: "argosminer_sources_kafka",
+	Name:      "events_total",
 	Help:      "Total number of received events.",
-})
+}, []string{"broker", "topic", "group_id"})
 
-var receivedKafkaEventsWithError = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer_source_kafka",
-	Name:      "received_events_error",
+var receivedKafkaEventsWithError = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Subsystem: "argosminer_sources_kafka",
+	Name:      "errors_total",
 	Help:      "Total number of received events that produced an error.",
-})
+}, []string{"broker", "topic", "group_id"})
 
 func init() {
 	prometheus.MustRegister(receivedKafkaEvents)
@@ -51,11 +51,11 @@ func NewKafkaSource(config KafkaSourceConfig, parser parsers.Parser) kafkaSource
 	return kafkaSource{
 		Config:    config,
 		Parser:    parser,
-		Receivers: []algorithms.StreamingAlgorithm{},
+		Receivers: []receivers.StreamingReceiver{},
 	}
 }
 
-func (s *kafkaSource) AddReceiver(receiver algorithms.StreamingAlgorithm) {
+func (s *kafkaSource) AddReceiver(receiver receivers.StreamingReceiver) {
 	s.Receivers = append(s.Receivers, receiver)
 }
 
@@ -96,7 +96,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		event, err := s.Parser.Parse(string(m.Value))
 		if err != nil {
 			log.Error(err)
-			receivedKafkaEventsWithError.Inc()
+			receivedKafkaEventsWithError.WithLabelValues(s.Config.Brokers[0], s.Config.Topic, s.Config.GroupID).Inc()
 			continue
 		}
 
@@ -105,7 +105,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 				err := receiver.Append(event)
 				if err != nil {
 					log.Error(err)
-					receivedKafkaEventsWithError.Inc()
+					receivedKafkaEventsWithError.WithLabelValues(s.Config.Brokers[0], s.Config.Topic, s.Config.GroupID).Inc()
 				}
 			}
 		}
@@ -113,8 +113,6 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		if err := r.CommitMessages(ctx, m); err != nil {
 			log.Error("Failed to commit messages:", err)
 		}
-
-		time.Sleep(1 * time.Second)
 	}
 
 	if err := r.Close(); err != nil {

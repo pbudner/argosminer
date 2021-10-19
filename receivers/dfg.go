@@ -1,8 +1,9 @@
-package dfg
+package receivers
 
 import (
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/prometheus/client_golang/prometheus"
@@ -10,6 +11,7 @@ import (
 )
 
 type dfgStreamingAlgorithm struct {
+	Id                   uuid.UUID
 	StoreGenerator       stores.StoreGenerator
 	CaseStore            stores.Store
 	DirectlyFollowsStore stores.Store
@@ -17,18 +19,19 @@ type dfgStreamingAlgorithm struct {
 	StartActivityStore   stores.Store
 }
 
-var receivedEvents = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer_dfg_algorithm",
-	Name:      "received_events",
+var receivedDfgEventsCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Subsystem: "argosminer_receivers_dfg",
+	Name:      "events_total",
 	Help:      "Total number of received events.",
-})
+}, []string{"guid"})
 
 func init() {
-	prometheus.MustRegister(receivedEvents)
+	prometheus.MustRegister(receivedDfgEventsCounter)
 }
 
 func NewDfgStreamingAlgorithm(storeGenerator stores.StoreGenerator) *dfgStreamingAlgorithm {
 	algo := dfgStreamingAlgorithm{
+		Id:             uuid.New(),
 		StoreGenerator: storeGenerator,
 	}
 
@@ -37,7 +40,7 @@ func NewDfgStreamingAlgorithm(storeGenerator stores.StoreGenerator) *dfgStreamin
 }
 
 func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
-	receivedEvents.Inc()
+	receivedNullEventsCounter.WithLabelValues(a.Id.String()).Inc()
 	cleanedActivityName := cleanActivityName(event.ActivityName)
 	caseInstance := event.ProcessInstanceId
 	timestamp := event.Timestamp

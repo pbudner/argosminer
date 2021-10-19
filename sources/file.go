@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pbudner/argosminer/algorithms"
 	"github.com/pbudner/argosminer/parsers"
+	"github.com/pbudner/argosminer/receivers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/radovskyb/watcher"
 	log "github.com/sirupsen/logrus"
@@ -27,28 +27,28 @@ type fileSource struct {
 	ReadFrom         string
 	Watcher          *watcher.Watcher
 	Parser           parsers.Parser
-	Receivers        []algorithms.StreamingAlgorithm
+	Receivers        []receivers.StreamingReceiver
 	lastFilePosition int64
 }
 
-var receivedFileEvents = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer_source_file",
+var receivedFileEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Subsystem: "argosminer_sources_file",
 	Name:      "received_events",
 	Help:      "Total number of received events.",
-})
+}, []string{"path"})
 
-var receivedFileEventsWithError = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer_source_file",
+var receivedFileEventsWithError = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Subsystem: "argosminer_sources_file",
 	Name:      "received_events_error",
 	Help:      "Total number of received events that produced an error.",
-})
+}, []string{"path"})
 
 func init() {
 	prometheus.MustRegister(receivedFileEvents)
 	prometheus.MustRegister(receivedFileEventsWithError)
 }
 
-func NewFileSource(path, readFrom string, parser parsers.Parser, receivers []algorithms.StreamingAlgorithm) fileSource {
+func NewFileSource(path, readFrom string, parser parsers.Parser, receivers []receivers.StreamingReceiver) fileSource {
 	fs := fileSource{
 		Path:             path,
 		ReadFrom:         strings.ToLower(readFrom),
@@ -144,13 +144,13 @@ func (fs *fileSource) readFile(ctx context.Context) {
 			fs.lastFilePosition = newPosition
 			return
 		default:
-			receivedFileEvents.Inc()
+			receivedFileEvents.WithLabelValues(fs.Path).Inc()
 			line := scanner.Text()
 			line = strings.ReplaceAll(line, "\"", "")
 			event, err := fs.Parser.Parse(line)
 			if err != nil {
 				log.Error(err)
-				receivedFileEventsWithError.Inc()
+				receivedFileEventsWithError.WithLabelValues(fs.Path).Inc()
 				continue
 			}
 
@@ -159,7 +159,7 @@ func (fs *fileSource) readFile(ctx context.Context) {
 					err := receiver.Append(event)
 					if err != nil {
 						log.Error(err)
-						receivedFileEventsWithError.Inc()
+						receivedFileEventsWithError.WithLabelValues(fs.Path).Inc()
 					}
 				}
 			}

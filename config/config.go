@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pbudner/argosminer/parsers/csv"
-	"github.com/pbudner/argosminer/parsers/json"
+	"github.com/pbudner/argosminer/parsers"
 	"github.com/pbudner/argosminer/sources"
 	"gopkg.in/yaml.v2"
 )
@@ -14,8 +13,8 @@ type Source struct {
 	Enabled     bool                       `yaml:"enabled"`
 	FileConfig  *sources.FileSourceConfig  `yaml:"file-config,omitempty"`
 	KafkaConfig *sources.KafkaSourceConfig `yaml:"kafka-config,omitempty"`
-	CsvParser   *csv.CsvParserConfig       `yaml:"csv-parser,omitempty"`
-	JsonParser  *json.JsonParserConfig     `yaml:"json-parser,omitempty"`
+	CsvParser   *parsers.CsvParserConfig   `yaml:"csv-parser,omitempty"`
+	JsonParser  *parsers.JsonParserConfig  `yaml:"json-parser,omitempty"`
 }
 
 type Config struct {

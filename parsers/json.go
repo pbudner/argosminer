@@ -1,4 +1,4 @@
-package json
+package parsers
 
 import (
 	"strings"
@@ -10,25 +10,38 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-type jsonParser struct {
-	config     JsonParserConfig
-	conditions []conditionLiteral
+type JsonParserConfig struct {
+	ActivityPath        string `yaml:"activity-path"`
+	ProcessInstancePath string `yaml:"process-instance-path"`
+	TimestampPath       string `yaml:"timestamp-path"`
+	TimestampFormat     string `yaml:"timestamp-format"`      // https://golang.org/src/time/format.go
+	TimestampTzIanakey  string `yaml:"timestamp-tz-iana-key"` // https://golang.org/src/time/format.go
+	IgnoreWhen          []struct {
+		Path      string `yaml:"path"`
+		Condition string `yaml:"condition"`
+		Value     string `yaml:"value"`
+	} `yaml:"ignore-when"`
 }
 
-type conditionLiteral func(string) (bool, error)
+type jsonParser struct {
+	config     JsonParserConfig
+	conditions []jsonConditionLiteral
+}
 
-var skippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
+type jsonConditionLiteral func(string) (bool, error)
+
+var jsonSkippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
 	Subsystem: "argosminer_parser_json",
 	Name:      "skipped_events",
 	Help:      "Total number of skipped events.",
 })
 
 func init() {
-	prometheus.MustRegister(skippedEvents)
+	prometheus.MustRegister(jsonSkippedEvents)
 }
 
 func NewJsonParser(config JsonParserConfig) jsonParser {
-	conditionFuncs := make([]conditionLiteral, len(config.IgnoreWhen))
+	conditionFuncs := make([]jsonConditionLiteral, len(config.IgnoreWhen))
 	for i, ignoreWhen := range config.IgnoreWhen {
 		conditionFuncs[i] = func(json string) (bool, error) {
 			val := gjson.Get(json, ignoreWhen.Path).String()
@@ -54,7 +67,7 @@ func (p jsonParser) Parse(input string) (*events.Event, error) {
 		}
 
 		if lineShouldBeIgnored {
-			skippedEvents.Inc()
+			jsonSkippedEvents.Inc()
 			log.Debug("skipping a line as an ignore condition is fulfilled")
 			return nil, nil
 		}

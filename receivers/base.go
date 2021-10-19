@@ -1,8 +1,8 @@
-package algorithms
+package receivers
 
 import "github.com/pbudner/argosminer/events"
 
-type StreamingAlgorithm interface {
+type StreamingReceiver interface {
 	Append(event *events.Event) error
 	Close()
 }

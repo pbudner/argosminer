@@ -10,12 +10,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pbudner/argosminer/algorithms"
-	"github.com/pbudner/argosminer/algorithms/null"
 	"github.com/pbudner/argosminer/config"
 	"github.com/pbudner/argosminer/parsers"
-	"github.com/pbudner/argosminer/parsers/csv"
-	"github.com/pbudner/argosminer/parsers/json"
+	"github.com/pbudner/argosminer/receivers"
 	"github.com/pbudner/argosminer/sources"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/prometheus/client_golang/prometheus"
@@ -59,8 +56,8 @@ func main() {
 	//store := stores.NewInfluxStoreGenerator(influxServerURL, influxToken, influxBucket, influxOrg, redisOptions)
 	store := stores.NewTstorageStoreGenerator()
 
-	receivers := make([]algorithms.StreamingAlgorithm, 1)
-	receivers[0] = null.NewDevNullAlgorithm(store)
+	receiverList := make([]receivers.StreamingReceiver, 1)
+	receiverList[0] = receivers.NewDevNullReceiver(store)
 
 	for _, source := range cfg.Sources {
 		if !source.Enabled {
@@ -74,9 +71,9 @@ func main() {
 			var parser parsers.Parser
 			if source.CsvParser.Delimiter != "" {
 				log.Debugf("Initializing a CSV parser..")
-				parser = csv.NewCsvParser(*source.CsvParser)
+				parser = parsers.NewCsvParser(*source.CsvParser)
 			}
-			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receivers)
+			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receiverList)
 			go fs.Run(ctx, wg)
 		}
 
@@ -87,16 +84,16 @@ func main() {
 			var parser parsers.Parser
 			if source.CsvParser != nil {
 				log.Debugf("Initializing a CSV parser..")
-				parser = csv.NewCsvParser(*source.CsvParser)
+				parser = parsers.NewCsvParser(*source.CsvParser)
 			}
 
 			if source.JsonParser != nil {
 				log.Debugf("Initializing a CSV parser..")
-				parser = json.NewJsonParser(*source.JsonParser)
+				parser = parsers.NewJsonParser(*source.JsonParser)
 			}
 
 			fs := sources.NewKafkaSource(*source.KafkaConfig, parser)
-			for _, receiver := range receivers {
+			for _, receiver := range receiverList {
 				fs.AddReceiver(receiver)
 			}
 

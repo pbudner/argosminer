@@ -10,6 +10,7 @@ The following features distinguish ArgosMiner from other process mining systems:
 
 ## Architecture Overview
 tbd.
+- Using valyala/fastjson as we access multiple fields witihn the JSON string
 
 ## Install
 

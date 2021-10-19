@@ -1,4 +1,4 @@
-package csv
+package parsers
 
 import (
 	"fmt"
@@ -10,25 +10,39 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type csvParser struct {
-	config     CsvParserConfig
-	conditions []conditionLiteral
+type CsvParserConfig struct {
+	Delimiter             string `yaml:"delimiter"`
+	ActivityColumn        uint   `yaml:"activity-column"`
+	ProcessInstanceColumn uint   `yaml:"process-instance-column"`
+	TimestampColumn       uint   `yaml:"timestamp-column"`
+	TimestampFormat       string `yaml:"timestamp-format"`      // https://golang.org/src/time/format.go
+	TimestampTzIanakey    string `yaml:"timestamp-tz-iana-key"` // https://golang.org/src/time/format.go
+	IgnoreWhen            []struct {
+		Column    uint   `yaml:"column"`
+		Condition string `yaml:"condition"`
+		Value     string `yaml:"value"`
+	} `yaml:"ignore-when"`
 }
 
-type conditionLiteral func([]string) (bool, error)
+type csvParser struct {
+	config     CsvParserConfig
+	conditions []csvConditionLiteral
+}
 
-var skippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
+type csvConditionLiteral func([]string) (bool, error)
+
+var csvSkippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
 	Subsystem: "argosminer_parser_csv",
 	Name:      "skipped_events",
 	Help:      "Total number of skipped events.",
 })
 
 func init() {
-	prometheus.MustRegister(skippedEvents)
+	prometheus.MustRegister(csvSkippedEvents)
 }
 
 func NewCsvParser(config CsvParserConfig) csvParser {
-	conditionFuncs := make([]conditionLiteral, len(config.IgnoreWhen))
+	conditionFuncs := make([]csvConditionLiteral, len(config.IgnoreWhen))
 	for i, ignoreWhen := range config.IgnoreWhen {
 		conditionFuncs[i] = func(eventColumns []string) (bool, error) {
 			if int(ignoreWhen.Column) >= len(eventColumns) {
@@ -59,7 +73,7 @@ func (p csvParser) Parse(input string) (*events.Event, error) {
 		}
 
 		if lineShouldBeIgnored {
-			skippedEvents.Inc()
+			csvSkippedEvents.Inc()
 			log.Debug("skipping a line as an ignore condition is fulfilled")
 			return nil, nil
 		}
