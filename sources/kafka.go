@@ -126,5 +126,5 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		log.Error("Failed to close kafka source reader:", err)
 	}
 
-	log.Info("Successfully closed kafka source")
+	log.Info("Closed Kafka source")
 }
