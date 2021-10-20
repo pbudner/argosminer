@@ -38,7 +38,7 @@ var lastReceviedDfgEventTime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 }, []string{"guid"})
 
 func init() {
-	prometheus.MustRegister(receivedDfgEventsCounter)
+	prometheus.MustRegister(receivedDfgEventsCounter, lastReceivedDfgEvent, lastReceviedDfgEventTime)
 }
 
 func NewDfgStreamingAlgorithm(storeGenerator stores.StoreGenerator) *dfgStreamingAlgorithm {
@@ -54,7 +54,7 @@ func NewDfgStreamingAlgorithm(storeGenerator stores.StoreGenerator) *dfgStreamin
 func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	// update some Prometheus metrics
 	lastReceivedDfgEvent.WithLabelValues(a.Id.String()).SetToCurrentTime()
-	receivedNullEventsCounter.WithLabelValues(a.Id.String()).Inc()
+	receivedDfgEventsCounter.WithLabelValues(a.Id.String()).Inc()
 	lastReceviedDfgEventTime.WithLabelValues(a.Id.String()).Set(float64(event.Timestamp.Unix()))
 	cleanedActivityName := cleanActivityName(string(event.ActivityName))
 

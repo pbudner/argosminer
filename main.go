@@ -27,7 +27,7 @@ var processStartedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 
 func init() {
 	// configure logger
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(log.InfoLevel)
 
 	// register global prometheus metrics
 	prometheus.MustRegister(processStartedGauge)
@@ -52,12 +52,13 @@ func main() {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
 
-	//store := stores.NewMemoryStoreGenerator()
+	store := stores.NewBadgerStoreGenerator()
 	//store := stores.NewInfluxStoreGenerator(influxServerURL, influxToken, influxBucket, influxOrg, redisOptions)
-	store := stores.NewTstorageStoreGenerator()
+	//store := stores.NewTstorageStoreGenerator()
 
-	receiverList := make([]receivers.StreamingReceiver, 1)
-	receiverList[0] = receivers.NewDevNullReceiver(store)
+	receiverList := []receivers.StreamingReceiver{
+		receivers.NewDfgStreamingAlgorithm(store),
+	}
 
 	for _, source := range cfg.Sources {
 		if !source.Enabled {

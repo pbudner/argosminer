@@ -50,8 +50,7 @@ var lastReceivedFileEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 }, []string{"path"})
 
 func init() {
-	prometheus.MustRegister(receivedFileEvents)
-	prometheus.MustRegister(receivedFileEventsWithError)
+	prometheus.MustRegister(receivedFileEvents, receivedFileEventsWithError, lastReceivedFileEvent)
 }
 
 func NewFileSource(path, readFrom string, parser parsers.Parser, receivers []receivers.StreamingReceiver) fileSource {

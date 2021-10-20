@@ -51,8 +51,7 @@ var lastReceivedKafkaEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 }, []string{"broker", "topic", "group_id"})
 
 func init() {
-	prometheus.MustRegister(receivedKafkaEvents)
-	prometheus.MustRegister(receivedKafkaEventsWithError)
+	prometheus.MustRegister(receivedKafkaEvents, receivedKafkaEventsWithError, lastReceivedKafkaEvent)
 }
 
 func NewKafkaSource(config KafkaSourceConfig, parser parsers.Parser) kafkaSource {
@@ -74,6 +73,7 @@ func (s *kafkaSource) Close() {
 func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 	log.Debug("Initializing kafka source..")
 	defer wg.Done()
+	i := 0
 	dialer := &kafka.Dialer{
 		Timeout:   s.Config.Timeout,
 		DualStack: true,
@@ -94,6 +94,11 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 	for {
 		m, err := r.ReadMessage(ctx)
+		i += 1
+		if i > 30000000 {
+			log.Warn("Done with test")
+			break
+		}
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				log.Info("Shutting down kafka source..")

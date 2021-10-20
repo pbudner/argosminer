@@ -32,7 +32,7 @@ var lastReceviedNullEventTime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 }, []string{"guid"})
 
 func init() {
-	prometheus.MustRegister(receivedNullEventsCounter)
+	prometheus.MustRegister(receivedNullEventsCounter, lastReceivedNullEvent, lastReceviedNullEventTime)
 }
 
 func NewDevNullReceiver(storeGenerator stores.StoreGenerator) *devNullReceiver {

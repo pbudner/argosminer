@@ -10,7 +10,8 @@ The following features distinguish ArgosMiner from other process mining systems:
 
 ## Architecture Overview
 tbd.
-- Using valyala/fastjson as we access multiple fields witihn the JSON string
+- Using tidwall/gjson accessing multiple fields witihn the JSON string
+- Badger as an embedded key-value store
 
 ### Performance Improvements
 - Kafka: Using asynchronous commits (e.g., every second) resulted in a performance of more than 100.000 messages/second (Kafka Source + Raw Parser + Null Receiver), which is more than sufficient for our purposes. Drawback: After a failure, we might ingest duplicate events.
@@ -27,3 +28,7 @@ Docker images are available on Docker Hub.
 
 ### Building from Source
 tbd.
+
+## ToDos
+- Embedded Graph-DB: https://github.com/krotik/eliasdb
+- Have a look on this DB (maybe for own event db implementation): https://github.com/kelindar/talaria
