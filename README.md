@@ -32,3 +32,4 @@ tbd.
 ## ToDos
 - Embedded Graph-DB: https://github.com/krotik/eliasdb
 - Have a look on this DB (maybe for own event db implementation): https://github.com/kelindar/talaria
+- Have a look on this https://barkeywolf.consulting/posts/badger-event-store/
