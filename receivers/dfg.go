@@ -25,6 +25,18 @@ var receivedDfgEventsCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Help:      "Total number of received events.",
 }, []string{"guid"})
 
+var lastReceivedDfgEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Subsystem: "argosminer_receivers_dfg",
+	Name:      "last_received_event",
+	Help:      "Last received event for this receiver.",
+}, []string{"guid"})
+
+var lastReceviedDfgEventTime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Subsystem: "argosminer_receivers_dfg",
+	Name:      "last_received_eventtime",
+	Help:      "Last received event time for this receiver.",
+}, []string{"guid"})
+
 func init() {
 	prometheus.MustRegister(receivedDfgEventsCounter)
 }
@@ -40,8 +52,12 @@ func NewDfgStreamingAlgorithm(storeGenerator stores.StoreGenerator) *dfgStreamin
 }
 
 func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
+	// update some Prometheus metrics
+	lastReceivedDfgEvent.WithLabelValues(a.Id.String()).SetToCurrentTime()
 	receivedNullEventsCounter.WithLabelValues(a.Id.String()).Inc()
+	lastReceviedDfgEventTime.WithLabelValues(a.Id.String()).Set(float64(event.Timestamp.Unix()))
 	cleanedActivityName := cleanActivityName(string(event.ActivityName))
+
 	caseInstance := event.ProcessInstanceId
 	timestamp := event.Timestamp
 	log.Debugf("received activity %s with timestamp %s", event.ActivityName, event.Timestamp)

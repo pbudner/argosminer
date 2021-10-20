@@ -43,6 +43,12 @@ var receivedFileEventsWithError = prometheus.NewCounterVec(prometheus.CounterOpt
 	Help:      "Total number of received events that produced an error.",
 }, []string{"path"})
 
+var lastReceivedFileEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Subsystem: "argosminer_sources_file",
+	Name:      "last_received_event",
+	Help:      "Last received event for this source.",
+}, []string{"path"})
+
 func init() {
 	prometheus.MustRegister(receivedFileEvents)
 	prometheus.MustRegister(receivedFileEventsWithError)
@@ -144,6 +150,7 @@ func (fs *fileSource) readFile(ctx context.Context) {
 			fs.lastFilePosition = newPosition
 			return
 		default:
+			lastReceivedFileEvent.WithLabelValues(fs.Path).SetToCurrentTime()
 			receivedFileEvents.WithLabelValues(fs.Path).Inc()
 			line := scanner.Text()
 			line = strings.ReplaceAll(line, "\"", "")

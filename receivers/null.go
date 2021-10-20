@@ -19,6 +19,18 @@ var receivedNullEventsCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Help:      "Total number of received events.",
 }, []string{"guid"})
 
+var lastReceivedNullEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Subsystem: "argosminer_receivers_null",
+	Name:      "last_received_event",
+	Help:      "Last received event for this receiver.",
+}, []string{"guid"})
+
+var lastReceviedNullEventTime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Subsystem: "argosminer_receivers_null",
+	Name:      "last_received_eventtime",
+	Help:      "Last received event time for this receiver.",
+}, []string{"guid"})
+
 func init() {
 	prometheus.MustRegister(receivedNullEventsCounter)
 }
@@ -32,7 +44,9 @@ func NewDevNullReceiver(storeGenerator stores.StoreGenerator) *devNullReceiver {
 }
 
 func (a *devNullReceiver) Append(event *events.Event) error {
+	lastReceivedNullEvent.WithLabelValues(a.Id.String()).SetToCurrentTime()
 	receivedNullEventsCounter.WithLabelValues(a.Id.String()).Inc()
+	lastReceviedNullEventTime.WithLabelValues(a.Id.String()).Set(float64(event.Timestamp.Unix()))
 	return nil
 }
 

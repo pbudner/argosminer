@@ -44,6 +44,12 @@ var receivedKafkaEventsWithError = prometheus.NewCounterVec(prometheus.CounterOp
 	Help:      "Total number of received events that produced an error.",
 }, []string{"broker", "topic", "group_id"})
 
+var lastReceivedKafkaEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Subsystem: "argosminer_sources_kafka",
+	Name:      "last_received_event",
+	Help:      "Last received event for this source.",
+}, []string{"broker", "topic", "group_id"})
+
 func init() {
 	prometheus.MustRegister(receivedKafkaEvents)
 	prometheus.MustRegister(receivedKafkaEventsWithError)
@@ -99,6 +105,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		}
 
 		receivedKafkaEvents.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
+		lastReceivedKafkaEvent.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).SetToCurrentTime()
 
 		event, err := s.Parser.Parse(m.Value)
 		if err != nil {
