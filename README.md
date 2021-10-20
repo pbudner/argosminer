@@ -8,6 +8,14 @@ The following features distinguish ArgosMiner from other process mining systems:
 - foo
 - bar
 
+## Requirements
+- Count of distinct event types for entire period
+- Count of distinct directly-follows relations for entire period 
+- Count of all events for entire collection period
+- Count of directly-follows relations for entire period
+- Sum Events per Activity over Day (<-- Partition by Day) 
+- 
+
 ## Architecture Overview
 tbd.
 - Using tidwall/gjson accessing multiple fields witihn the JSON string
@@ -15,7 +23,7 @@ tbd.
 
 ### Performance Improvements
 - Kafka: Using asynchronous commits (e.g., every second) resulted in a performance of more than 100.000 messages/second (Kafka Source + Raw Parser + Null Receiver), which is more than sufficient for our purposes. Drawback: After a failure, we might ingest duplicate events.
-- JSON Parser: From 15.000 messages/second to 
+- JSON Parser: From 15.000 messages/second to around 80.000 messages/second
 
 ## Install
 There are various ways of installing ArgosMiner.

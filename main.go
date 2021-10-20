@@ -52,7 +52,7 @@ func main() {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
 
-	store := stores.NewBadgerStoreGenerator()
+	store := stores.NewDiskStoreGenerator()
 	//store := stores.NewInfluxStoreGenerator(influxServerURL, influxToken, influxBucket, influxOrg, redisOptions)
 	//store := stores.NewTstorageStoreGenerator()
 

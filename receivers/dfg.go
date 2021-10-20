@@ -56,9 +56,9 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	lastReceivedDfgEvent.WithLabelValues(a.Id.String()).SetToCurrentTime()
 	receivedDfgEventsCounter.WithLabelValues(a.Id.String()).Inc()
 	lastReceviedDfgEventTime.WithLabelValues(a.Id.String()).Set(float64(event.Timestamp.Unix()))
-	cleanedActivityName := cleanActivityName(string(event.ActivityName))
+	cleanedActivityName := []byte(cleanActivityName(string(event.ActivityName)))
 
-	caseInstance := event.ProcessInstanceId
+	caseInstance := []byte(event.ProcessInstanceId)
 	timestamp := event.Timestamp
 	log.Debugf("received activity %s with timestamp %s", event.ActivityName, event.Timestamp)
 
@@ -68,23 +68,23 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 		return err
 	}
 
-	if !a.CaseStore.Contains(string(caseInstance)) {
+	if !a.CaseStore.Contains(caseInstance) {
 		// 1. we have not seen this case so far
 		_, err = a.StartActivityStore.Increment(a.StartActivityStore.EncodeActivity(cleanedActivityName), timestamp)
 		if err != nil {
 			return err
 		}
-		_, err = a.DirectlyFollowsStore.Increment(a.DirectlyFollowsStore.EncodeDirectlyFollowsRelation("", cleanedActivityName), timestamp)
+		_, err = a.DirectlyFollowsStore.Increment(a.DirectlyFollowsStore.EncodeDirectlyFollowsRelation([]byte{}, cleanedActivityName), timestamp)
 		if err != nil {
 			return err
 		}
 	} else {
 		// 2. we have seen this case
-		rawStart, err := a.CaseStore.Get(string(caseInstance))
+		rawStart, err := a.CaseStore.Get([]byte(caseInstance))
 		if err != nil {
 			return err
 		}
-		start := rawStart.(string)
+		start := rawStart
 		relation := a.DirectlyFollowsStore.EncodeDirectlyFollowsRelation(start, cleanedActivityName)
 		_, err = a.DirectlyFollowsStore.Increment(relation, timestamp)
 		if err != nil {
@@ -94,7 +94,7 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	}
 
 	// always set the last seen activity for the current case to the current activity
-	a.CaseStore.Set(string(caseInstance), cleanedActivityName)
+	a.CaseStore.Set(caseInstance, cleanedActivityName)
 	return nil
 }
 
@@ -106,10 +106,10 @@ func (a *dfgStreamingAlgorithm) Close() {
 }
 
 func (a *dfgStreamingAlgorithm) initStores() {
-	a.ActivityStore = a.StoreGenerator(10)
-	a.CaseStore = a.StoreGenerator(11)
-	a.DirectlyFollowsStore = a.StoreGenerator(12)
-	a.StartActivityStore = a.StoreGenerator(13)
+	a.ActivityStore = a.StoreGenerator("activities")
+	a.CaseStore = a.StoreGenerator("cases")
+	a.DirectlyFollowsStore = a.StoreGenerator("df-relations")
+	a.StartActivityStore = a.StoreGenerator("start-activities")
 }
 
 func cleanActivityName(activityName string) string {

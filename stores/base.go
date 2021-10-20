@@ -3,13 +3,13 @@ package stores
 import "time"
 
 type Store interface {
-	Set(key string, value interface{}) error
-	Get(key string) (interface{}, error)
-	Increment(key string, timestamp time.Time) (uint64, error)
-	Contains(key string) bool
-	EncodeDirectlyFollowsRelation(from string, to string) string
-	EncodeActivity(activity string) string
+	Set(key []byte, value []byte) error
+	Get(key []byte) ([]byte, error)
+	Increment(key []byte, timestamp time.Time) (uint64, error)
+	Contains(key []byte) bool
+	EncodeDirectlyFollowsRelation(from []byte, to []byte) []byte
+	EncodeActivity(activity []byte) []byte
 	Close()
 }
 
-type StoreGenerator func(interface{}) Store
+type StoreGenerator func(string) Store
