@@ -8,13 +8,16 @@ The following features distinguish ArgosMiner from other process mining systems:
 - foo
 - bar
 
-## Requirements
+## Requirements of TSDB for First Version
 - Count of distinct event types for entire period
 - Count of distinct directly-follows relations for entire period 
 - Count of all events for entire collection period
 - Count of directly-follows relations for entire period
-- Sum Events per Activity over Day (<-- Partition by Day) 
-- 
+- Sum of Events per Activity over Day (<-- Partition by Day) 
+- Sum of Events per Day (<-- Partition per Day)
+- Count of Events for Certain Event Types for entire period
+- Sum of Events per directly-follows relation for entire period
+- Sum of Events per directly-follows relation for certain time-window and certain event types (<-- this is our DFG)
 
 ## Architecture Overview
 tbd.
