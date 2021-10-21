@@ -1,18 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
 	"sync"
 	"time"
 
 	badger "github.com/dgraph-io/badger/v3"
+	"github.com/dustin/go-humanize"
 	ulid "github.com/oklog/ulid/v2"
 )
 
 // based on this blog post https://barkeywolf.consulting/posts/badger-event-store/
 
-const tmpDir = "/Volumes/PascalsSSD/badgerdb_tmp"
+const eventDbPath = "/Volumes/PascalsSSD/badgerdb_tmp"
 
 type MonotonicULIDsource struct {
 	sync.Mutex            // mutex to allow clean concurrent access
@@ -96,27 +98,46 @@ func (u *MonotonicULIDsource) New(t time.Time) (ulid.ULID, error) {
 	return dup, nil
 }
 
-func read() {
-	opts := badger.DefaultOptions(tmpDir)
-	db, _ := badger.Open(opts)
-	defer db.Close()
+func bytesToTime(k []byte) time.Time {
+	unix := uint64(k[5]) | uint64(k[4])<<8 |
+		uint64(k[3])<<16 | uint64(k[2])<<24 |
+		uint64(k[1])<<32 | uint64(k[0])<<40
+	return time.Unix(0, int64(unix)*int64(time.Millisecond))
+}
+
+func timeToBytes(ts time.Time) []byte {
+	t := ulid.Timestamp(ts)
+	r := make([]byte, 6)
+	r[0] = byte(t >> 40)
+	r[1] = byte(t >> 32)
+	r[2] = byte(t >> 24)
+	r[3] = byte(t >> 16)
+	r[4] = byte(t >> 8)
+	r[5] = byte(t)
+	return r
+}
+
+func main() {
+	opts := badger.DefaultOptions(eventDbPath).WithLoggingLevel(badger.ERROR)
+	eventDB, _ := badger.Open(opts)
+	defer eventDB.Close()
 
 	// validate badger iteration order is equal to original creation order
-	var retrieved uint64
-	fmt.Println("Fetching data..")
+	// var retrieved uint64
+	fmt.Println("Starting tests..")
 	start := time.Now()
-	if err := db.View(func(txn *badger.Txn) error {
-
+	if err := eventDB.View(func(txn *badger.Txn) error {
+		// fetch first
 		// create a Badger iterator with the default settings
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
 		it := txn.NewIterator(opts)
-		defer it.Close()
-
 		// have the iterator walk the LMB tree
 		for it.Rewind(); it.Valid(); it.Next() {
-			// item := it.Item()
-			// k := item.Key()
+			item := it.Item()
+			k := item.Key()
+			fmt.Printf("First item: %s\n", bytesToTime(k[:6]))
+			break
 			/*v, err := item.ValueCopy(nil)
 			if err != nil {
 				panic(err)
@@ -130,24 +151,79 @@ func read() {
 			}*/
 
 			//retrieved = append(retrieved, des)
+		}
+		it.Close()
+
+		// fetch last value
+		opts.Reverse = true
+		it = txn.NewIterator(opts)
+		// have the iterator walk the LMB tree
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			k := item.Key()
+			fmt.Printf("Last Item: %s\n", bytesToTime(k[:6]))
+			break
+		}
+		it.Close()
+
+		/*opts.Reverse = false
+		it = txn.NewIterator(opts)
+		// have the iterator walk the LMB tree
+		for it.Rewind(); it.Valid(); it.Next() {
 			retrieved++
 		}
+		it.Close()
+		fmt.Printf("Number of total events: %s\n", humanize.Comma(int64(retrieved)))*/
+
+		opts.Reverse = false
+		it = txn.NewIterator(opts)
+
+		from := time.Date(2021, 10, 21, 0, 0, 0, 0, time.Local)
+		fromEncoded := timeToBytes(from)
+		to := time.Date(2021, 10, 21, 0, 50, 0, 0, time.Local)
+		toEncoded := timeToBytes(to)
+		fmt.Printf("[%s,%s]\n", bytesToTime(fromEncoded), bytesToTime(toEncoded))
+		// have the iterator walk the LMB tree
+		found := false
+		var counter int64 = 0
+		it.Rewind()
+		var searched int64 = 0
+		// seek was fucking important here... it finds our starting key..
+		for it.Seek(fromEncoded); it.Valid(); it.Next() {
+			item := it.Item()
+			key := item.Key()[:6]
+			if !found {
+				if bytes.Compare(key, fromEncoded) < 0 {
+					searched++
+					continue
+				}
+				if bytes.Compare(key, toEncoded) == 1 {
+					break
+				}
+				found = true
+				fmt.Printf("Found inclusive start %s after %s iterations\n", bytesToTime(key), humanize.Comma(searched))
+			}
+
+			if bytes.Compare(key, toEncoded) > 0 {
+				fmt.Printf("Found exclusive end %s\n", bytesToTime(key))
+				break
+			}
+			counter++
+		}
+
+		fmt.Printf("Found %s items in the specified range\n", humanize.Comma(counter))
+		it.Close()
+
 		return nil
 	}); err != nil {
 		panic(err)
 	}
 
 	elapsed := time.Since(start)
-	fmt.Printf("Fetching %d events took %s\n", retrieved, elapsed)
-
-	/*success := sort.SliceIsSorted(retrieved, func(i, j int) bool {
-		return retrieved[i].Number < retrieved[j].Number
-	})
-
-	fmt.Println(success)*/
+	fmt.Printf("All operations took %s\n", elapsed)
 }
 
-func test() {
+func bla() {
 	// reproducible entropy source
 	entropy := rand.New(rand.NewSource(time.Unix(1000000, 0).UnixNano()))
 
@@ -160,10 +236,11 @@ func test() {
 	unix := uint64(timestamp[5]) | uint64(timestamp[4])<<8 |
 		uint64(timestamp[3])<<16 | uint64(timestamp[2])<<24 |
 		uint64(timestamp[1])<<32 | uint64(timestamp[0])<<40
-	fmt.Println(unix / (1000))
+	date := time.Unix(0, int64(unix)*int64(time.Millisecond))
+	fmt.Println(date)
 }
 
-func main() {
+func write() {
 	// reproducible entropy source
 	entropy := rand.New(rand.NewSource(time.Unix(1000000, 0).UnixNano()))
 
@@ -172,18 +249,18 @@ func main() {
 
 	// generate fake events that contain a ground-truth sorting order and a ULID
 	var events []ulid.ULID
-	for i := 0; i < 10000000; i++ {
-		now := time.Now()
-		id, _ := ulidSource.New(now)
-		// ev := FakeEvent{i, now, id}
+	start := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < int(1e7); i++ {
+		id, _ := ulidSource.New(start)
 		events = append(events, id)
+		start = start.Add(time.Minute * 1)
 	}
 
 	entropy.Shuffle(len(events), func(i, j int) {
 		events[i], events[j] = events[j], events[i]
 	})
 
-	opts := badger.DefaultOptions(tmpDir)
+	opts := badger.DefaultOptions(eventDbPath)
 	db, _ := badger.Open(opts)
 	defer db.Close()
 

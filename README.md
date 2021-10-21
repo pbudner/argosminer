@@ -8,11 +8,19 @@ The following features distinguish ArgosMiner from other process mining systems:
 - foo
 - bar
 
+## ToDos
+- Random Event Emitter Source (Regular Intervals, e.g. every second)
+- Implement a Partitioning Abstraction above BadgerDB
+- Save Raw Logs in Compressed BadgerDB
+
 ## Requirements of TSDB for First Version
 
 - Sum of Events per EventType per Day (<-- Partition by Day) 
+    - We need to go through all days and count...
 - Sum of Events per Day (<-- Partition by Day)
+    - We need to get the overall counter per day
 - Sum of Events per directly-follows relation for certain time-window and certain event types (<-- this is our DFG)
+    - 
 
 - KV-Store {Key=EventType; Value=Counter}
     - Count of distinct event types for entire period
@@ -47,7 +55,7 @@ Docker images are available on Docker Hub.
 ### Building from Source
 tbd.
 
-## ToDos
+## For Later
 - Embedded Graph-DB: https://github.com/krotik/eliasdb
 - Have a look on this DB (maybe for own event db implementation): https://github.com/kelindar/talaria
 - Have a look on this https://barkeywolf.consulting/posts/badger-event-store/
