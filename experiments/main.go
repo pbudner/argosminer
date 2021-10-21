@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -148,7 +147,23 @@ func read() {
 	fmt.Println(success)*/
 }
 
-func write() {
+func test() {
+	// reproducible entropy source
+	entropy := rand.New(rand.NewSource(time.Unix(1000000, 0).UnixNano()))
+
+	// sub-ms safe ULID generator
+	ulidSource := NewMonotonicULIDsource(entropy)
+
+	now := time.Now()
+	id, _ := ulidSource.New(now)
+	timestamp := id[:6]
+	unix := uint64(timestamp[5]) | uint64(timestamp[4])<<8 |
+		uint64(timestamp[3])<<16 | uint64(timestamp[2])<<24 |
+		uint64(timestamp[1])<<32 | uint64(timestamp[0])<<40
+	fmt.Println(unix / (1000))
+}
+
+func main() {
 	// reproducible entropy source
 	entropy := rand.New(rand.NewSource(time.Unix(1000000, 0).UnixNano()))
 
@@ -156,12 +171,12 @@ func write() {
 	ulidSource := NewMonotonicULIDsource(entropy)
 
 	// generate fake events that contain a ground-truth sorting order and a ULID
-	var events []FakeEvent
+	var events []ulid.ULID
 	for i := 0; i < 10000000; i++ {
 		now := time.Now()
 		id, _ := ulidSource.New(now)
-		ev := FakeEvent{i, now, id}
-		events = append(events, ev)
+		// ev := FakeEvent{i, now, id}
+		events = append(events, id)
 	}
 
 	entropy.Shuffle(len(events), func(i, j int) {
@@ -178,25 +193,25 @@ func write() {
 	for _, e := range events {
 
 		// serialize the event payload (to JSON for simplicity)
-		eSerial, err := json.Marshal(e)
+		/*eSerial, err := json.Marshal(e)
 		if err != nil {
 			panic(err)
-		}
+		}*/
 
 		// serialize the ULID to its binary form
-		binID, err := e.ID.MarshalBinary()
+		binID, err := e.MarshalBinary()
 		if err != nil {
 			panic(err)
 		}
 
 		// add the insert operation to the transaction
 		// and open a new transaction if this one is full
-		if err := txn.Set(binID, []byte(eSerial)); err == badger.ErrTxnTooBig {
+		if err := txn.Set(binID, []byte{}); err == badger.ErrTxnTooBig {
 			if err := txn.Commit(); err != nil {
 				panic(err)
 			}
 			txn = db.NewTransaction(true)
-			if err := txn.Set(binID, []byte(eSerial)); err != nil {
+			if err := txn.Set(binID, []byte{}); err != nil {
 				panic(err)
 			}
 		}
