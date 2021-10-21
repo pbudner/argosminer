@@ -19,7 +19,7 @@ sources:
     kafka-config:
       brokers:
       - 'localhost:9092'
-      group-id: kafka-reader-5
+      group-id: kafka-reader-1
       timeout: 5s
       commit-interval: 1s
       topic: pmlogs

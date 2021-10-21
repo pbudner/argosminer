@@ -9,20 +9,27 @@ The following features distinguish ArgosMiner from other process mining systems:
 - bar
 
 ## Requirements of TSDB for First Version
-- Count of distinct event types for entire period
-- Count of distinct directly-follows relations for entire period 
-- Count of all events for entire collection period
-- Count of directly-follows relations for entire period
-- Sum of Events per Activity over Day (<-- Partition by Day) 
-- Sum of Events per Day (<-- Partition per Day)
-- Count of Events for Certain Event Types for entire period
-- Sum of Events per directly-follows relation for entire period
+
+- Sum of Events per EventType per Day (<-- Partition by Day) 
+- Sum of Events per Day (<-- Partition by Day)
 - Sum of Events per directly-follows relation for certain time-window and certain event types (<-- this is our DFG)
+
+- KV-Store {Key=EventType; Value=Counter}
+    - Count of distinct event types for entire period
+    - Count of Events for Certain Event Types for entire period
+    - Count of all events for entire collection period
+- KV-Store {Key=DFRelation; Value=Counter}
+    - Count of distinct directly-follows relations for entire period (Count over Keys)
+    - Sum of Events per directly-follows relation for entire period (Value of a single DF)
+    - Count of directly-follows relations for entire period (Sum of all values)
+
+
+
 
 ## Architecture Overview
 tbd.
 - Using tidwall/gjson accessing multiple fields witihn the JSON string
-- Badger as an embedded key-value store
+- Badger as an embedded key-value store building on LSM trees
 
 ### Performance Improvements
 - Kafka: Using asynchronous commits (e.g., every second) resulted in a performance of more than 100.000 messages/second (Kafka Source + Raw Parser + Null Receiver), which is more than sufficient for our purposes. Drawback: After a failure, we might ingest duplicate events.
@@ -44,3 +51,21 @@ tbd.
 - Embedded Graph-DB: https://github.com/krotik/eliasdb
 - Have a look on this DB (maybe for own event db implementation): https://github.com/kelindar/talaria
 - Have a look on this https://barkeywolf.consulting/posts/badger-event-store/
+
+## ULID
+We use ULID as the identifier for events. ULIDs are timestamp-aware and, thus, lexicographically sortable. This enables us to efficiently search for events applying a prefix search of the underlying LSM tree. 
+
+Spec for ULID: https://github.com/ulid/spec
+
+The timestamp is accurate to the millisecond.
+
+ 01AN4Z07BY      79KA1307SR9X4MV3
+|----------|    |----------------|
+ Timestamp           Entropy
+  10 chars           16 chars
+   48bits             80bits
+   base32             base32
+
+- 1.21e+24 unique ULIDs per millisecond (1,208,925,819,614,629,174,706,176 to be exact)
+- UNIX-time in milliseconds
+- Won't run out of space till the year 10889 AD
