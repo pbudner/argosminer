@@ -60,10 +60,15 @@ Spec for ULID: https://github.com/ulid/spec
 The timestamp is accurate to the millisecond.
 
  01AN4Z07BY      79KA1307SR9X4MV3
+
 |----------|    |----------------|
+
  Timestamp           Entropy
+
   10 chars           16 chars
+
    48bits             80bits
+   
    base32             base32
 
 - 1.21e+24 unique ULIDs per millisecond (1,208,925,819,614,629,174,706,176 to be exact)
