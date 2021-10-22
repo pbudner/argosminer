@@ -1,4 +1,4 @@
-package stores
+package backends
 
 import (
 	"fmt"
@@ -6,14 +6,15 @@ import (
 	"time"
 
 	badger "github.com/dgraph-io/badger/v3"
+	"github.com/pbudner/argosminer/stores/utils"
 )
 
 type diskStore struct {
 	store *badger.DB
 }
 
-func NewDiskStoreGenerator() StoreGenerator {
-	return func(storeId string) Store {
+func NewDiskStoreGenerator() StoreBackendGenerator {
+	return func(storeId string) StoreBackend {
 		return NewDiskStore(storeId)
 	}
 }
@@ -77,13 +78,13 @@ func (s *diskStore) Increment(key []byte, timestamp time.Time) (uint64, error) {
 				return err
 			}
 
-			itemValue = bytesToUint64(valCopy)
+			itemValue = utils.BytesToUint64(valCopy)
 		}
 
 		itemValue++
 
 		// update value
-		err = txn.Set(key, uint64ToBytes(itemValue))
+		err = txn.Set(key, utils.Uint64ToBytes(itemValue))
 		if err != nil {
 			return err
 		}

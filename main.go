@@ -15,6 +15,7 @@ import (
 	"github.com/pbudner/argosminer/receivers"
 	"github.com/pbudner/argosminer/sources"
 	"github.com/pbudner/argosminer/stores"
+	"github.com/pbudner/argosminer/stores/backends"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -52,12 +53,15 @@ func main() {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
 
-	store := stores.NewDiskStoreGenerator()
+	store := backends.NewDiskStoreGenerator()
+	eventStore := stores.NewEventStore(store)
+	eventStoreReceiver := receivers.NewEventStoreReceiver(eventStore)
+
 	//store := stores.NewInfluxStoreGenerator(influxServerURL, influxToken, influxBucket, influxOrg, redisOptions)
 	//store := stores.NewTstorageStoreGenerator()
 
 	receiverList := []receivers.StreamingReceiver{
-		receivers.NewDfgStreamingAlgorithm(store),
+		//receivers.NewDfgStreamingAlgorithm(store),
 	}
 
 	for _, source := range cfg.Sources {
@@ -92,6 +96,7 @@ func main() {
 			}
 
 			fs := sources.NewKafkaSource(*source.KafkaConfig, parser)
+			fs.AddReceiver(eventStoreReceiver)
 			for _, receiver := range receiverList {
 				fs.AddReceiver(receiver)
 			}

@@ -1,9 +1,11 @@
-package stores
+package backends
 
 import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/pbudner/argosminer/stores/utils"
 )
 
 type memoryStore struct {
@@ -11,8 +13,8 @@ type memoryStore struct {
 	store map[string][]byte
 }
 
-func NewMemoryStoreGenerator() StoreGenerator {
-	return func(_ string) Store {
+func NewMemoryStoreGenerator() StoreBackendGenerator {
+	return func(_ string) StoreBackend {
 		return NewMemoryStore()
 	}
 }
@@ -49,13 +51,12 @@ func (s *memoryStore) Increment(key []byte, timestamp time.Time) (uint64, error)
 	serializedKey := string(key)
 	rawValue, ok := s.store[serializedKey]
 	if !ok {
-		s.store[serializedKey] = uint64ToBytes(1)
+		s.store[serializedKey] = utils.Uint64ToBytes(1)
 		return 1, nil
 	}
 
-	value := bytesToUint64(rawValue)
-	value++
-	s.store[serializedKey] = uint64ToBytes(value)
+	value := 1 + utils.BytesToUint64(rawValue) // increment
+	s.store[serializedKey] = utils.Uint64ToBytes(value)
 	return value, nil
 }
 

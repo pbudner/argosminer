@@ -5,18 +5,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pbudner/argosminer/events"
-	"github.com/pbudner/argosminer/stores"
+	"github.com/pbudner/argosminer/stores/backends"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
 
 type dfgStreamingAlgorithm struct {
 	Id                   uuid.UUID
-	StoreGenerator       stores.StoreGenerator
-	CaseStore            stores.Store
-	DirectlyFollowsStore stores.Store
-	ActivityStore        stores.Store
-	StartActivityStore   stores.Store
+	StoreGenerator       backends.StoreBackendGenerator
+	CaseStore            backends.StoreBackend
+	DirectlyFollowsStore backends.StoreBackend
+	ActivityStore        backends.StoreBackend
+	StartActivityStore   backends.StoreBackend
 }
 
 var receivedDfgEventsCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -41,7 +41,7 @@ func init() {
 	prometheus.MustRegister(receivedDfgEventsCounter, lastReceivedDfgEvent, lastReceviedDfgEventTime)
 }
 
-func NewDfgStreamingAlgorithm(storeGenerator stores.StoreGenerator) *dfgStreamingAlgorithm {
+func NewDfgStreamingAlgorithm(storeGenerator backends.StoreBackendGenerator) *dfgStreamingAlgorithm {
 	algo := dfgStreamingAlgorithm{
 		Id:             uuid.New(),
 		StoreGenerator: storeGenerator,

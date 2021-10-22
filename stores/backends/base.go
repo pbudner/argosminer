@@ -1,8 +1,8 @@
-package stores
+package backends
 
 import "time"
 
-type Store interface {
+type StoreBackend interface {
 	Set(key []byte, value []byte) error
 	Get(key []byte) ([]byte, error)
 	Increment(key []byte, timestamp time.Time) (uint64, error)
@@ -12,4 +12,4 @@ type Store interface {
 	Close()
 }
 
-type StoreGenerator func(string) Store
+type StoreBackendGenerator func(string) StoreBackend
