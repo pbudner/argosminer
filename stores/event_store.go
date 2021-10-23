@@ -76,6 +76,8 @@ func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 	return events, nil
 }
 
+/*
+// this operation is waaaaaaay too expensive
 func (es *EventStore) Count() (uint64, error) {
 	es.Lock()
 	defer es.Unlock()
@@ -86,3 +88,4 @@ func (es *EventStore) Count() (uint64, error) {
 
 	return count, nil
 }
+*/

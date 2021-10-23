@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -113,8 +114,14 @@ func main() {
 		})
 	})
 
-	r.GET("/events/last", func(c *gin.Context) {
-		events, err := eventStore.GetLast(10)
+	r.GET("/events/last/*count", func(c *gin.Context) {
+		counter := 10
+		i, err := strconv.Atoi(c.Param("count")[1:])
+		if err == nil && i > 0 && i < 50 {
+			counter = i
+		}
+
+		events, err := eventStore.GetLast(counter)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),

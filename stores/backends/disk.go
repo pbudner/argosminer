@@ -20,7 +20,7 @@ func NewDiskStoreGenerator() StoreBackendGenerator {
 }
 
 func NewDiskStore(storeId string) *diskStore {
-	db, err := badger.Open(badger.DefaultOptions(fmt.Sprintf("/Volumes/PascalsSSD/ArgosMiner/badger-%s", storeId)))
+	db, err := badger.Open(badger.DefaultOptions(fmt.Sprintf("/Volumes/PascalsSSD/ArgosMiner/badger_%s", storeId)))
 	if err != nil {
 		log.Fatal(err)
 	}
