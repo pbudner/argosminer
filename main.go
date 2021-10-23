@@ -55,7 +55,6 @@ func main() {
 	wg := &sync.WaitGroup{}
 
 	store := backends.NewDiskStoreGenerator()
-	kvStore := stores.NewKvStore(store)
 	eventStore := stores.NewEventStore(store)
 
 	eventStoreReceiver := receivers.NewEventStoreReceiver(eventStore)

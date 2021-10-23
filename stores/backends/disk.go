@@ -78,6 +78,7 @@ func (s *diskStore) Increment(key []byte) (uint64, error) {
 				return err
 			}
 
+			// TODO: We could increase performance here, if we increment on byte level...
 			itemValue = utils.BytesToUint64(valCopy)
 		}
 
