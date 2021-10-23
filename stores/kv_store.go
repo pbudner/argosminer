@@ -28,3 +28,9 @@ func (es *KvStore) Get(key []byte) ([]byte, error) {
 	defer es.Unlock()
 	return es.store.Get(key)
 }
+
+func (es *KvStore) Increment(key []byte) (uint64, error) {
+	es.Lock()
+	defer es.Unlock()
+	return es.store.Increment(key)
+}
