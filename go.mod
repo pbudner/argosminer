@@ -13,6 +13,7 @@ require (
 	github.com/segmentio/kafka-go v0.4.21
 	github.com/sirupsen/logrus v1.8.1
 	github.com/tidwall/gjson v1.9.4
+	github.com/vmihailenco/msgpack/v5 v5.3.5
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -48,7 +49,6 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/ugorji/go/codec v1.2.6 // indirect
-	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
