@@ -1,7 +1,6 @@
 package stores
 
 import (
-	"encoding/json"
 	"math/rand"
 	"sync"
 	"time"
@@ -50,7 +49,7 @@ func (es *EventStore) Get(id []byte) (*events.Event, error) {
 	}
 
 	var event events.Event
-	err = json.Unmarshal(value, &event)
+	err = event.Unmarshal(value)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +67,7 @@ func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 
 	events := make([]events.Event, len(rawValues))
 	for i, rawValue := range rawValues {
-		err = json.Unmarshal(rawValue, &events[i])
+		err = events[i].Unmarshal(rawValue)
 		if err != nil {
 			return nil, err
 		}

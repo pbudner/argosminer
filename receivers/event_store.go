@@ -23,7 +23,12 @@ func NewEventStoreReceiver(eventStore *stores.EventStore) *eventStoreReceiver {
 }
 
 func (a *eventStoreReceiver) Append(event *events.Event) error {
-	return a.EventStore.Append(event.Byte())
+	b, err := event.Marshal()
+	if err != nil {
+		return err
+	}
+
+	return a.EventStore.Append(b)
 }
 
 func (a *eventStoreReceiver) Close() {
