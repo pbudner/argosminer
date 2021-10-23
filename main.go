@@ -56,16 +56,10 @@ func main() {
 
 	store := backends.NewDiskStoreGenerator()
 	eventStore := stores.NewEventStore(store)
-
 	eventStoreReceiver := receivers.NewEventStoreReceiver(eventStore)
-
-	//store := stores.NewInfluxStoreGenerator(influxServerURL, influxToken, influxBucket, influxOrg, redisOptions)
-	//store := stores.NewTstorageStoreGenerator()
-
 	receiverList := []receivers.StreamingReceiver{
 		//receivers.NewDfgStreamingAlgorithm(store),
 	}
-
 	for _, source := range cfg.Sources {
 		if !source.Enabled {
 			continue
