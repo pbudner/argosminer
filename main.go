@@ -113,6 +113,20 @@ func main() {
 		})
 	})
 
+	r.GET("/events/last", func(c *gin.Context) {
+		events, err := eventStore.GetLast(10)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"events": events,
+		})
+	})
+
 	r.GET("/metrics", prometheusHandler())
 
 	srv := &http.Server{

@@ -1,10 +1,12 @@
 package stores
 
 import (
+	"encoding/json"
 	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/stores/backends"
 	"github.com/pbudner/argosminer/stores/ulid"
 )
@@ -37,4 +39,51 @@ func (es *EventStore) Append(rawEvente []byte) error {
 	}
 
 	return es.store.Set(binID, rawEvente)
+}
+
+func (es *EventStore) Get(id []byte) (*events.Event, error) {
+	es.Lock()
+	defer es.Unlock()
+	value, err := es.store.Get(id)
+	if err != nil {
+		return nil, err
+	}
+
+	var event events.Event
+	err = json.Unmarshal(value, &event)
+	if err != nil {
+		return nil, err
+	}
+
+	return &event, nil
+}
+
+func (es *EventStore) GetLast(count int) ([]events.Event, error) {
+	es.Lock()
+	defer es.Unlock()
+	rawValues, err := es.store.GetLast(count)
+	if err != nil {
+		return nil, err
+	}
+
+	events := make([]events.Event, len(rawValues))
+	for i, rawValue := range rawValues {
+		err = json.Unmarshal(rawValue, &events[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return events, nil
+}
+
+func (es *EventStore) Count() (uint64, error) {
+	es.Lock()
+	defer es.Unlock()
+	count, err := es.store.TotalCount()
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }

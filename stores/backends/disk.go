@@ -1,9 +1,9 @@
 package backends
 
 import (
+	"bytes"
 	"fmt"
 	"log"
-	"time"
 
 	badger "github.com/dgraph-io/badger/v3"
 	"github.com/pbudner/argosminer/stores/utils"
@@ -61,7 +61,7 @@ func (s *diskStore) Get(key []byte) ([]byte, error) {
 	return value, nil
 }
 
-func (s *diskStore) Increment(key []byte, timestamp time.Time) (uint64, error) {
+func (s *diskStore) Increment(key []byte) (uint64, error) {
 	var itemValue uint64
 	err := s.store.Update(func(txn *badger.Txn) error {
 		// retrieve stored value
@@ -111,16 +111,143 @@ func (s *diskStore) Contains(key []byte) bool {
 	return err == nil
 }
 
-func (s *diskStore) EncodeDirectlyFollowsRelation(from []byte, to []byte) []byte {
-	if len(from) == 0 {
-		return to
-	}
+func (s *diskStore) GetLast(count int) ([][]byte, error) {
+	result := make([][]byte, count)
+	err := s.store.View(func(txn *badger.Txn) error {
+		var err error
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		opts.Reverse = true
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		i := 0
+		for it.Rewind(); it.Valid(); it.Next() {
+			if i == count {
+				break
+			}
+			item := it.Item()
+			result[i], err = item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
 
-	return append(append(from, byte(0)), to[:]...)
+			i++
+		}
+
+		return nil
+	})
+
+	return result, err
 }
 
-func (s *diskStore) EncodeActivity(activity []byte) []byte {
-	return activity
+func (s *diskStore) GetFirst(count int) ([][]byte, error) {
+	result := make([][]byte, count)
+	err := s.store.View(func(txn *badger.Txn) error {
+		var err error
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		i := 0
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			result[i], err = item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+			i++
+		}
+
+		return nil
+	})
+
+	return result, err
+}
+
+func (s *diskStore) GetRange(from []byte, to []byte) ([][]byte, error) {
+	result := make([][]byte, 1)
+	err := s.store.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		opts.Reverse = true
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		found := false
+		it.Rewind()
+		for it.Seek(from); it.Valid(); it.Next() {
+			item := it.Item()
+			key := item.Key()
+			if !found {
+				if bytes.Compare(key, from) < 0 {
+					continue
+				}
+				found = true
+			}
+
+			if bytes.Compare(key, to) > 0 {
+				break
+			}
+
+			itemBytes, err := item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+			result = append(result, itemBytes)
+		}
+
+		return nil
+	})
+
+	return result, err
+}
+
+func (s *diskStore) TotalCount() (uint64, error) {
+	counter := uint64(0)
+	err := s.store.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			counter++
+		}
+
+		return nil
+	})
+
+	return counter, err
+}
+
+func (s *diskStore) CountRange(from []byte, to []byte) (uint64, error) {
+	counter := uint64(0)
+	err := s.store.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		opts.Reverse = true
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		found := false
+		it.Rewind()
+		for it.Seek(from); it.Valid(); it.Next() {
+			item := it.Item()
+			key := item.Key()
+			if !found {
+				if bytes.Compare(key, from) < 0 {
+					continue
+				}
+				found = true
+			}
+
+			if bytes.Compare(key, to) > 0 {
+				break
+			}
+
+			counter++
+		}
+
+		return nil
+	})
+	return counter, err
 }
 
 func (s *diskStore) Close() {

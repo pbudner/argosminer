@@ -20,7 +20,7 @@ func NewEvent(processInstanceId string, activityName string, timestamp time.Time
 }
 
 func (e *Event) String() string {
-	return fmt.Sprintf("{\"timestamp\":\"%s\",\"activity_name\":\"%s\",\"process_instance_id\":\"%s\"}", e.Timestamp, e.ActivityName, e.ProcessInstanceId)
+	return fmt.Sprintf("{\"timestamp\":\"%s\",\"activity_name\":\"%s\",\"process_instance_id\":\"%s\"}", e.Timestamp.Format("2006-01-02T15:04:05Z07:00"), e.ActivityName, e.ProcessInstanceId)
 }
 
 func (e *Event) Byte() []byte {

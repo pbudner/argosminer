@@ -1,13 +1,6 @@
 package backends
 
-import (
-	"fmt"
-	"sync"
-	"time"
-
-	"github.com/pbudner/argosminer/stores/utils"
-)
-
+/*
 type memoryStore struct {
 	mu    *sync.Mutex
 	store map[string][]byte
@@ -45,7 +38,7 @@ func (s *memoryStore) Get(key []byte) ([]byte, error) {
 	return value, nil
 }
 
-func (s *memoryStore) Increment(key []byte, timestamp time.Time) (uint64, error) {
+func (s *memoryStore) Increment(key []byte) (uint64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	serializedKey := string(key)
@@ -67,19 +60,9 @@ func (s *memoryStore) Contains(key []byte) bool {
 	return ok
 }
 
-func (s *memoryStore) EncodeDirectlyFollowsRelation(from []byte, to []byte) []byte {
-	if len(from) == 0 {
-		return to
-	}
-	return append(append(from, byte(0)), to[:]...)
-}
-
-func (s *memoryStore) EncodeActivity(activity []byte) []byte {
-	return activity
-}
-
 func (s *memoryStore) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// do nothing
 }
+*/

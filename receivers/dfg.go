@@ -59,22 +59,22 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	cleanedActivityName := []byte(cleanActivityName(string(event.ActivityName)))
 
 	caseInstance := []byte(event.ProcessInstanceId)
-	timestamp := event.Timestamp
+	// timestamp := event.Timestamp
 	log.Debugf("received activity %s with timestamp %s", event.ActivityName, event.Timestamp)
 
 	// increment general activity counter
-	_, err := a.ActivityStore.Increment(a.ActivityStore.EncodeActivity(cleanedActivityName), timestamp)
+	_, err := a.ActivityStore.Increment(cleanedActivityName)
 	if err != nil {
 		return err
 	}
 
 	if !a.CaseStore.Contains(caseInstance) {
 		// 1. we have not seen this case so far
-		_, err = a.StartActivityStore.Increment(a.StartActivityStore.EncodeActivity(cleanedActivityName), timestamp)
+		_, err = a.StartActivityStore.Increment(cleanedActivityName)
 		if err != nil {
 			return err
 		}
-		_, err = a.DirectlyFollowsStore.Increment(a.DirectlyFollowsStore.EncodeDirectlyFollowsRelation([]byte{}, cleanedActivityName), timestamp)
+		_, err = a.DirectlyFollowsStore.Increment(append([]byte{0x00, 0x01}, cleanedActivityName...))
 		if err != nil {
 			return err
 		}
@@ -85,8 +85,8 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 			return err
 		}
 		start := rawStart
-		relation := a.DirectlyFollowsStore.EncodeDirectlyFollowsRelation(start, cleanedActivityName)
-		_, err = a.DirectlyFollowsStore.Increment(relation, timestamp)
+		relation := append(start, append([]byte{0x00}, cleanedActivityName...)...)
+		_, err = a.DirectlyFollowsStore.Increment(relation)
 		if err != nil {
 			return err
 		}

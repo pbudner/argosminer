@@ -3,7 +3,7 @@ package experiments
 /*
 // based on this blog post https://barkeywolf.consulting/posts/badger-event-store/
 
-const eventDbPath = "/Volumes/PascalsSSD/badgerdb_tmp"
+const eventDbPath = "/Volumes/PascalsSSD/ArgosMiner/badger-event_store"
 
 type MonotonicULIDsource struct {
 	sync.Mutex            // mutex to allow clean concurrent access
@@ -140,29 +140,38 @@ func main() {
 			}*/
 
 //retrieved = append(retrieved, des)
-/*}
-it.Close()
+/*
+	}
+	it.Close()
 
-// fetch last value
-opts.Reverse = true
-it = txn.NewIterator(opts)
-// have the iterator walk the LMB tree
-for it.Rewind(); it.Valid(); it.Next() {
-	item := it.Item()
-	k := item.Key()
-	fmt.Printf("Last Item: %s\n", bytesToTime(k[:6]))
-	break
-}
-it.Close()
+	// fetch last value
+	opts.Reverse = true
+	it = txn.NewIterator(opts)
+	i := 0
+	// have the iterator walk the LMB tree
+	for it.Rewind(); it.Valid(); it.Next() {
+		item := it.Item()
+		k := item.Key()
+		fmt.Printf("Last - %d Item: %s\n", i, bytesToTime(k[:6]))
+		item.Value(func(val []byte) error {
+			fmt.Println(string(val))
+			return nil
+		})
+		i++
+		if i > 10 {
+			break
+		}
+	}
+	it.Close()
 
-/*opts.Reverse = false
-it = txn.NewIterator(opts)
-// have the iterator walk the LMB tree
-for it.Rewind(); it.Valid(); it.Next() {
-	retrieved++
-}
-it.Close()
-fmt.Printf("Number of total events: %s\n", humanize.Comma(int64(retrieved)))*/
+	/*opts.Reverse = false
+	it = txn.NewIterator(opts)
+	// have the iterator walk the LMB tree
+	for it.Rewind(); it.Valid(); it.Next() {
+		retrieved++
+	}
+	it.Close()
+	fmt.Printf("Number of total events: %s\n", humanize.Comma(int64(retrieved)))*/
 /*
 		opts.Reverse = false
 		it = txn.NewIterator(opts)
@@ -263,8 +272,9 @@ func write() {
 		if err != nil {
 			panic(err)
 		}*/
+
+// serialize the ULID to its binary form
 /*
-		// serialize the ULID to its binary form
 		binID, err := e.MarshalBinary()
 		if err != nil {
 			panic(err)
