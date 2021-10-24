@@ -1,15 +1,19 @@
 package stores
 
 import (
+	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/pbudner/argosminer/stores/backends"
+	"github.com/pbudner/argosminer/stores/ulid"
+	"github.com/pbudner/argosminer/stores/utils"
 )
 
 type SbarStore struct {
 	sync.Mutex
-	store backends.StoreBackend
+	store         backends.StoreBackend
+	ulidGenerator ulid.MonotonicULIDGenerator
 }
 
 const seperatorCode = 0x00
@@ -18,17 +22,33 @@ const dfRelationCode = 0x02
 const startActivityCode = 0x03
 const caseCode = 0x04
 
-// TODO: Trace DFRelations and Activities over time
 func NewSbarStore(storeGenerator backends.StoreBackendGenerator) *SbarStore {
 	return &SbarStore{
-		store: storeGenerator("sbar"),
+		store:         storeGenerator("sbar"),
+		ulidGenerator: *ulid.NewMonotonicULIDGenerator(rand.New(rand.NewSource(4711))),
 	}
 }
 
 func (kv *SbarStore) RecordDirectlyFollowsRelation(from []byte, to []byte, timestamp time.Time) error {
 	kv.Lock()
 	defer kv.Unlock()
-	_, err := kv.store.Increment(encodeDfRelation(from, to))
+	dfRelation := encodeDfRelation(from, to)
+	counter, err := kv.store.Increment(dfRelation)
+	if err != nil {
+		return err
+	}
+
+	ulid, err := kv.ulidGenerator.New(timestamp)
+	if err != nil {
+		return err
+	}
+
+	binID, err := ulid.MarshalBinary()
+	if err != nil {
+		panic(err)
+	}
+
+	kv.store.Set(append(dfRelation, binID...), utils.Uint64ToBytes(counter))
 	return err
 }
 
@@ -44,10 +64,26 @@ func (kv *SbarStore) GetLastActivityForCase(caseId []byte) ([]byte, error) {
 	return kv.store.Get(encodeCase(caseId))
 }
 
-func (kv *SbarStore) RecordActivity(key []byte) error {
+func (kv *SbarStore) RecordActivity(key []byte, timestamp time.Time) error {
 	kv.Lock()
 	defer kv.Unlock()
-	_, err := kv.store.Increment(encodeActivity(key))
+	activityKey := encodeActivity(key)
+	counter, err := kv.store.Increment(activityKey)
+	if err != nil {
+		return err
+	}
+
+	ulid, err := kv.ulidGenerator.New(timestamp)
+	if err != nil {
+		return err
+	}
+
+	binID, err := ulid.MarshalBinary()
+	if err != nil {
+		panic(err)
+	}
+
+	kv.store.Set(append(activityKey, binID...), utils.Uint64ToBytes(counter))
 	return err
 }
 

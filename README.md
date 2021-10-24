@@ -14,7 +14,6 @@ The following features distinguish ArgosMiner from other process mining systems:
 - Save Raw Logs in Compressed BadgerDB
 
 ## Requirements of TSDB for First Version
-
 - Sum of Events per EventType per Day (<-- Partition by Day) 
     - We need to go through all days and count...
 - Sum of Events per Day (<-- Partition by Day)

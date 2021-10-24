@@ -23,7 +23,7 @@ func NewEventStore(storeGenerator backends.StoreBackendGenerator) *EventStore {
 	}
 }
 
-func (es *EventStore) Append(rawEvente []byte) error {
+func (es *EventStore) Append(rawEvent []byte) error {
 	es.Lock()
 	defer es.Unlock()
 	t := time.Now().UTC()
@@ -37,7 +37,7 @@ func (es *EventStore) Append(rawEvente []byte) error {
 		panic(err)
 	}
 
-	return es.store.Set(binID, rawEvente)
+	return es.store.Set(binID, rawEvent)
 }
 
 func (es *EventStore) Get(id []byte) (*events.Event, error) {
