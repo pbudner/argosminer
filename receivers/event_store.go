@@ -4,7 +4,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/stores"
-	"github.com/pbudner/argosminer/stores/utils"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -15,7 +14,7 @@ type eventStoreReceiver struct {
 	KvStore    *stores.KvStore
 }
 
-var eventStoreCounter = []byte("EventStore_Counter")
+var eventStoreCounter = []byte("EventStoreCounter")
 
 func NewEventStoreReceiver(eventStore *stores.EventStore, kvStore *stores.KvStore) *eventStoreReceiver {
 	receiver := eventStoreReceiver{
@@ -33,17 +32,12 @@ func (a *eventStoreReceiver) Append(event *events.Event) error {
 		return err
 	}
 
-	a.KvStore.Increment(eventStoreCounter)
-	return a.EventStore.Append(b)
-}
-
-func (a *eventStoreReceiver) Count() (uint64, error) {
-	c, err := a.KvStore.Get(eventStoreCounter)
+	_, err = a.KvStore.Increment(eventStoreCounter)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	return utils.BytesToUint64(c), err
+	return a.EventStore.Append(b)
 }
 
 func (a *eventStoreReceiver) Close() {

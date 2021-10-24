@@ -166,7 +166,7 @@ func (s *diskStore) GetFirst(count int) ([][]byte, error) {
 }
 
 func (s *diskStore) GetRange(from []byte, to []byte) ([][]byte, error) {
-	result := make([][]byte, 1)
+	result := make([][]byte, 0)
 	err := s.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
@@ -194,6 +194,36 @@ func (s *diskStore) GetRange(from []byte, to []byte) ([][]byte, error) {
 				return err
 			}
 			result = append(result, itemBytes)
+		}
+
+		return nil
+	})
+
+	return result, err
+}
+
+func (s *diskStore) Find(prefix []byte) ([]KeyValue, error) {
+	result := make([]KeyValue, 0)
+	err := s.store.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		opts.Prefix = prefix
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		it.Rewind()
+		i := 0
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			i++
+			if i > 100 {
+				break
+			}
+			item := it.Item()
+			key := item.Key()
+			itemBytes, err := item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+			result = append(result, KeyValue{Key: key, Value: itemBytes})
 		}
 
 		return nil

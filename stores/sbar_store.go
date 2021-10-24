@@ -22,6 +22,7 @@ const activityCode = 0x01
 const dfRelationCode = 0x02
 const startActivityCode = 0x03
 const caseCode = 0x04
+const timestampedCode = 0x05
 
 func NewSbarStore(storeGenerator backends.StoreBackendGenerator) *SbarStore {
 	return &SbarStore{
@@ -33,8 +34,7 @@ func NewSbarStore(storeGenerator backends.StoreBackendGenerator) *SbarStore {
 func (kv *SbarStore) RecordDirectlyFollowsRelation(from []byte, to []byte, timestamp time.Time) error {
 	kv.Lock()
 	defer kv.Unlock()
-	dfRelation := encodeDfRelation(from, to)
-	counter, err := kv.store.Increment(dfRelation)
+	counter, err := kv.store.Increment(encodeDfRelation(from, to, false))
 	if err != nil {
 		return err
 	}
@@ -49,20 +49,20 @@ func (kv *SbarStore) RecordDirectlyFollowsRelation(from []byte, to []byte, times
 		panic(err)
 	}
 
-	kv.store.Set(append(dfRelation, binID...), utils.Uint64ToBytes(counter))
+	kv.store.Set(append(encodeDfRelation(from, to, true), binID...), utils.Uint64ToBytes(counter))
 	return err
 }
 
 func (kv *SbarStore) RecordActivityForCase(activity []byte, caseId []byte, timestamp time.Time) error {
 	kv.Lock()
 	defer kv.Unlock()
-	return kv.store.Set(encodeCase(caseId), activity)
+	return kv.store.Set(encodeCase(caseId, false), activity)
 }
 
 func (kv *SbarStore) GetLastActivityForCase(caseId []byte) ([]byte, error) {
 	kv.Lock()
 	defer kv.Unlock()
-	v, err := kv.store.Get(encodeCase(caseId))
+	v, err := kv.store.Get(encodeCase(caseId, false))
 	if err != nil && err != badger.ErrKeyNotFound {
 		return nil, err
 	}
@@ -72,8 +72,7 @@ func (kv *SbarStore) GetLastActivityForCase(caseId []byte) ([]byte, error) {
 func (kv *SbarStore) RecordActivity(key []byte, timestamp time.Time) error {
 	kv.Lock()
 	defer kv.Unlock()
-	activityKey := encodeActivity(key)
-	counter, err := kv.store.Increment(activityKey)
+	counter, err := kv.store.Increment(encodeActivity(key, false))
 	if err != nil {
 		return err
 	}
@@ -88,14 +87,28 @@ func (kv *SbarStore) RecordActivity(key []byte, timestamp time.Time) error {
 		panic(err)
 	}
 
-	kv.store.Set(append(activityKey, binID...), utils.Uint64ToBytes(counter))
+	kv.store.Set(append(encodeActivity(key, true), binID...), utils.Uint64ToBytes(counter))
 	return err
+}
+
+func (kv *SbarStore) GetActivities() ([]uint64, error) {
+	kv.Lock()
+	defer kv.Unlock()
+	activities, err := kv.store.Find([]byte{activityCode})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]uint64, len(activities))
+	for i, a := range activities {
+		result[i] = utils.BytesToUint64(a.Value)
+	}
+	return result, nil
 }
 
 func (kv *SbarStore) RecordStartActivity(key []byte) error {
 	kv.Lock()
 	defer kv.Unlock()
-	_, err := kv.store.Increment(encodeStartActivity(key))
+	_, err := kv.store.Increment(encodeStartActivity(key, false))
 	return err
 }
 
@@ -103,12 +116,15 @@ func (kv *SbarStore) Close() {
 	kv.store.Close()
 }
 
-func encodeActivity(key []byte) []byte {
+func encodeActivity(key []byte, timestamped bool) []byte {
+	if timestamped {
+		return append([]byte{timestampedCode, activityCode}, key...)
+	}
+
 	return append([]byte{activityCode}, key...)
 }
 
-// TODO: evaluate whether this is correct
-func encodeDfRelation(from []byte, to []byte) []byte {
+func encodeDfRelation(from []byte, to []byte, timestamped bool) []byte {
 	result := make([]byte, len(from)+len(to)+2)
 	result[0] = dfRelationCode
 	result[len(from)] = seperatorCode
@@ -118,13 +134,26 @@ func encodeDfRelation(from []byte, to []byte) []byte {
 	for i, b := range to {
 		result[len(from)+1+i] = b
 	}
+
+	if timestamped {
+		result = append([]byte{timestampedCode}, result...)
+	}
+
 	return result
 }
 
-func encodeStartActivity(key []byte) []byte {
+func encodeStartActivity(key []byte, timestamped bool) []byte {
+	if timestamped {
+		return append([]byte{timestampedCode, startActivityCode}, key...)
+	}
+
 	return append([]byte{startActivityCode}, key...)
 }
 
-func encodeCase(key []byte) []byte {
+func encodeCase(key []byte, timestamped bool) []byte {
+	if timestamped {
+		return append([]byte{timestampedCode, caseCode}, key...)
+	}
+
 	return append([]byte{caseCode}, key...)
 }

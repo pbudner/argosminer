@@ -34,3 +34,9 @@ func (es *KvStore) Increment(key []byte) (uint64, error) {
 	defer es.Unlock()
 	return es.store.Increment(key)
 }
+
+func (es *KvStore) Find(prefix []byte) ([]backends.KeyValue, error) {
+	es.Lock()
+	defer es.Unlock()
+	return es.store.Find(prefix)
+}

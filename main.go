@@ -132,6 +132,21 @@ func main() {
 		})
 	})
 
+	r.GET("/events/activities", func(c *gin.Context) {
+		v, err := sbarStore.GetActivities()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"activities": v,
+			"count":      len(v),
+		})
+	})
+
 	r.GET("/metrics", prometheusHandler())
 
 	srv := &http.Server{

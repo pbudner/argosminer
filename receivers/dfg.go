@@ -1,8 +1,6 @@
 package receivers
 
 import (
-	"strings"
-
 	"github.com/google/uuid"
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/stores"
@@ -50,14 +48,13 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	lastReceivedDfgEvent.WithLabelValues(a.Id.String()).SetToCurrentTime()
 	receivedDfgEventsCounter.WithLabelValues(a.Id.String()).Inc()
 	lastReceviedDfgEventTime.WithLabelValues(a.Id.String()).Set(float64(event.Timestamp.Unix()))
-	cleanedActivityName := []byte(cleanActivityName(string(event.ActivityName)))
-
+	activity := []byte(event.ActivityName)
 	caseInstance := []byte(event.ProcessInstanceId)
 	timestamp := event.Timestamp
 	log.Debugf("received activity %s with timestamp %s", event.ActivityName, event.Timestamp)
 
 	// increment general activity counter
-	err := a.Store.RecordActivity(cleanedActivityName, timestamp)
+	err := a.Store.RecordActivity(activity, timestamp)
 	if err != nil {
 		return err
 	}
@@ -68,31 +65,27 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	}
 	if lastEventForCase == nil {
 		// 1. we have not seen this case so far
-		err = a.Store.RecordStartActivity(cleanedActivityName)
+		err = a.Store.RecordStartActivity(activity)
 		if err != nil {
 			return err
 		}
-		err = a.Store.RecordDirectlyFollowsRelation([]byte{0x00}, cleanedActivityName, timestamp)
+		err = a.Store.RecordDirectlyFollowsRelation([]byte{0x00}, activity, timestamp)
 		if err != nil {
 			return err
 		}
 	} else {
 		// 2. we have seen this case
-		err = a.Store.RecordDirectlyFollowsRelation(lastEventForCase, cleanedActivityName, timestamp)
+		err = a.Store.RecordDirectlyFollowsRelation(lastEventForCase, activity, timestamp)
 		if err != nil {
 			return err
 		}
 	}
 
 	// always set the last seen activity for the current case to the current activity
-	err = a.Store.RecordActivityForCase(cleanedActivityName, caseInstance, timestamp)
+	err = a.Store.RecordActivityForCase(activity, caseInstance, timestamp)
 	return err
 }
 
 func (a *dfgStreamingAlgorithm) Close() {
 	a.Store.Close()
-}
-
-func cleanActivityName(activityName string) string {
-	return strings.TrimSpace(activityName)
 }

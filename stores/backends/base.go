@@ -10,7 +10,13 @@ type StoreBackend interface {
 	GetRange(from []byte, to []byte) ([][]byte, error)
 	TotalCount() (uint64, error)
 	CountRange(from []byte, to []byte) (uint64, error)
+	Find(prefix []byte) ([]KeyValue, error)
 	Close()
+}
+
+type KeyValue struct {
+	Key   []byte
+	Value []byte
 }
 
 type StoreBackendGenerator func(string) StoreBackend
