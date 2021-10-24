@@ -56,7 +56,8 @@ func main() {
 
 	store := backends.NewDiskStoreGenerator()
 	eventStore := stores.NewEventStore(store)
-	eventStoreReceiver := receivers.NewEventStoreReceiver(eventStore)
+	kvStore := stores.NewKvStore(store)
+	eventStoreReceiver := receivers.NewEventStoreReceiver(eventStore, kvStore)
 	receiverList := []receivers.StreamingReceiver{
 		//receivers.NewDfgStreamingAlgorithm(store),
 	}

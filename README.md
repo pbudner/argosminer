@@ -22,19 +22,16 @@ The following features distinguish ArgosMiner from other process mining systems:
 - Sum of Events per directly-follows relation for certain time-window and certain event types (<-- this is our DFG)
     - 
 
-- Meta KV-Store {Key=[#0General;#1EventType;#2DFRelation]; Value=Counter}
-    - Count of distinct event types for entire period
-    - Count of Events for Certain Event Types for entire period
-    - Count of all events for entire collection period
-    - Count of distinct directly-follows relations for entire period (Count over Keys)
-    - Sum of Events per directly-follows relation for entire period (Value of a single DF)
-    - Count of directly-follows relations for entire period (Sum of all values)
+- (IMPLEMENTED) Meta KV-Store {Key=[#0General;#1EventType;#2DFRelation]; Value=Counter}
+    - Count of distinct event types for entire period (Count with Prefix Search)
+    - Count of Events for Certain Event Types for entire period (Simple Get)
+    - Count of all events for entire collection period (Get of Counter Variable)
+    - Count of distinct directly-follows relations for entire period (Count with Prefix Serach)
+    - Sum of Events per directly-follows relation for entire period (Simple Get of a single DF)
+    - Count of directly-follows relations for entire period (Sum of all DF values by Prefix Search)
 
-- EventLog KV-Store {Key=ULID; Value=Serialized Event}
+- (IMPLEMENTED) EventLog KV-Store {Key=ULID; Value=Serialized Event} 
     - Log of all received events
-
-
-
 
 ## Architecture Overview
 tbd.
