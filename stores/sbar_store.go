@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dgraph-io/badger/v3"
 	"github.com/pbudner/argosminer/stores/backends"
 	"github.com/pbudner/argosminer/stores/ulid"
 	"github.com/pbudner/argosminer/stores/utils"
@@ -61,7 +62,11 @@ func (kv *SbarStore) RecordActivityForCase(activity []byte, caseId []byte, times
 func (kv *SbarStore) GetLastActivityForCase(caseId []byte) ([]byte, error) {
 	kv.Lock()
 	defer kv.Unlock()
-	return kv.store.Get(encodeCase(caseId))
+	v, err := kv.store.Get(encodeCase(caseId))
+	if err != nil && err != badger.ErrKeyNotFound {
+		return nil, err
+	}
+	return v, nil
 }
 
 func (kv *SbarStore) RecordActivity(key []byte, timestamp time.Time) error {
@@ -94,6 +99,10 @@ func (kv *SbarStore) RecordStartActivity(key []byte) error {
 	return err
 }
 
+func (kv *SbarStore) Close() {
+	kv.store.Close()
+}
+
 func encodeActivity(key []byte) []byte {
 	return append([]byte{activityCode}, key...)
 }
@@ -102,12 +111,12 @@ func encodeActivity(key []byte) []byte {
 func encodeDfRelation(from []byte, to []byte) []byte {
 	result := make([]byte, len(from)+len(to)+2)
 	result[0] = dfRelationCode
-	result[len(from)+1] = seperatorCode
+	result[len(from)] = seperatorCode
 	for i, b := range from {
 		result[1+i] = b
 	}
-	for i, b := range from {
-		result[len(from)+2+i] = b
+	for i, b := range to {
+		result[len(from)+1+i] = b
 	}
 	return result
 }

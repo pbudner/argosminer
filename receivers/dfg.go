@@ -5,18 +5,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pbudner/argosminer/events"
-	"github.com/pbudner/argosminer/stores/backends"
+	"github.com/pbudner/argosminer/stores"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
 
 type dfgStreamingAlgorithm struct {
-	Id                   uuid.UUID
-	StoreGenerator       backends.StoreBackendGenerator
-	CaseStore            backends.StoreBackend
-	DirectlyFollowsStore backends.StoreBackend
-	ActivityStore        backends.StoreBackend
-	StartActivityStore   backends.StoreBackend
+	Id    uuid.UUID
+	Store *stores.SbarStore
 }
 
 var receivedDfgEventsCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -41,13 +37,11 @@ func init() {
 	prometheus.MustRegister(receivedDfgEventsCounter, lastReceivedDfgEvent, lastReceviedDfgEventTime)
 }
 
-func NewDfgStreamingAlgorithm(storeGenerator backends.StoreBackendGenerator) *dfgStreamingAlgorithm {
+func NewDfgStreamingAlgorithm(store *stores.SbarStore) *dfgStreamingAlgorithm {
 	algo := dfgStreamingAlgorithm{
-		Id:             uuid.New(),
-		StoreGenerator: storeGenerator,
+		Id:    uuid.New(),
+		Store: store,
 	}
-
-	algo.initStores()
 	return &algo
 }
 
@@ -59,57 +53,44 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	cleanedActivityName := []byte(cleanActivityName(string(event.ActivityName)))
 
 	caseInstance := []byte(event.ProcessInstanceId)
-	// timestamp := event.Timestamp
+	timestamp := event.Timestamp
 	log.Debugf("received activity %s with timestamp %s", event.ActivityName, event.Timestamp)
 
 	// increment general activity counter
-	_, err := a.ActivityStore.Increment(cleanedActivityName)
+	err := a.Store.RecordActivity(cleanedActivityName, timestamp)
 	if err != nil {
 		return err
 	}
 
-	if !a.CaseStore.Contains(caseInstance) {
+	lastEventForCase, err := a.Store.GetLastActivityForCase(caseInstance)
+	if err != nil {
+		return err
+	}
+	if lastEventForCase == nil {
 		// 1. we have not seen this case so far
-		_, err = a.StartActivityStore.Increment(cleanedActivityName)
+		err = a.Store.RecordStartActivity(cleanedActivityName)
 		if err != nil {
 			return err
 		}
-		_, err = a.DirectlyFollowsStore.Increment(append([]byte{0x00, 0x01}, cleanedActivityName...))
+		err = a.Store.RecordDirectlyFollowsRelation([]byte{0x00}, cleanedActivityName, timestamp)
 		if err != nil {
 			return err
 		}
 	} else {
 		// 2. we have seen this case
-		rawStart, err := a.CaseStore.Get([]byte(caseInstance))
+		err = a.Store.RecordDirectlyFollowsRelation(lastEventForCase, cleanedActivityName, timestamp)
 		if err != nil {
 			return err
 		}
-		start := rawStart
-		relation := append(start, append([]byte{0x00}, cleanedActivityName...)...)
-		_, err = a.DirectlyFollowsStore.Increment(relation)
-		if err != nil {
-			return err
-		}
-		log.Debugf("incremented directly-follows relation %s", relation)
 	}
 
 	// always set the last seen activity for the current case to the current activity
-	a.CaseStore.Set(caseInstance, cleanedActivityName)
-	return nil
+	err = a.Store.RecordActivityForCase(cleanedActivityName, caseInstance, timestamp)
+	return err
 }
 
 func (a *dfgStreamingAlgorithm) Close() {
-	a.ActivityStore.Close()
-	a.CaseStore.Close()
-	a.DirectlyFollowsStore.Close()
-	a.StartActivityStore.Close()
-}
-
-func (a *dfgStreamingAlgorithm) initStores() {
-	a.ActivityStore = a.StoreGenerator("activities")
-	a.CaseStore = a.StoreGenerator("cases")
-	a.DirectlyFollowsStore = a.StoreGenerator("df-relations")
-	a.StartActivityStore = a.StoreGenerator("start-activities")
+	a.Store.Close()
 }
 
 func cleanActivityName(activityName string) string {

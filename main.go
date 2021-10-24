@@ -57,9 +57,10 @@ func main() {
 	store := backends.NewDiskStoreGenerator()
 	eventStore := stores.NewEventStore(store)
 	kvStore := stores.NewKvStore(store)
+	sbarStore := stores.NewSbarStore(store)
 	eventStoreReceiver := receivers.NewEventStoreReceiver(eventStore, kvStore)
 	receiverList := []receivers.StreamingReceiver{
-		//receivers.NewDfgStreamingAlgorithm(store),
+		receivers.NewDfgStreamingAlgorithm(sbarStore),
 	}
 	for _, source := range cfg.Sources {
 		if !source.Enabled {
