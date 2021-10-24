@@ -214,11 +214,11 @@ func (s *diskStore) Find(prefix []byte) ([]KeyValue, error) {
 		i := 0
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			i++
-			if i > 100 {
+			if i > 20000 {
 				break
 			}
 			item := it.Item()
-			key := item.Key()
+			key := item.KeyCopy(nil)
 			itemBytes, err := item.ValueCopy(nil)
 			if err != nil {
 				return err

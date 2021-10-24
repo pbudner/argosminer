@@ -9,9 +9,10 @@ The following features distinguish ArgosMiner from other process mining systems:
 - bar
 
 ## ToDos
-- Random Event Emitter Source (Regular Intervals, e.g. every second)
-- Implement a Partitioning Abstraction above BadgerDB
-- Save Raw Logs in Compressed BadgerDB
+- Finish API Endpoints (1 day)
+- Embedd User Interface in Single Binary (have a look at Prometheus) (0,5 days)
+- Implement a Partitioning Layer above BadgerDB (1 day)
+- Random Event Emitter Source (Regular Intervals, e.g. every second) (2 hours)
 
 ## Requirements of TSDB for First Version
 - Sum of Events per EventType per Day (<-- Partition by Day) 

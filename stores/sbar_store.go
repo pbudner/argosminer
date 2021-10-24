@@ -91,16 +91,30 @@ func (kv *SbarStore) RecordActivity(key []byte, timestamp time.Time) error {
 	return err
 }
 
-func (kv *SbarStore) GetActivities() ([]uint64, error) {
+func (kv *SbarStore) GetActivities() ([]string, error) {
 	kv.Lock()
 	defer kv.Unlock()
 	activities, err := kv.store.Find([]byte{activityCode})
 	if err != nil {
 		return nil, err
 	}
-	result := make([]uint64, len(activities))
+	result := make([]string, len(activities))
 	for i, a := range activities {
-		result[i] = utils.BytesToUint64(a.Value)
+		result[i] = string(a.Key[1:])
+	}
+	return result, nil
+}
+
+func (kv *SbarStore) GetDfRelations() ([]string, error) {
+	kv.Lock()
+	defer kv.Unlock()
+	activities, err := kv.store.Find([]byte{dfRelationCode})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]string, len(activities))
+	for i, a := range activities {
+		result[i] = string(a.Key[1:])
 	}
 	return result, nil
 }

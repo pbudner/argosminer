@@ -82,6 +82,7 @@ func main() {
 
 		// kafka Source
 		if source.KafkaConfig != nil {
+			break
 			log.Debugf("Starting kafka source...")
 			wg.Add(1)
 			var parser parsers.Parser
@@ -144,6 +145,21 @@ func main() {
 		c.JSON(200, gin.H{
 			"activities": v,
 			"count":      len(v),
+		})
+	})
+
+	r.GET("/events/dfrelations", func(c *gin.Context) {
+		v, err := sbarStore.GetDfRelations()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"dfrelations": v,
+			"count":       len(v),
 		})
 	})
 
