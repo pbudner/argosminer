@@ -116,7 +116,7 @@ func main() {
 	r.GET("/events/last/*count", func(c *gin.Context) {
 		counter := 10
 		i, err := strconv.Atoi(c.Param("count")[1:])
-		if err == nil && i > 0 && i < 50 {
+		if err == nil && i > 0 && i <= 50 {
 			counter = i
 		}
 
@@ -130,6 +130,7 @@ func main() {
 
 		c.JSON(200, gin.H{
 			"events": events,
+			"count":  len(events),
 		})
 	})
 
