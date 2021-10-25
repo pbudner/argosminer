@@ -66,7 +66,7 @@ func (s *diskStore) Increment(key []byte) (uint64, error) {
 	err := s.store.Update(func(txn *badger.Txn) error {
 		// retrieve stored value
 		item, err := txn.Get(key)
-		if err != badger.ErrKeyNotFound {
+		if err != nil && err != badger.ErrKeyNotFound {
 			return err
 		}
 

@@ -58,8 +58,8 @@ func main() {
 	eventStore := stores.NewEventStore(store)
 	kvStore := stores.NewKvStore(store)
 	sbarStore := stores.NewSbarStore(store)
-	eventStoreReceiver := receivers.NewEventStoreReceiver(eventStore, kvStore)
 	receiverList := []receivers.StreamingReceiver{
+		receivers.NewEventStoreReceiver(eventStore, kvStore),
 		receivers.NewDfgStreamingAlgorithm(sbarStore),
 	}
 	for _, source := range cfg.Sources {
@@ -82,7 +82,6 @@ func main() {
 
 		// kafka Source
 		if source.KafkaConfig != nil {
-			break
 			log.Debugf("Starting kafka source...")
 			wg.Add(1)
 			var parser parsers.Parser
@@ -96,7 +95,6 @@ func main() {
 			}
 
 			fs := sources.NewKafkaSource(*source.KafkaConfig, parser)
-			fs.AddReceiver(eventStoreReceiver)
 			for _, receiver := range receiverList {
 				fs.AddReceiver(receiver)
 			}
@@ -131,6 +129,20 @@ func main() {
 		c.JSON(200, gin.H{
 			"events": events,
 			"count":  len(events),
+		})
+	})
+
+	r.GET("/events/count", func(c *gin.Context) {
+		counter, err := kvStore.Find([]byte{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"count": counter,
 		})
 	})
 

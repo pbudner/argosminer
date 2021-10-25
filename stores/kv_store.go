@@ -17,26 +17,26 @@ func NewKvStore(storeGenerator backends.StoreBackendGenerator) *KvStore {
 	}
 }
 
-func (es *KvStore) Set(key []byte, value []byte) error {
-	es.Lock()
-	defer es.Unlock()
-	return es.store.Set(key, value)
+func (kv *KvStore) Set(key []byte, value []byte) error {
+	kv.Lock()
+	defer kv.Unlock()
+	return kv.store.Set(key, value)
 }
 
-func (es *KvStore) Get(key []byte) ([]byte, error) {
-	es.Lock()
-	defer es.Unlock()
-	return es.store.Get(key)
+func (kv *KvStore) Get(key []byte) ([]byte, error) {
+	kv.Lock()
+	defer kv.Unlock()
+	return kv.store.Get(key)
 }
 
-func (es *KvStore) Increment(key []byte) (uint64, error) {
-	es.Lock()
-	defer es.Unlock()
-	return es.store.Increment(key)
+func (kv *KvStore) Increment(key []byte) (uint64, error) {
+	kv.Lock()
+	defer kv.Unlock()
+	return kv.store.Increment(key)
 }
 
-func (es *KvStore) Find(prefix []byte) ([]backends.KeyValue, error) {
-	es.Lock()
-	defer es.Unlock()
-	return es.store.Find(prefix)
+func (kv *KvStore) Find(prefix []byte) ([]backends.KeyValue, error) {
+	kv.Lock()
+	defer kv.Unlock()
+	return kv.store.Find(prefix)
 }
