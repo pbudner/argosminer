@@ -119,6 +119,39 @@ func (kv *SbarStore) GetDfRelations() (map[string]uint64, error) {
 	return result, nil
 }
 
+func (kv *SbarStore) CountActivities() (uint64, error) {
+	kv.Lock()
+	defer kv.Unlock()
+	counter, err := kv.store.CountPrefix([]byte{activityCode})
+	if err != nil {
+		return 0, err
+	}
+
+	return counter, nil
+}
+
+func (kv *SbarStore) CountDfRelations() (uint64, error) {
+	kv.Lock()
+	defer kv.Unlock()
+	counter, err := kv.store.CountPrefix([]byte{dfRelationCode})
+	if err != nil {
+		return 0, err
+	}
+
+	return counter, nil
+}
+
+func (kv *SbarStore) CountStartActivities() (uint64, error) {
+	kv.Lock()
+	defer kv.Unlock()
+	counter, err := kv.store.CountPrefix([]byte{startActivityCode})
+	if err != nil {
+		return 0, err
+	}
+
+	return counter, nil
+}
+
 func (kv *SbarStore) RecordStartActivity(key []byte) error {
 	kv.Lock()
 	defer kv.Unlock()

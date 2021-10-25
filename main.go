@@ -17,6 +17,7 @@ import (
 	"github.com/pbudner/argosminer/sources"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/pbudner/argosminer/stores/backends"
+	"github.com/pbudner/argosminer/stores/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -132,8 +133,8 @@ func main() {
 		})
 	})
 
-	r.GET("/events/count", func(c *gin.Context) {
-		counter, err := kvStore.Find([]byte{})
+	r.GET("/events/frequency", func(c *gin.Context) {
+		counter, err := eventStore.CountByDay()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
@@ -142,7 +143,39 @@ func main() {
 		}
 
 		c.JSON(200, gin.H{
-			"count": counter,
+			"frequency": counter,
+		})
+	})
+
+	r.GET("/events/statistics", func(c *gin.Context) {
+		counter, err := kvStore.Get([]byte("EventStoreCounter"))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		activityCount, err := sbarStore.CountActivities()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		dfRelationCount, err := sbarStore.CountDfRelations()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"event_count":       utils.BytesToUint64(counter),
+			"activity_count":    activityCount,
+			"df_relation_count": dfRelationCount,
 		})
 	})
 

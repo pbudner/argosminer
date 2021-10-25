@@ -27,17 +27,12 @@ func NewEventStoreReceiver(eventStore *stores.EventStore, kvStore *stores.KvStor
 }
 
 func (a *eventStoreReceiver) Append(event *events.Event) error {
-	b, err := event.Marshal()
+	_, err := a.KvStore.Increment(eventStoreCounter)
 	if err != nil {
 		return err
 	}
 
-	_, err = a.KvStore.Increment(eventStoreCounter)
-	if err != nil {
-		return err
-	}
-
-	return a.EventStore.Append(b)
+	return a.EventStore.Append(event)
 }
 
 func (a *eventStoreReceiver) Close() {

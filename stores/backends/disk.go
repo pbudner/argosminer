@@ -20,7 +20,10 @@ func NewDiskStoreGenerator() StoreBackendGenerator {
 }
 
 func NewDiskStore(storeId string) *diskStore {
-	db, err := badger.Open(badger.DefaultOptions(fmt.Sprintf("/Volumes/PascalsSSD/ArgosMiner/badger_%s", storeId)))
+	opts := badger.DefaultOptions(fmt.Sprintf("/Volumes/PascalsSSD/ArgosMiner/badger_%s", storeId))
+	opts.SyncWrites = false
+	opts.ValueLogMaxEntries = 5000
+	db, err := badger.Open(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -211,12 +214,7 @@ func (s *diskStore) Find(prefix []byte) ([]KeyValue, error) {
 		it := txn.NewIterator(opts)
 		defer it.Close()
 		it.Rewind()
-		i := 0
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-			i++
-			if i > 20000 {
-				break
-			}
 			item := it.Item()
 			key := item.KeyCopy(nil)
 			itemBytes, err := item.ValueCopy(nil)
@@ -230,6 +228,25 @@ func (s *diskStore) Find(prefix []byte) ([]KeyValue, error) {
 	})
 
 	return result, err
+}
+
+func (s *diskStore) CountPrefix(prefix []byte) (uint64, error) {
+	counter := uint64(0)
+	err := s.store.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		opts.Prefix = prefix
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		it.Rewind()
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			counter++
+		}
+
+		return nil
+	})
+
+	return counter, err
 }
 
 func (s *diskStore) TotalCount() (uint64, error) {
@@ -280,6 +297,28 @@ func (s *diskStore) CountRange(from []byte, to []byte) (uint64, error) {
 	})
 	return counter, err
 }
+
+/*func (s *diskStore) GC(ctx context.Context) (interface{}, error) {
+	const tag = "GC"
+	const discardRatio = 0.3
+
+	if s.gc != nil && s.gc.State() == async.IsCancelled {
+		return nil, nil
+	}
+
+	deleted, total := s.purge()
+	s.monitor.Gauge(ctxTag, "GC.purge", float64(deleted), "type:deleted")
+	s.monitor.Gauge(ctxTag, "GC.purge", float64(total), "type:total")
+
+	for true {
+		if s.db.RunValueLogGC(discardRatio) != nil {
+			s.monitor.Count1(ctxTag, "vlog.GC", "type:stopped")
+			return nil, nil
+		}
+		s.monitor.Count1(ctxTag, "vlog.GC", "type:completed")
+	}
+	return nil, nil
+}*/
 
 func (s *diskStore) Close() {
 	s.store.Close()

@@ -8,6 +8,7 @@ import (
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/stores/backends"
 	"github.com/pbudner/argosminer/stores/ulid"
+	"github.com/pbudner/argosminer/stores/utils"
 )
 
 type EventStore struct {
@@ -23,7 +24,7 @@ func NewEventStore(storeGenerator backends.StoreBackendGenerator) *EventStore {
 	}
 }
 
-func (es *EventStore) Append(rawEvent []byte) error {
+func (es *EventStore) Append(event *events.Event) error {
 	es.Lock()
 	defer es.Unlock()
 	t := time.Now().UTC()
@@ -37,7 +38,13 @@ func (es *EventStore) Append(rawEvent []byte) error {
 		panic(err)
 	}
 
-	return es.store.Set(binID, rawEvent)
+	es.store.Increment(append([]byte{0x00}, []byte(event.Timestamp.Format("2006010215"))...))
+	binEvent, err := event.Marshal()
+	if err != nil {
+		return err
+	}
+
+	return es.store.Set(binID, binEvent)
 }
 
 func (es *EventStore) Get(id []byte) (*events.Event, error) {
@@ -76,16 +83,27 @@ func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 	return events, nil
 }
 
-/*
 // this operation is waaaaaaay too expensive
-func (es *EventStore) Count() (uint64, error) {
+func (es *EventStore) CountByDay() (map[string]uint64, error) {
 	es.Lock()
 	defer es.Unlock()
-	count, err := es.store.TotalCount()
+	result := make(map[string]uint64)
+	values, err := es.store.Find([]byte{0x00})
 	if err != nil {
-		return 0, err
+		return nil, err
+	}
+	date := []byte{2, 0, 2, 1, '-', 1, 0, '-', 2, 5}
+	for _, v := range values {
+		date[0] = v.Key[1]
+		date[1] = v.Key[2]
+		date[2] = v.Key[3]
+		date[3] = v.Key[4]
+		date[5] = v.Key[5]
+		date[6] = v.Key[6]
+		date[8] = v.Key[7]
+		date[9] = v.Key[8]
+		result[string(date)] += utils.BytesToUint64(v.Value)
 	}
 
-	return count, nil
+	return result, nil
 }
-*/

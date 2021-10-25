@@ -11,6 +11,7 @@ type StoreBackend interface {
 	TotalCount() (uint64, error)
 	CountRange(from []byte, to []byte) (uint64, error)
 	Find(prefix []byte) ([]KeyValue, error)
+	CountPrefix(prefix []byte) (uint64, error)
 	Close()
 }
 
