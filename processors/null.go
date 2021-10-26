@@ -1,9 +1,8 @@
-package receivers
+package processors
 
 import (
 	"github.com/google/uuid"
 	"github.com/pbudner/argosminer/events"
-	"github.com/pbudner/argosminer/stores/backends"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
@@ -35,7 +34,7 @@ func init() {
 	prometheus.MustRegister(receivedNullEventsCounter, lastReceivedNullEvent, lastReceviedNullEventTime)
 }
 
-func NewDevNullReceiver(storeGenerator backends.StoreBackendGenerator) *devNullReceiver {
+func NewDevNullReceiver() *devNullReceiver {
 	algo := devNullReceiver{
 		Id: uuid.New(),
 	}

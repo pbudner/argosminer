@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/pbudner/argosminer/parsers"
-	"github.com/pbudner/argosminer/receivers"
+	"github.com/pbudner/argosminer/processors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/segmentio/kafka-go"
 	log "github.com/sirupsen/logrus"
@@ -29,7 +29,7 @@ type kafkaSource struct {
 	Config    KafkaSourceConfig
 	Reader    *kafka.Reader
 	Parser    parsers.Parser
-	Receivers []receivers.StreamingReceiver
+	Receivers []processors.StreamingProcessor
 }
 
 var receivedKafkaEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -58,11 +58,11 @@ func NewKafkaSource(config KafkaSourceConfig, parser parsers.Parser) kafkaSource
 	return kafkaSource{
 		Config:    config,
 		Parser:    parser,
-		Receivers: []receivers.StreamingReceiver{},
+		Receivers: []processors.StreamingProcessor{},
 	}
 }
 
-func (s *kafkaSource) AddReceiver(receiver receivers.StreamingReceiver) {
+func (s *kafkaSource) AddReceiver(receiver processors.StreamingProcessor) {
 	s.Receivers = append(s.Receivers, receiver)
 }
 

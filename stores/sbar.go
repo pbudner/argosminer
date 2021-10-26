@@ -1,20 +1,17 @@
 package stores
 
 import (
-	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
-	"github.com/pbudner/argosminer/stores/backends"
-	"github.com/pbudner/argosminer/stores/ulid"
-	"github.com/pbudner/argosminer/stores/utils"
+	"github.com/pbudner/argosminer/storage"
+	"github.com/pbudner/argosminer/storage/key"
 )
 
 type SbarStore struct {
 	sync.Mutex
-	store         backends.StoreBackend
-	ulidGenerator ulid.MonotonicULIDGenerator
+	storage storage.Storage
 }
 
 const seperatorCode = 0x00
@@ -24,83 +21,72 @@ const startActivityCode = 0x03
 const caseCode = 0x04
 const timestampedCode = 0x05
 
-func NewSbarStore(storeGenerator backends.StoreBackendGenerator) *SbarStore {
+func NewSbarStore(storageGenerator storage.StorageGenerator) *SbarStore {
 	return &SbarStore{
-		store:         storeGenerator("sbar"),
-		ulidGenerator: *ulid.NewMonotonicULIDGenerator(rand.New(rand.NewSource(4711))),
+		storage: storageGenerator("sbar"),
 	}
 }
 
 func (kv *SbarStore) RecordDirectlyFollowsRelation(from []byte, to []byte, timestamp time.Time) error {
 	kv.Lock()
 	defer kv.Unlock()
-	counter, err := kv.store.Increment(encodeDfRelation(from, to, false))
+	counter, err := kv.storage.Increment(encodeDfRelation(from, to, false))
 	if err != nil {
 		return err
 	}
 
-	ulid, err := kv.ulidGenerator.New(timestamp)
+	k, err := key.New(encodeDfRelation(from, to, true), timestamp)
 	if err != nil {
 		return err
 	}
 
-	binID, err := ulid.MarshalBinary()
-	if err != nil {
-		panic(err)
-	}
-
-	kv.store.Set(append(encodeDfRelation(from, to, true), binID...), utils.Uint64ToBytes(counter))
+	kv.storage.Set(k, storage.Uint64ToBytes(counter))
 	return err
 }
 
 func (kv *SbarStore) RecordActivityForCase(activity []byte, caseId []byte, timestamp time.Time) error {
 	kv.Lock()
 	defer kv.Unlock()
-	return kv.store.Set(encodeCase(caseId, false), activity)
+	return kv.storage.Set(encodeCase(caseId, false), activity)
 }
 
 func (kv *SbarStore) GetLastActivityForCase(caseId []byte) ([]byte, error) {
 	kv.Lock()
 	defer kv.Unlock()
-	v, err := kv.store.Get(encodeCase(caseId, false))
+	v, err := kv.storage.Get(encodeCase(caseId, false))
 	if err != nil && err != badger.ErrKeyNotFound {
 		return nil, err
 	}
 	return v, nil
 }
 
-func (kv *SbarStore) RecordActivity(key []byte, timestamp time.Time) error {
+func (kv *SbarStore) RecordActivity(activity []byte, timestamp time.Time) error {
 	kv.Lock()
 	defer kv.Unlock()
-	counter, err := kv.store.Increment(encodeActivity(key, false))
+	counter, err := kv.storage.Increment(encodeActivity(activity, false))
 	if err != nil {
 		return err
 	}
 
-	ulid, err := kv.ulidGenerator.New(timestamp)
+	k, err := key.New(encodeActivity(activity, true), timestamp)
 	if err != nil {
 		return err
 	}
 
-	binID, err := ulid.MarshalBinary()
-	if err != nil {
-		panic(err)
-	}
-
-	kv.store.Set(append(encodeActivity(key, true), binID...), utils.Uint64ToBytes(counter))
+	kv.storage.Set(k, storage.Uint64ToBytes(counter))
 	return err
 }
 
 func (kv *SbarStore) GetActivities() (map[string]uint64, error) {
 	kv.Lock()
 	defer kv.Unlock()
-	activities, err := kv.store.Find([]byte{activityCode})
+	activities, err := kv.storage.Find([]byte{activityCode})
 	if err != nil {
 		return nil, err
 	}
 	result := make(map[string]uint64)
 	for _, a := range activities {
-		result[string(a.Key[1:])] = utils.BytesToUint64(a.Value)
+		result[string(a.Key[1:])] = storage.BytesToUint64(a.Value)
 	}
 	return result, nil
 }
@@ -108,13 +94,13 @@ func (kv *SbarStore) GetActivities() (map[string]uint64, error) {
 func (kv *SbarStore) GetDfRelations() (map[string]uint64, error) {
 	kv.Lock()
 	defer kv.Unlock()
-	activities, err := kv.store.Find([]byte{dfRelationCode})
+	activities, err := kv.storage.Find([]byte{dfRelationCode})
 	if err != nil {
 		return nil, err
 	}
 	result := make(map[string]uint64)
 	for _, a := range activities {
-		result[string(a.Key[1:])] = utils.BytesToUint64(a.Value)
+		result[string(a.Key[1:])] = storage.BytesToUint64(a.Value)
 	}
 	return result, nil
 }
@@ -122,7 +108,7 @@ func (kv *SbarStore) GetDfRelations() (map[string]uint64, error) {
 func (kv *SbarStore) CountActivities() (uint64, error) {
 	kv.Lock()
 	defer kv.Unlock()
-	counter, err := kv.store.CountPrefix([]byte{activityCode})
+	counter, err := kv.storage.CountPrefix([]byte{activityCode})
 	if err != nil {
 		return 0, err
 	}
@@ -133,7 +119,7 @@ func (kv *SbarStore) CountActivities() (uint64, error) {
 func (kv *SbarStore) CountDfRelations() (uint64, error) {
 	kv.Lock()
 	defer kv.Unlock()
-	counter, err := kv.store.CountPrefix([]byte{dfRelationCode})
+	counter, err := kv.storage.CountPrefix([]byte{dfRelationCode})
 	if err != nil {
 		return 0, err
 	}
@@ -144,7 +130,7 @@ func (kv *SbarStore) CountDfRelations() (uint64, error) {
 func (kv *SbarStore) CountStartActivities() (uint64, error) {
 	kv.Lock()
 	defer kv.Unlock()
-	counter, err := kv.store.CountPrefix([]byte{startActivityCode})
+	counter, err := kv.storage.CountPrefix([]byte{startActivityCode})
 	if err != nil {
 		return 0, err
 	}
@@ -155,12 +141,12 @@ func (kv *SbarStore) CountStartActivities() (uint64, error) {
 func (kv *SbarStore) RecordStartActivity(key []byte) error {
 	kv.Lock()
 	defer kv.Unlock()
-	_, err := kv.store.Increment(encodeStartActivity(key, false))
+	_, err := kv.storage.Increment(encodeStartActivity(key, false))
 	return err
 }
 
 func (kv *SbarStore) Close() {
-	kv.store.Close()
+	kv.storage.Close()
 }
 
 func encodeActivity(key []byte, timestamped bool) []byte {

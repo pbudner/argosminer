@@ -1,26 +1,22 @@
 package stores
 
 import (
-	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/pbudner/argosminer/events"
-	"github.com/pbudner/argosminer/stores/backends"
-	"github.com/pbudner/argosminer/stores/ulid"
-	"github.com/pbudner/argosminer/stores/utils"
+	"github.com/pbudner/argosminer/storage"
+	"github.com/pbudner/argosminer/storage/key"
 )
 
 type EventStore struct {
 	sync.Mutex
-	store         backends.StoreBackend
-	ulidGenerator ulid.MonotonicULIDGenerator
+	storage storage.Storage
 }
 
-func NewEventStore(storeGenerator backends.StoreBackendGenerator) *EventStore {
+func NewEventStore(storageGenerator storage.StorageGenerator) *EventStore {
 	return &EventStore{
-		store:         storeGenerator("event_store"),
-		ulidGenerator: *ulid.NewMonotonicULIDGenerator(rand.New(rand.NewSource(4711))),
+		storage: storageGenerator("event_store"),
 	}
 }
 
@@ -28,29 +24,25 @@ func (es *EventStore) Append(event *events.Event) error {
 	es.Lock()
 	defer es.Unlock()
 	t := time.Now().UTC()
-	ulid, err := es.ulidGenerator.New(t)
+
+	k, err := key.New([]byte("event"), t)
 	if err != nil {
 		return err
 	}
 
-	binID, err := ulid.MarshalBinary()
-	if err != nil {
-		panic(err)
-	}
-
-	es.store.Increment(append([]byte{0x00}, []byte(event.Timestamp.Format("2006010215"))...))
+	es.storage.Increment(append([]byte{0x00}, []byte(event.Timestamp.Format("2006010215"))...))
 	binEvent, err := event.Marshal()
 	if err != nil {
 		return err
 	}
 
-	return es.store.Set(binID, binEvent)
+	return es.storage.Set(k, binEvent)
 }
 
 func (es *EventStore) Get(id []byte) (*events.Event, error) {
 	es.Lock()
 	defer es.Unlock()
-	value, err := es.store.Get(id)
+	value, err := es.storage.Get(id)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +59,7 @@ func (es *EventStore) Get(id []byte) (*events.Event, error) {
 func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 	es.Lock()
 	defer es.Unlock()
-	rawValues, err := es.store.GetLast(count)
+	rawValues, err := es.storage.GetLast(count)
 	if err != nil {
 		return nil, err
 	}
@@ -88,10 +80,11 @@ func (es *EventStore) CountByDay() (map[string]uint64, error) {
 	es.Lock()
 	defer es.Unlock()
 	result := make(map[string]uint64)
-	values, err := es.store.Find([]byte{0x00})
+	values, err := es.storage.Find([]byte{0x00})
 	if err != nil {
 		return nil, err
 	}
+
 	date := []byte{2, 0, 2, 1, '-', 1, 0, '-', 2, 5}
 	for _, v := range values {
 		date[0] = v.Key[1]
@@ -102,7 +95,7 @@ func (es *EventStore) CountByDay() (map[string]uint64, error) {
 		date[6] = v.Key[6]
 		date[8] = v.Key[7]
 		date[9] = v.Key[8]
-		result[string(date)] += utils.BytesToUint64(v.Value)
+		result[string(date)] += storage.BytesToUint64(v.Value)
 	}
 
 	return result, nil

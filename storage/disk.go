@@ -1,37 +1,45 @@
-package backends
+package storage
 
 import (
 	"bytes"
-	"fmt"
+	"path"
 	"time"
 
 	badger "github.com/dgraph-io/badger/v3"
-	"github.com/pbudner/argosminer/stores/utils"
 	log "github.com/sirupsen/logrus"
 )
 
-type diskStore struct {
+type diskStorage struct {
 	store    *badger.DB
 	gcTicker time.Ticker
 }
 
-func NewDiskStoreGenerator() StoreBackendGenerator {
-	return func(storeId string) StoreBackend {
-		return NewDiskStore(storeId)
+func NewDiskStorageGenerator() StorageGenerator {
+	return func(storeId string) Storage {
+		return NewDiskStorage(storeId)
 	}
 }
 
-func NewDiskStore(storeId string) *diskStore {
-	opts := badger.DefaultOptions(fmt.Sprintf("/Volumes/PascalsSSD/ArgosMiner/badger_%s", storeId))
-	opts.SyncWrites = false
-	opts.ValueLogMaxEntries = 5000
+func NewDiskStorage(storeId string) *diskStorage {
+	dir := "/Volumes/PascalsSSD/ArgosMiner/diskStorage"
+	opts := badger.DefaultOptions(path.Join(dir, storeId))
+	opts = opts.WithBaseTableSize(64 << 15).
+		WithValueLogMaxEntries(5000).
+		WithBaseLevelSize(1 << 16).
+		WithLevelSizeMultiplier(3).
+		WithMaxLevels(25).
+		WithSyncWrites(false).
+		WithLogger(log.StandardLogger())
+
+	// open the database
 	db, err := badger.Open(opts)
 	if err != nil {
-		log.Fatal(err)
+		return nil
 	}
 
-	ticker := time.NewTicker(5 * time.Minute)
-	store := diskStore{
+	// start the daily GC
+	ticker := time.NewTicker(1 * time.Minute)
+	store := diskStorage{
 		store:    db,
 		gcTicker: *ticker,
 	}
@@ -39,14 +47,14 @@ func NewDiskStore(storeId string) *diskStore {
 	return &store
 }
 
-func (s *diskStore) Set(key []byte, value []byte) error {
+func (s *diskStorage) Set(key []byte, value []byte) error {
 	return s.store.Update(func(txn *badger.Txn) error {
 		err := txn.Set(key, value)
 		return err
 	})
 }
 
-func (s *diskStore) Get(key []byte) ([]byte, error) {
+func (s *diskStorage) Get(key []byte) ([]byte, error) {
 	var value []byte
 	err := s.store.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
@@ -69,7 +77,7 @@ func (s *diskStore) Get(key []byte) ([]byte, error) {
 	return value, nil
 }
 
-func (s *diskStore) Increment(key []byte) (uint64, error) {
+func (s *diskStorage) Increment(key []byte) (uint64, error) {
 	var itemValue uint64
 	err := s.store.Update(func(txn *badger.Txn) error {
 		// retrieve stored value
@@ -87,13 +95,13 @@ func (s *diskStore) Increment(key []byte) (uint64, error) {
 			}
 
 			// TODO: We could increase performance here, if we increment on byte level...
-			itemValue = utils.BytesToUint64(valCopy)
+			itemValue = BytesToUint64(valCopy)
 		}
 
 		itemValue++
 
 		// update value
-		err = txn.Set(key, utils.Uint64ToBytes(itemValue))
+		err = txn.Set(key, Uint64ToBytes(itemValue))
 		if err != nil {
 			return err
 		}
@@ -108,7 +116,7 @@ func (s *diskStore) Increment(key []byte) (uint64, error) {
 	return itemValue, nil
 }
 
-func (s *diskStore) Contains(key []byte) bool {
+func (s *diskStorage) Contains(key []byte) bool {
 	err := s.store.View(func(txn *badger.Txn) error {
 		_, err := txn.Get(key)
 		if err != nil {
@@ -120,7 +128,7 @@ func (s *diskStore) Contains(key []byte) bool {
 	return err == nil
 }
 
-func (s *diskStore) GetLast(count int) ([][]byte, error) {
+func (s *diskStorage) GetLast(count int) ([][]byte, error) {
 	result := make([][]byte, count)
 	err := s.store.View(func(txn *badger.Txn) error {
 		var err error
@@ -149,7 +157,7 @@ func (s *diskStore) GetLast(count int) ([][]byte, error) {
 	return result, err
 }
 
-func (s *diskStore) GetFirst(count int) ([][]byte, error) {
+func (s *diskStorage) GetFirst(count int) ([][]byte, error) {
 	result := make([][]byte, count)
 	err := s.store.View(func(txn *badger.Txn) error {
 		var err error
@@ -173,7 +181,7 @@ func (s *diskStore) GetFirst(count int) ([][]byte, error) {
 	return result, err
 }
 
-func (s *diskStore) GetRange(from []byte, to []byte) ([][]byte, error) {
+func (s *diskStorage) GetRange(from []byte, to []byte) ([][]byte, error) {
 	result := make([][]byte, 0)
 	err := s.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -210,7 +218,7 @@ func (s *diskStore) GetRange(from []byte, to []byte) ([][]byte, error) {
 	return result, err
 }
 
-func (s *diskStore) Find(prefix []byte) ([]KeyValue, error) {
+func (s *diskStorage) Find(prefix []byte) ([]KeyValue, error) {
 	result := make([]KeyValue, 0)
 	err := s.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -235,7 +243,7 @@ func (s *diskStore) Find(prefix []byte) ([]KeyValue, error) {
 	return result, err
 }
 
-func (s *diskStore) CountPrefix(prefix []byte) (uint64, error) {
+func (s *diskStorage) CountPrefix(prefix []byte) (uint64, error) {
 	counter := uint64(0)
 	err := s.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -254,7 +262,7 @@ func (s *diskStore) CountPrefix(prefix []byte) (uint64, error) {
 	return counter, err
 }
 
-func (s *diskStore) TotalCount() (uint64, error) {
+func (s *diskStorage) TotalCount() (uint64, error) {
 	counter := uint64(0)
 	err := s.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -271,7 +279,7 @@ func (s *diskStore) TotalCount() (uint64, error) {
 	return counter, err
 }
 
-func (s *diskStore) CountRange(from []byte, to []byte) (uint64, error) {
+func (s *diskStorage) CountRange(from []byte, to []byte) (uint64, error) {
 	counter := uint64(0)
 	err := s.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -303,11 +311,10 @@ func (s *diskStore) CountRange(from []byte, to []byte) (uint64, error) {
 	return counter, err
 }
 
-func (s *diskStore) GC() {
+func (s *diskStorage) GC() {
 	const discardRatio = 0.4
 	for range s.gcTicker.C {
 		for {
-			log.Info("Manaual BadgerDB GC running..")
 			if s.store.RunValueLogGC(discardRatio) != nil {
 				break
 			}
@@ -315,7 +322,7 @@ func (s *diskStore) GC() {
 	}
 }
 
-func (s *diskStore) Close() {
+func (s *diskStorage) Close() {
 	s.gcTicker.Stop()
 	s.store.Close()
 }

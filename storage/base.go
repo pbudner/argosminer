@@ -1,6 +1,6 @@
-package backends
+package storage
 
-type StoreBackend interface {
+type Storage interface {
 	Set(key []byte, value []byte) error
 	Get(key []byte) ([]byte, error)
 	Increment(key []byte) (uint64, error)
@@ -20,4 +20,4 @@ type KeyValue struct {
 	Value []byte
 }
 
-type StoreBackendGenerator func(string) StoreBackend
+type StorageGenerator func(string) Storage

@@ -4,11 +4,11 @@ import (
 	"context"
 	"sync"
 
-	"github.com/pbudner/argosminer/receivers"
+	"github.com/pbudner/argosminer/processors"
 )
 
 type Source interface {
-	AddReceivers([]receivers.StreamingReceiver)
+	AddProcessors([]processors.StreamingProcessor)
 	Run(context.Context, *sync.WaitGroup)
 	Close()
 }

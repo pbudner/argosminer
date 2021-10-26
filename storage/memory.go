@@ -1,4 +1,4 @@
-package backends
+package storage
 
 /*
 type memoryStore struct {

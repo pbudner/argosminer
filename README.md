@@ -15,6 +15,8 @@ The following features distinguish ArgosMiner from other process mining systems:
 - Random Event Emitter Source (Regular Intervals, e.g. every second) (2 hours)
 - Turn Raw Events Logstore on and off 
 
+- https://github.com/tidwall/wal
+
 ## Requirements of TSDB for First Version
 - Sum of Events per EventType per Day (<-- Partition by Day) 
     - We need to go through all days and count...

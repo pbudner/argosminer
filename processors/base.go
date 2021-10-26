@@ -1,8 +1,8 @@
-package receivers
+package processors
 
 import "github.com/pbudner/argosminer/events"
 
-type StreamingReceiver interface {
+type StreamingProcessor interface {
 	Append(event *events.Event) error
 	Close()
 }

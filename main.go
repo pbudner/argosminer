@@ -13,11 +13,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pbudner/argosminer/config"
 	"github.com/pbudner/argosminer/parsers"
-	"github.com/pbudner/argosminer/receivers"
+	"github.com/pbudner/argosminer/processors"
 	"github.com/pbudner/argosminer/sources"
+	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/stores"
-	"github.com/pbudner/argosminer/stores/backends"
-	"github.com/pbudner/argosminer/stores/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -55,13 +54,13 @@ func main() {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
 
-	store := backends.NewDiskStoreGenerator()
+	store := storage.NewDiskStorageGenerator()
 	eventStore := stores.NewEventStore(store)
 	kvStore := stores.NewKvStore(store)
 	sbarStore := stores.NewSbarStore(store)
-	receiverList := []receivers.StreamingReceiver{
-		receivers.NewEventStoreReceiver(eventStore, kvStore),
-		receivers.NewDfgStreamingAlgorithm(sbarStore),
+	receiverList := []processors.StreamingProcessor{
+		processors.NewEventProcessor(eventStore, kvStore),
+		processors.NewDfgStreamingAlgorithm(sbarStore),
 	}
 	for _, source := range cfg.Sources {
 		if !source.Enabled {
@@ -173,7 +172,7 @@ func main() {
 		}
 
 		c.JSON(200, gin.H{
-			"event_count":       utils.BytesToUint64(counter),
+			"event_count":       storage.BytesToUint64(counter),
 			"activity_count":    activityCount,
 			"df_relation_count": dfRelationCount,
 		})

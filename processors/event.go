@@ -1,4 +1,4 @@
-package receivers
+package processors
 
 import (
 	"github.com/google/uuid"
@@ -8,7 +8,7 @@ import (
 )
 
 // this receiver is primarily used for performance testing as it does not cost significant performance
-type eventStoreReceiver struct {
+type eventProcessor struct {
 	Id         uuid.UUID
 	EventStore *stores.EventStore
 	KvStore    *stores.KvStore
@@ -16,17 +16,17 @@ type eventStoreReceiver struct {
 
 var eventStoreCounter = []byte("EventStoreCounter")
 
-func NewEventStoreReceiver(eventStore *stores.EventStore, kvStore *stores.KvStore) *eventStoreReceiver {
-	receiver := eventStoreReceiver{
+func NewEventProcessor(eventStore *stores.EventStore, kvStore *stores.KvStore) *eventProcessor {
+	receiver := &eventProcessor{
 		Id:         uuid.New(),
 		EventStore: eventStore,
 		KvStore:    kvStore,
 	}
 	log.Infof("Initialized new EventStore receiver with ID %s", receiver.Id)
-	return &receiver
+	return receiver
 }
 
-func (a *eventStoreReceiver) Append(event *events.Event) error {
+func (a *eventProcessor) Append(event *events.Event) error {
 	_, err := a.KvStore.Increment(eventStoreCounter)
 	if err != nil {
 		return err
@@ -35,6 +35,6 @@ func (a *eventStoreReceiver) Append(event *events.Event) error {
 	return a.EventStore.Append(event)
 }
 
-func (a *eventStoreReceiver) Close() {
+func (a *eventProcessor) Close() {
 	// nothing to do here
 }

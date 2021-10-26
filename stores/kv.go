@@ -3,40 +3,40 @@ package stores
 import (
 	"sync"
 
-	"github.com/pbudner/argosminer/stores/backends"
+	"github.com/pbudner/argosminer/storage"
 )
 
 type KvStore struct {
 	sync.Mutex
-	store backends.StoreBackend
+	storage storage.Storage
 }
 
-func NewKvStore(storeGenerator backends.StoreBackendGenerator) *KvStore {
+func NewKvStore(storageGenerator storage.StorageGenerator) *KvStore {
 	return &KvStore{
-		store: storeGenerator("kv"),
+		storage: storageGenerator("kv"),
 	}
 }
 
 func (kv *KvStore) Set(key []byte, value []byte) error {
 	kv.Lock()
 	defer kv.Unlock()
-	return kv.store.Set(key, value)
+	return kv.storage.Set(key, value)
 }
 
 func (kv *KvStore) Get(key []byte) ([]byte, error) {
 	kv.Lock()
 	defer kv.Unlock()
-	return kv.store.Get(key)
+	return kv.storage.Get(key)
 }
 
 func (kv *KvStore) Increment(key []byte) (uint64, error) {
 	kv.Lock()
 	defer kv.Unlock()
-	return kv.store.Increment(key)
+	return kv.storage.Increment(key)
 }
 
-func (kv *KvStore) Find(prefix []byte) ([]backends.KeyValue, error) {
+func (kv *KvStore) Find(prefix []byte) ([]storage.KeyValue, error) {
 	kv.Lock()
 	defer kv.Unlock()
-	return kv.store.Find(prefix)
+	return kv.storage.Find(prefix)
 }

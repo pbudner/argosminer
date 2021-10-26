@@ -1,4 +1,4 @@
-package receivers
+package processors
 
 import (
 	"github.com/google/uuid"

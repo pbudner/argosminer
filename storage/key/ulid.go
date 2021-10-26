@@ -1,4 +1,4 @@
-package ulid
+package key
 
 import (
 	"math/rand"
@@ -8,26 +8,35 @@ import (
 	ulid "github.com/oklog/ulid/v2"
 )
 
-type MonotonicULIDGenerator struct {
+var (
+	once                   sync.Once
+	MonotonicULIDGenerator *monotonicULIDGenerator
+)
+
+type monotonicULIDGenerator struct {
 	sync.Mutex            // mutex to allow clean concurrent access
 	entropy    *rand.Rand // the entropy source
 	lastMs     uint64     // the last millisecond timestamp it encountered
 	lastULID   ulid.ULID  // the last ULID it generated using "github.com/oklog/ulid"
 }
 
-func NewMonotonicULIDGenerator(entropy *rand.Rand) *MonotonicULIDGenerator {
+func NewMonotonicULIDGenerator() *monotonicULIDGenerator {
+	once.Do(func() {
+		entropy := rand.New(rand.NewSource(4711))
+		// get an initial ULID to kick the monotonic generation off with
+		inital, err := ulid.New(ulid.Now(), entropy)
+		if err != nil {
+			panic(err)
+		}
 
-	// get an initial ULID to kick the monotonic generation off with
-	inital, err := ulid.New(ulid.Now(), entropy)
-	if err != nil {
-		panic(err)
-	}
+		MonotonicULIDGenerator = &monotonicULIDGenerator{
+			entropy:  entropy,
+			lastMs:   0,
+			lastULID: inital,
+		}
+	})
 
-	return &MonotonicULIDGenerator{
-		entropy:  entropy,
-		lastMs:   0,
-		lastULID: inital,
-	}
+	return MonotonicULIDGenerator
 }
 
 func incrementBytes(in []byte) []byte {
@@ -59,7 +68,7 @@ func incrementBytes(in []byte) []byte {
 	panic("errOverflow")
 }
 
-func (u *MonotonicULIDGenerator) New(t time.Time) (ulid.ULID, error) {
+func (u *monotonicULIDGenerator) New(t time.Time) (ulid.ULID, error) {
 	u.Lock()
 	defer u.Unlock()
 

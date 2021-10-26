@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/pbudner/argosminer/parsers"
-	"github.com/pbudner/argosminer/receivers"
+	"github.com/pbudner/argosminer/processors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/radovskyb/watcher"
 	log "github.com/sirupsen/logrus"
@@ -27,7 +27,7 @@ type fileSource struct {
 	ReadFrom         string
 	Watcher          *watcher.Watcher
 	Parser           parsers.Parser
-	Receivers        []receivers.StreamingReceiver
+	Receivers        []processors.StreamingProcessor
 	lastFilePosition int64
 }
 
@@ -53,7 +53,7 @@ func init() {
 	prometheus.MustRegister(receivedFileEvents, receivedFileEventsWithError, lastReceivedFileEvent)
 }
 
-func NewFileSource(path, readFrom string, parser parsers.Parser, receivers []receivers.StreamingReceiver) fileSource {
+func NewFileSource(path, readFrom string, parser parsers.Parser, receivers []processors.StreamingProcessor) fileSource {
 	fs := fileSource{
 		Path:             path,
 		ReadFrom:         strings.ToLower(readFrom),
