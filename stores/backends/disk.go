@@ -3,14 +3,16 @@ package backends
 import (
 	"bytes"
 	"fmt"
-	"log"
+	"time"
 
 	badger "github.com/dgraph-io/badger/v3"
 	"github.com/pbudner/argosminer/stores/utils"
+	log "github.com/sirupsen/logrus"
 )
 
 type diskStore struct {
-	store *badger.DB
+	store    *badger.DB
+	gcTicker time.Ticker
 }
 
 func NewDiskStoreGenerator() StoreBackendGenerator {
@@ -28,9 +30,12 @@ func NewDiskStore(storeId string) *diskStore {
 		log.Fatal(err)
 	}
 
+	ticker := time.NewTicker(5 * time.Minute)
 	store := diskStore{
-		store: db,
+		store:    db,
+		gcTicker: *ticker,
 	}
+	go store.GC()
 	return &store
 }
 
@@ -298,28 +303,19 @@ func (s *diskStore) CountRange(from []byte, to []byte) (uint64, error) {
 	return counter, err
 }
 
-/*func (s *diskStore) GC(ctx context.Context) (interface{}, error) {
-	const tag = "GC"
-	const discardRatio = 0.3
-
-	if s.gc != nil && s.gc.State() == async.IsCancelled {
-		return nil, nil
-	}
-
-	deleted, total := s.purge()
-	s.monitor.Gauge(ctxTag, "GC.purge", float64(deleted), "type:deleted")
-	s.monitor.Gauge(ctxTag, "GC.purge", float64(total), "type:total")
-
-	for true {
-		if s.db.RunValueLogGC(discardRatio) != nil {
-			s.monitor.Count1(ctxTag, "vlog.GC", "type:stopped")
-			return nil, nil
+func (s *diskStore) GC() {
+	const discardRatio = 0.4
+	for range s.gcTicker.C {
+		for {
+			log.Info("Manaual BadgerDB GC running..")
+			if s.store.RunValueLogGC(discardRatio) != nil {
+				break
+			}
 		}
-		s.monitor.Count1(ctxTag, "vlog.GC", "type:completed")
 	}
-	return nil, nil
-}*/
+}
 
 func (s *diskStore) Close() {
+	s.gcTicker.Stop()
 	s.store.Close()
 }
