@@ -23,12 +23,7 @@ func NewDiskStorageGenerator() StorageGenerator {
 func NewDiskStorage(storeId string) *diskStorage {
 	dir := "/Volumes/PascalsSSD/ArgosMiner/diskStorage"
 	opts := badger.DefaultOptions(path.Join(dir, storeId))
-	opts = opts.WithBaseTableSize(64 << 15).
-		WithValueLogMaxEntries(5000).
-		WithBaseLevelSize(1 << 16).
-		WithLevelSizeMultiplier(3).
-		WithMaxLevels(25).
-		WithSyncWrites(false).
+	opts = opts.WithSyncWrites(false).
 		WithLogger(log.StandardLogger())
 
 	// open the database

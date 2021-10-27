@@ -8,7 +8,7 @@ import (
 )
 
 // this receiver is primarily used for performance testing as it does not cost significant performance
-type devNullReceiver struct {
+type devNullProcessor struct {
 	Id uuid.UUID
 }
 
@@ -34,21 +34,21 @@ func init() {
 	prometheus.MustRegister(receivedNullEventsCounter, lastReceivedNullEvent, lastReceviedNullEventTime)
 }
 
-func NewDevNullReceiver() *devNullReceiver {
-	algo := devNullReceiver{
+func NewDevNullProcessor() *devNullProcessor {
+	algo := devNullProcessor{
 		Id: uuid.New(),
 	}
 	log.Infof("Initialized new dev/null receiver with ID %s", algo.Id)
 	return &algo
 }
 
-func (a *devNullReceiver) Append(event *events.Event) error {
+func (a *devNullProcessor) Append(event *events.Event) error {
 	lastReceivedNullEvent.WithLabelValues(a.Id.String()).SetToCurrentTime()
 	receivedNullEventsCounter.WithLabelValues(a.Id.String()).Inc()
 	lastReceviedNullEventTime.WithLabelValues(a.Id.String()).Set(float64(event.Timestamp.Unix()))
 	return nil
 }
 
-func (a *devNullReceiver) Close() {
+func (a *devNullProcessor) Close() {
 	// nothing to do here
 }

@@ -54,7 +54,7 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	log.Debugf("received activity %s with timestamp %s", event.ActivityName, event.Timestamp)
 
 	// increment general activity counter
-	err := a.Store.RecordActivity(activity, timestamp)
+	err := a.Store.RecordActivity(activity, timestamp) // refactor: init by counting in db on startup and then count in memory
 	if err != nil {
 		return err
 	}
@@ -65,10 +65,10 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	}
 	if lastEventForCase == nil {
 		// 1. we have not seen this case so far
-		err = a.Store.RecordStartActivity(activity)
+		/*err = a.Store.RecordStartActivity(activity)
 		if err != nil {
 			return err
-		}
+		}*/
 		err = a.Store.RecordDirectlyFollowsRelation([]byte{0x00}, activity, timestamp)
 		if err != nil {
 			return err

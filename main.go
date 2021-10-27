@@ -114,8 +114,14 @@ func main() {
 	r.GET("/events/last/*count", func(c *gin.Context) {
 		counter := 10
 		i, err := strconv.Atoi(c.Param("count")[1:])
-		if err == nil && i > 0 && i <= 50 {
-			counter = i
+		if err == nil {
+			if i < 0 {
+				counter = 10
+			} else if i > 50 {
+				counter = 50
+			} else {
+				counter = i
+			}
 		}
 
 		events, err := eventStore.GetLast(counter)

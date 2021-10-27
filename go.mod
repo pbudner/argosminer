@@ -12,7 +12,7 @@ require (
 	github.com/radovskyb/watcher v1.0.7
 	github.com/segmentio/kafka-go v0.4.21
 	github.com/sirupsen/logrus v1.8.1
-	github.com/tidwall/gjson v1.9.4
+	github.com/tidwall/gjson v1.10.2
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	gopkg.in/yaml.v2 v2.4.0
 )

@@ -115,8 +115,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 		if event != nil {
 			for _, receiver := range s.Receivers {
-				err := receiver.Append(event)
-				if err != nil {
+				if err := receiver.Append(event); err != nil {
 					log.Error(err)
 					receivedKafkaEventsWithError.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 				}
