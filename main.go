@@ -10,7 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	prom "github.com/labstack/echo-contrib/prometheus"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/pbudner/argosminer/api"
 	"github.com/pbudner/argosminer/config"
 	"github.com/pbudner/argosminer/parsers"
 	"github.com/pbudner/argosminer/processors"
@@ -18,7 +21,6 @@ import (
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -34,14 +36,6 @@ func init() {
 	// register global prometheus metrics
 	prometheus.MustRegister(processStartedGauge)
 	processStartedGauge.SetToCurrentTime()
-}
-
-func prometheusHandler() gin.HandlerFunc {
-	h := promhttp.Handler()
-
-	return func(c *gin.Context) {
-		h.ServeHTTP(c.Writer, c.Request)
-	}
 }
 
 func main() {
@@ -83,6 +77,7 @@ func main() {
 		// kafka Source
 		if source.KafkaConfig != nil {
 			log.Debugf("Starting kafka source...")
+			continue
 			wg.Add(1)
 			var parser parsers.Parser
 			// not functional right now
@@ -103,15 +98,19 @@ func main() {
 		}
 	}
 
-	r := gin.Default()
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "Hello, world!",
+	e := echo.New()
+	e.Use(middleware.Logger())
+	p := prom.NewPrometheus("echo", nil)
+	p.Use(e)
+
+	e.GET("/", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, api.JSON{
+			"message": "Hello, world! Welcome to ArgosMiner!",
 			"version": "0.1",
 		})
 	})
 
-	r.GET("/events/last/*count", func(c *gin.Context) {
+	e.GET("/events/last/:count", func(c echo.Context) error {
 		counter := 10
 		i, err := strconv.Atoi(c.Param("count")[1:])
 		if err == nil {
@@ -126,114 +125,100 @@ func main() {
 
 		events, err := eventStore.GetLast(counter)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
+			return c.JSON(http.StatusInternalServerError, api.JSON{
 				"error": err.Error(),
 			})
-			return
 		}
 
-		c.JSON(200, gin.H{
+		return c.JSON(http.StatusOK, api.JSON{
 			"events": events,
 			"count":  len(events),
 		})
 	})
 
-	r.GET("/events/frequency", func(c *gin.Context) {
+	e.GET("/events/frequency", func(c echo.Context) error {
 		counter, err := eventStore.CountByDay()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
+			return c.JSON(http.StatusInternalServerError, api.JSON{
 				"error": err.Error(),
 			})
-			return
 		}
 
-		c.JSON(200, gin.H{
+		return c.JSON(http.StatusOK, api.JSON{
 			"frequency": counter,
 		})
 	})
 
-	r.GET("/events/statistics", func(c *gin.Context) {
+	e.GET("/events/statistics", func(c echo.Context) error {
 		counter, err := kvStore.Get([]byte("EventStoreCounter"))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
+			return c.JSON(http.StatusInternalServerError, api.JSON{
 				"error": err.Error(),
 			})
-			return
 		}
 
 		activityCount, err := sbarStore.CountActivities()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
+			return c.JSON(http.StatusInternalServerError, api.JSON{
 				"error": err.Error(),
 			})
-			return
 		}
 
 		dfRelationCount, err := sbarStore.CountDfRelations()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
+			return c.JSON(http.StatusInternalServerError, api.JSON{
 				"error": err.Error(),
 			})
-			return
 		}
 
-		c.JSON(200, gin.H{
+		return c.JSON(http.StatusOK, api.JSON{
 			"event_count":       storage.BytesToUint64(counter),
 			"activity_count":    activityCount,
 			"df_relation_count": dfRelationCount,
 		})
 	})
 
-	r.GET("/events/activities", func(c *gin.Context) {
+	e.GET("/events/activities", func(c echo.Context) error {
 		v, err := sbarStore.GetActivities()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
+			return c.JSON(http.StatusInternalServerError, api.JSON{
 				"error": err.Error(),
 			})
-			return
 		}
 
-		c.JSON(200, gin.H{
+		return c.JSON(http.StatusOK, api.JSON{
 			"activities": v,
 			"count":      len(v),
 		})
 	})
 
-	r.GET("/events/dfrelations", func(c *gin.Context) {
+	e.GET("/events/dfrelations", func(c echo.Context) error {
 		v, err := sbarStore.GetDfRelations()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
+			return c.JSON(http.StatusInternalServerError, api.JSON{
 				"error": err.Error(),
 			})
-			return
 		}
 
-		c.JSON(200, gin.H{
+		return c.JSON(200, api.JSON{
 			"dfrelations": v,
 			"count":       len(v),
 		})
 	})
 
-	r.GET("/metrics", prometheusHandler())
-
-	srv := &http.Server{
-		Addr:    ":8080",
-		Handler: r,
-	}
-
 	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
+		if err := e.Start(":3000"); err != nil && err != http.ErrServerClosed {
+			e.Logger.Fatal("shutting down the server")
 		}
 	}()
 
 	// wait here before closing all workers
 	termChan := make(chan os.Signal, 1)
-	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(termChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-termChan // Blocks here until interrupted
 	log.Info("SIGTERM received. Shutdown initiated\n")
 	ctxTimeout, cancelFunc2 := context.WithTimeout(ctx, time.Duration(time.Second*15))
-	if err := srv.Shutdown(ctxTimeout); err != nil {
+	if err := e.Shutdown(ctxTimeout); err != nil {
 		log.Error(err)
 	}
 
