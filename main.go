@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"embed"
+	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,6 +26,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
+
+//go:embed ui/dist
+var embededFiles embed.FS
 
 var processStartedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 	Name: "process_started",
@@ -50,11 +56,14 @@ func main() {
 
 	store := storage.NewDiskStorageGenerator()
 	eventStore := stores.NewEventStore(store)
+	defer eventStore.Close()
 	kvStore := stores.NewKvStore(store)
+	defer kvStore.Close()
 	sbarStore := stores.NewSbarStore(store)
+	defer sbarStore.Close()
 	receiverList := []processors.StreamingProcessor{
-		processors.NewEventProcessor(eventStore, kvStore),
-		processors.NewDfgStreamingAlgorithm(sbarStore),
+		processors.NewEventProcessor(eventStore),
+		// processors.NewDfgStreamingAlgorithm(sbarStore),
 	}
 	for _, source := range cfg.Sources {
 		if !source.Enabled {
@@ -77,7 +86,6 @@ func main() {
 		// kafka Source
 		if source.KafkaConfig != nil {
 			log.Debugf("Starting kafka source...")
-			continue
 			wg.Add(1)
 			var parser parsers.Parser
 			// not functional right now
@@ -99,20 +107,52 @@ func main() {
 	}
 
 	e := echo.New()
-	e.Use(middleware.Logger())
+	e.Use(
+		middleware.Recover(),   // Recover from all panics to always have your server up
+		middleware.Logger(),    // Log everything to stdout
+		middleware.RequestID(), // Generate a request id on the HTTP response headers for identification
+	)
+
+	e.HidePort = true
+	e.HideBanner = true
+
+	// Prometheus HTTP handler
 	p := prom.NewPrometheus("echo", nil)
 	p.Use(e)
 
-	e.GET("/", func(c echo.Context) error {
+	// error handling
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		log.Error("Error found..")
+		code := http.StatusInternalServerError
+		if he, ok := err.(*echo.HTTPError); ok {
+			code = he.Code
+		}
+		c.JSON(code, api.JSON{
+			"status_code": code,
+			"message":     err.Error(),
+		})
+		// errorPage := fmt.Sprintf("%d.html", code)
+		/*if err := c.File(errorPage); err != nil {
+			c.Logger().Error(err)
+		}*/
+		// c.Logger().Error(err)
+	}
+
+	useOS := len(os.Args) > 1 && os.Args[1] == "live"
+	assetHandler := http.FileServer(getFileSystem(useOS))
+	e.GET("/", echo.WrapHandler(assetHandler))
+
+	g := e.Group("/api")
+	g.GET("/", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, api.JSON{
 			"message": "Hello, world! Welcome to ArgosMiner!",
 			"version": "0.1",
 		})
 	})
 
-	e.GET("/events/last/:count", func(c echo.Context) error {
+	g.GET("/events/last/:count", func(c echo.Context) error {
 		counter := 10
-		i, err := strconv.Atoi(c.Param("count")[1:])
+		i, err := strconv.Atoi(c.Param("count"))
 		if err == nil {
 			if i < 0 {
 				counter = 10
@@ -136,20 +176,31 @@ func main() {
 		})
 	})
 
-	e.GET("/events/frequency", func(c echo.Context) error {
-		counter, err := eventStore.CountByDay()
+	g.GET("/events/frequency", func(c echo.Context) error {
+		counter, err := eventStore.GetBinCount()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, api.JSON{
 				"error": err.Error(),
 			})
 		}
 
+		dailyCounter := make(map[string]uint64)
+		for k, v := range counter {
+			trimmedKey := fmt.Sprintf("%s-%s-%s", k[0:4], k[4:6], k[6:8])
+			_, ok := dailyCounter[trimmedKey]
+			if !ok {
+				dailyCounter[trimmedKey] = v
+			} else {
+				dailyCounter[trimmedKey] += v
+			}
+		}
+
 		return c.JSON(http.StatusOK, api.JSON{
-			"frequency": counter,
+			"frequency": dailyCounter,
 		})
 	})
 
-	e.GET("/events/statistics", func(c echo.Context) error {
+	g.GET("/events/statistics", func(c echo.Context) error {
 		counter, err := kvStore.Get([]byte("EventStoreCounter"))
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, api.JSON{
@@ -178,7 +229,7 @@ func main() {
 		})
 	})
 
-	e.GET("/events/activities", func(c echo.Context) error {
+	g.GET("/events/activities", func(c echo.Context) error {
 		v, err := sbarStore.GetActivities()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, api.JSON{
@@ -192,7 +243,7 @@ func main() {
 		})
 	})
 
-	e.GET("/events/dfrelations", func(c echo.Context) error {
+	g.GET("/events/dfrelations", func(c echo.Context) error {
 		v, err := sbarStore.GetDfRelations()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, api.JSON{
@@ -228,4 +279,19 @@ func main() {
 	// block here until are workers are done
 	wg.Wait()
 	log.Info("All workers finished.. Shutting down!")
+}
+
+func getFileSystem(useOS bool) http.FileSystem {
+	if useOS {
+		log.Print("using live mode")
+		return http.FS(os.DirFS("ui/dist"))
+	}
+
+	log.Print("using embed mode")
+	fsys, err := fs.Sub(embededFiles, "ui/dist")
+	if err != nil {
+		panic(err)
+	}
+
+	return http.FS(fsys)
 }

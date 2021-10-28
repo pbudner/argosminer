@@ -10,7 +10,7 @@ type Storage interface {
 	GetRange(from []byte, to []byte) ([][]byte, error)
 	TotalCount() (uint64, error)
 	CountRange(from []byte, to []byte) (uint64, error)
-	Find(prefix []byte) ([]KeyValue, error)
+	Find(prefix []byte, reverse bool, f func(KeyValue) (bool, error)) error
 	CountPrefix(prefix []byte) (uint64, error)
 	Close()
 }

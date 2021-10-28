@@ -30,7 +30,7 @@ func New(name []byte, timestamp time.Time) (Key, error) {
 	return out, nil
 }
 
-// Returns the event hash part of the key
+// Returns the hashed name part of the key
 func HashOf(k Key) uint64 {
 	return binary.BigEndian.Uint64(k[0:8])
 }

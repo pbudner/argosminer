@@ -10,12 +10,14 @@ The following features distinguish ArgosMiner from other process mining systems:
 
 ## ToDos
 - Finish API Endpoints (1 day)
-- Embedd User Interface in Single Binary (https://echo.labstack.com/cookbook/embed-resources/)
 - Implement a Partitioning Layer above BadgerDB (1 day)
 - Random Event Emitter Source (Regular Intervals, e.g. every second) (2 hours)
 - Turn Raw Events Logstore on and off 
 
 - https://github.com/tidwall/wal
+
+## What costs RAM
+- Number of Events in EventLog buffer before flushing (default=100.000)
 
 ## Requirements of TSDB for First Version
 - Sum of Events per EventType per Day (<-- Partition by Day) 

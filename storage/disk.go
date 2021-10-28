@@ -213,29 +213,34 @@ func (s *diskStorage) GetRange(from []byte, to []byte) ([][]byte, error) {
 	return result, err
 }
 
-func (s *diskStorage) Find(prefix []byte) ([]KeyValue, error) {
-	result := make([]KeyValue, 0)
+func (s *diskStorage) Find(prefix []byte, reverse bool, f func(KeyValue) (bool, error)) error {
 	err := s.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
 		opts.Prefix = prefix
+		opts.Reverse = reverse
 		it := txn.NewIterator(opts)
 		defer it.Close()
 		it.Rewind()
+		log.Info("Search for something")
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			log.Info("Found . something")
 			item := it.Item()
 			key := item.KeyCopy(nil)
 			itemBytes, err := item.ValueCopy(nil)
 			if err != nil {
 				return err
 			}
-			result = append(result, KeyValue{Key: key, Value: itemBytes})
+
+			if ok, err := f(KeyValue{Key: key, Value: itemBytes}); !ok {
+				return err
+			}
 		}
 
 		return nil
 	})
 
-	return result, err
+	return err
 }
 
 func (s *diskStorage) CountPrefix(prefix []byte) (uint64, error) {

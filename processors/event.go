@@ -11,27 +11,18 @@ import (
 type eventProcessor struct {
 	Id         uuid.UUID
 	EventStore *stores.EventStore
-	KvStore    *stores.KvStore
 }
 
-var eventStoreCounter = []byte("EventStoreCounter")
-
-func NewEventProcessor(eventStore *stores.EventStore, kvStore *stores.KvStore) *eventProcessor {
+func NewEventProcessor(eventStore *stores.EventStore) *eventProcessor {
 	receiver := &eventProcessor{
 		Id:         uuid.New(),
 		EventStore: eventStore,
-		KvStore:    kvStore,
 	}
 	log.Infof("Initialized new EventStore receiver with ID %s", receiver.Id)
 	return receiver
 }
 
 func (a *eventProcessor) Append(event *events.Event) error {
-	_, err := a.KvStore.Increment(eventStoreCounter)
-	if err != nil {
-		return err
-	}
-
 	return a.EventStore.Append(event)
 }
 
