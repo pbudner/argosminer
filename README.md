@@ -9,7 +9,7 @@ The following three key features distinguish ArgosMiner from other process minin
 - Focus on change
 - Focus on operational simplicity
 
-ArgosMiner is a single binary without external dependencies, such as a database. It can be used in client as well as server scenarios. While the latter is primary focus, ArgosMiner can also be used as a client program to simply analyze an event log dataset on your client.
+ArgosMiner is a single binary without external dependencies, such as a database. It can be used in client as well as server scenarios. While the latter is our primary focus, ArgosMiner can also be used as a client program to quickly analyze (large) event log datasets on your client.
 ## ToDos
 - Finish API Endpoints (1 day)
 - Implement a Partitioning Layer above BadgerDB (1 day)
