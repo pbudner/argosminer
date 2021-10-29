@@ -4,9 +4,10 @@
 
 ArgosMiner is a streaming process mining system written in [Go](https://go.dev/). It collects events from various sources and traces the underlying discovered process models over time. 
 
-The following features distinguish ArgosMiner from other process mining systems:
-- foo
-- bar
+The following three key features distinguish ArgosMiner from other process mining systems:
+- Focus on time
+- Focus on change
+- Focus on operational simplicity
 
 ## ToDos
 - Finish API Endpoints (1 day)
