@@ -1,6 +1,6 @@
 # ArgosMiner
 
-<img src="assets/logo.svg" height="60px" />
+<img src="assets/logo.svg" height="75px" />
 
 ArgosMiner is a process mining system. It collects events from various sources and traces the underlying discovered process models over time. 
 
