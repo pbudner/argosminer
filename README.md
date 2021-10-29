@@ -82,3 +82,6 @@ The timestamp is accurate to the millisecond.
 - 1.21e+24 unique ULIDs per millisecond (1,208,925,819,614,629,174,706,176 to be exact)
 - UNIX-time in milliseconds
 - Won't run out of space till the year 10889 AD
+
+## Logo
+The logo is based on the vectorized Gopher by https://github.com/egonelbre/gophers
