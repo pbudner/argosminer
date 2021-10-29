@@ -2,7 +2,7 @@
 
 <img src="assets/logo.svg" height="75px" />
 
-ArgosMiner is a process mining system. It collects events from various sources and traces the underlying discovered process models over time. 
+ArgosMiner is a process mining system written in [Go](https://go.dev/). It collects events from various sources and traces the underlying discovered process models over time. 
 
 The following features distinguish ArgosMiner from other process mining systems:
 - foo
