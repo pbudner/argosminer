@@ -44,45 +44,41 @@ func NewDfgStreamingAlgorithm(store *stores.SbarStore) *dfgStreamingAlgorithm {
 }
 
 func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
-	// update some Prometheus metrics
 	lastReceivedDfgEvent.WithLabelValues(a.Id.String()).SetToCurrentTime()
 	receivedDfgEventsCounter.WithLabelValues(a.Id.String()).Inc()
 	lastReceviedDfgEventTime.WithLabelValues(a.Id.String()).Set(float64(event.Timestamp.Unix()))
-	activity := []byte(event.ActivityName)
-	caseInstance := []byte(event.ProcessInstanceId)
+	activityName := event.ActivityName
+	caseInstance := event.ProcessInstanceId
 	timestamp := event.Timestamp
 	log.Debugf("received activity %s with timestamp %s", event.ActivityName, event.Timestamp)
-
 	// increment general activity counter
-	err := a.Store.RecordActivity(activity, timestamp) // refactor: init by counting in db on startup and then count in memory
+	err := a.Store.RecordActivity(activityName, timestamp)
 	if err != nil {
 		return err
 	}
-
-	lastEventForCase, err := a.Store.GetLastActivityForCase(caseInstance)
+	lastActivityForCase, err := a.Store.GetLastActivityForCase(caseInstance)
 	if err != nil {
 		return err
 	}
-	if lastEventForCase == nil {
+	if lastActivityForCase == "" {
 		// 1. we have not seen this case so far
-		/*err = a.Store.RecordStartActivity(activity)
+		err = a.Store.RecordStartActivity(activityName)
 		if err != nil {
 			return err
-		}*/
-		err = a.Store.RecordDirectlyFollowsRelation([]byte{0x00}, activity, timestamp)
+		}
+		err = a.Store.RecordDirectlyFollowsRelation("", activityName, timestamp)
 		if err != nil {
 			return err
 		}
 	} else {
 		// 2. we have seen this case
-		err = a.Store.RecordDirectlyFollowsRelation(lastEventForCase, activity, timestamp)
+		err = a.Store.RecordDirectlyFollowsRelation(lastActivityForCase, activityName, timestamp)
 		if err != nil {
 			return err
 		}
 	}
-
 	// always set the last seen activity for the current case to the current activity
-	err = a.Store.RecordActivityForCase(activity, caseInstance, timestamp)
+	err = a.Store.RecordActivityForCase(activityName, caseInstance, timestamp)
 	return err
 }
 

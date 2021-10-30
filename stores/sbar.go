@@ -1,222 +1,280 @@
 package stores
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/cespare/xxhash/v2"
+	"github.com/dgraph-io/badger/v3"
 	"github.com/pbudner/argosminer/storage"
+	"github.com/pbudner/argosminer/storage/key"
+	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type SbarStore struct {
 	sync.Mutex
-	storage      storage.Storage
-	counterCache map[uint64]uint64
-	caseCache    map[uint64][]byte
+	storage                storage.Storage
+	activityCounterCache   map[string]uint64
+	dfRelationCounterCache map[string]uint64
+	startEventCounterCache map[string]uint64
+	caseCache              map[string]string
+	activityBuffer         []*storage.KeyValue
+	dfRelationBuffer       []*storage.KeyValue
+	flushTicker            *time.Ticker
 }
 
-const seperatorCode = 0x00
-const activityCode = 0x01
-const dfRelationCode = 0x02
-const startActivityCode = 0x03
-const caseCode = 0x04
-const timestampedCode = 0x05
+const metaCode = 0x00
+const caseCode = 0x01
+const activityCode = 0x02
+const dfRelationCode = 0x03
+const activityCounterKey = "activity_counter"
+const dfRelationCounterKey = "dfRelation_counter"
+const startEventCounterKey = "startEvent_counter"
+const flushAfterMs = 10000
+const flushAfterEntries = 100000
 
-func NewSbarStore(storageGenerator storage.StorageGenerator) *SbarStore {
-	return &SbarStore{
-		storage:      storageGenerator("sbar"),
-		counterCache: make(map[uint64]uint64),
-		caseCache:    make(map[uint64][]byte),
+var activityBufferMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Subsystem: "argosminer_stores_sbar",
+	Name:      "buffered_activities_total",
+	Help:      "Count of buffered activties in memory.",
+}, []string{})
+
+var dfRelationBufferMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Subsystem: "argosminer_stores_sbar",
+	Name:      "buffered_dfrelations_total",
+	Help:      "Count of buffered activties in memory.",
+}, []string{})
+
+func init() {
+	prometheus.MustRegister(activityBufferMetric, dfRelationBufferMetric)
+}
+
+func NewSbarStore(storageGenerator storage.StorageGenerator) (*SbarStore, error) {
+	result := SbarStore{
+		storage:          storageGenerator("sbar"),
+		activityBuffer:   make([]*storage.KeyValue, 0),
+		dfRelationBuffer: make([]*storage.KeyValue, 0),
+		caseCache:        make(map[string]string),
 	}
-}
-
-func (kv *SbarStore) incr(key []byte) (uint64, error) {
-	k := xxhash.Sum64(key)
-	_, ok := kv.counterCache[k]
-	if !ok {
-		kv.counterCache[k] = 1
-		return 1, nil
-	} else {
-		kv.counterCache[k]++
-		return kv.counterCache[k], nil
-	}
-}
-
-func (kv *SbarStore) RecordDirectlyFollowsRelation(from []byte, to []byte, timestamp time.Time) error {
-	kv.Lock()
-	defer kv.Unlock()
-	_, err := kv.incr(encodeDfRelation(from, to, false))
-	if err != nil {
-		return err
-	}
-
-	/*k, err := key.New(encodeDfRelation(from, to, true), timestamp)
-	if err != nil {
-		return err
-	}*/
-
-	// kv.storage.Set(k, storage.Uint64ToBytes(counter))
-	return nil
-}
-
-func (kv *SbarStore) RecordActivityForCase(activity []byte, caseId []byte, timestamp time.Time) error {
-	kv.Lock()
-	defer kv.Unlock()
-	//return kv.storage.Set(encodeCase(caseId, false), activity)
-	kv.caseCache[xxhash.Sum64(caseId)] = activity
-	return nil
-}
-
-func (kv *SbarStore) GetLastActivityForCase(caseId []byte) ([]byte, error) {
-	kv.Lock()
-	defer kv.Unlock()
-	v, ok := kv.caseCache[xxhash.Sum64(caseId)]
-	if !ok {
-		return nil, nil
-	}
-
-	return v, nil
-	/*v, err := kv.storage.Get(encodeCase(caseId, false))
-	if err != nil && err != badger.ErrKeyNotFound {
+	if err := result.init(); err != nil {
 		return nil, err
 	}
-	return v, nil*/
+	return &result, nil
 }
 
-func (kv *SbarStore) RecordActivity(activity []byte, timestamp time.Time) error {
+func (kv *SbarStore) init() error {
 	kv.Lock()
 	defer kv.Unlock()
-	_, err := kv.incr(encodeActivity(activity, false))
-	if err != nil {
-		return err
-	}
 
-	/*
-		k, err := key.New(encodeActivity(activity, true), timestamp)
+	// load activity counter key from disk
+	v, err := kv.storage.Get(prefixString(metaCode, activityCounterKey))
+	if err != nil && err != badger.ErrKeyNotFound {
+		log.Error(err)
+	} else if err == badger.ErrKeyNotFound {
+		kv.activityCounterCache = make(map[string]uint64)
+	} else {
+		err = msgpack.Unmarshal(v, &kv.activityCounterCache)
 		if err != nil {
 			return err
 		}
+	}
 
-		kv.storage.Set(k, storage.Uint64ToBytes(counter))*/
+	// load dfRelation counter key from disk
+	v, err = kv.storage.Get(prefixString(metaCode, dfRelationCounterKey))
+	if err != nil && err != badger.ErrKeyNotFound {
+		log.Error(err)
+	} else if err == badger.ErrKeyNotFound {
+		kv.dfRelationCounterCache = make(map[string]uint64)
+	} else {
+		err = msgpack.Unmarshal(v, &kv.dfRelationCounterCache)
+		if err != nil {
+			return err
+		}
+	}
+
+	// load startEvent counter key from disk
+	v, err = kv.storage.Get(prefixString(metaCode, startEventCounterKey))
+	if err != nil && err != badger.ErrKeyNotFound {
+		log.Error(err)
+	} else if err == badger.ErrKeyNotFound {
+		kv.startEventCounterCache = make(map[string]uint64)
+	} else {
+		err = msgpack.Unmarshal(v, &kv.startEventCounterCache)
+		if err != nil {
+			return err
+		}
+	}
+
+	kv.flushTicker = time.NewTicker(flushAfterMs * time.Millisecond)
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-kv.flushTicker.C:
+				kv.Lock()
+				flushedItems := kv.flush(&kv.activityBuffer)
+				log.Debugf("Flush timer flushed %d activities to disk", flushedItems)
+				flushedItems = kv.flush(&kv.dfRelationBuffer)
+				log.Debugf("Flush timer flushed %d directly-follows relations to disk", flushedItems)
+				kv.Unlock()
+			}
+		}
+	}()
 	return nil
 }
 
-func (kv *SbarStore) GetActivities() (map[string]uint64, error) {
+func (kv *SbarStore) RecordActivityForCase(activity string, caseId string, timestamp time.Time) error {
 	kv.Lock()
 	defer kv.Unlock()
-	/*activities, err := kv.storage.Find([]byte{activityCode})
-	if err != nil {
-		return nil, err
+	kv.caseCache[caseId] = activity
+	return nil
+}
+
+func (kv *SbarStore) GetLastActivityForCase(caseId string) (string, error) {
+	kv.Lock()
+	defer kv.Unlock()
+	// first, try to get from cache
+	v, ok := kv.caseCache[caseId]
+	if ok {
+		return v, nil
 	}
+	// otherwise, try to get from disk
+	b, err := kv.storage.Get(prefixString(caseCode, caseId))
+	if err != nil && err != badger.ErrKeyNotFound {
+		return "", err
+	}
+	if err == badger.ErrKeyNotFound {
+		return "", nil
+	}
+	return string(b), nil
+}
+
+func (kv *SbarStore) RecordDirectlyFollowsRelation(from string, to string, timestamp time.Time) error {
+	kv.Lock()
+	defer kv.Unlock()
+	dfRelation := fmt.Sprintf("%s-->%s", from, to)
+	counter, err := kv.incr(kv.dfRelationCounterCache, dfRelation)
+	if err != nil {
+		return err
+	}
+
+	k, err := key.New(prefixString(dfRelationCode, dfRelation), timestamp)
+	if err != nil {
+		return err
+	}
+
+	kv.dfRelationBuffer = append(kv.dfRelationBuffer, &storage.KeyValue{Key: k, Value: storage.Uint64ToBytes(counter)})
+	dfRelationBufferMetric.WithLabelValues().Inc()
+	if len(kv.dfRelationBuffer) >= flushAfterEntries {
+		flushedItems := kv.flush(&kv.dfRelationBuffer)
+		log.Debugf("Flushed %d directly-follows relations to disk because of buffer size", flushedItems)
+	}
+	return nil
+}
+
+func (kv *SbarStore) RecordActivity(activity string, timestamp time.Time) error {
+	kv.Lock()
+	defer kv.Unlock()
+	counter, err := kv.incr(kv.activityCounterCache, activity)
+	if err != nil {
+		return err
+	}
+
+	k, err := key.New(prefixString(activityCode, activity), timestamp)
+	if err != nil {
+		return err
+	}
+
+	kv.activityBuffer = append(kv.activityBuffer, &storage.KeyValue{Key: k, Value: storage.Uint64ToBytes(counter)})
+	activityBufferMetric.WithLabelValues().Inc()
+	if len(kv.activityBuffer) >= flushAfterEntries {
+		flushedItems := kv.flush(&kv.activityBuffer)
+		log.Debugf("Flushed %d activities to disk because of buffer size", flushedItems)
+	}
+	return nil
+}
+
+func (kv *SbarStore) GetActivities() map[string]uint64 {
+	kv.Lock()
+	defer kv.Unlock()
 	result := make(map[string]uint64)
-	for _, a := range activities {
-		result[string(a.Key[1:])] = storage.BytesToUint64(a.Value)
+	for k, v := range kv.activityCounterCache {
+		result[k] = v
 	}
-	return result, nil*/
-	return nil, nil
+	return result
 }
 
-func (kv *SbarStore) GetDfRelations() (map[string]uint64, error) {
+func (kv *SbarStore) GetDfRelations() map[string]uint64 {
 	kv.Lock()
 	defer kv.Unlock()
-	/*activities, err := kv.storage.Find([]byte{dfRelationCode})
-	if err != nil {
-		return nil, err
-	}
 	result := make(map[string]uint64)
-	for _, a := range activities {
-		result[string(a.Key[1:])] = storage.BytesToUint64(a.Value)
+	for k, v := range kv.dfRelationCounterCache {
+		result[k] = v
 	}
-	return result, nil*/
-	return nil, nil
+	return result
 }
 
-func (kv *SbarStore) CountActivities() (uint64, error) {
+func (kv *SbarStore) CountActivities() int {
 	kv.Lock()
 	defer kv.Unlock()
-	/*counter, err := kv.storage.CountPrefix([]byte{activityCode})
+	return len(kv.activityCounterCache)
+}
+
+func (kv *SbarStore) CountDfRelations() int {
+	kv.Lock()
+	defer kv.Unlock()
+	return len(kv.dfRelationCounterCache)
+}
+
+func (kv *SbarStore) CountStartActivities() int {
+	kv.Lock()
+	defer kv.Unlock()
+	return len(kv.startEventCounterCache)
+}
+
+func (kv *SbarStore) RecordStartActivity(key string) error {
+	kv.Lock()
+	defer kv.Unlock()
+	_, err := kv.incr(kv.startEventCounterCache, key)
 	if err != nil {
-		return 0, err
+		return err
 	}
-
-	return counter, nil*/
-	return 0, nil
-}
-
-func (kv *SbarStore) CountDfRelations() (uint64, error) {
-	kv.Lock()
-	defer kv.Unlock()
-	/*counter, err := kv.storage.CountPrefix([]byte{dfRelationCode})
-	if err != nil {
-		return 0, err
-	}
-
-	return counter, nil*/
-	return 0, nil
-}
-
-func (kv *SbarStore) CountStartActivities() (uint64, error) {
-	kv.Lock()
-	defer kv.Unlock()
-	counter, err := kv.storage.CountPrefix([]byte{startActivityCode})
-	if err != nil {
-		return 0, err
-	}
-
-	return counter, nil
-}
-
-func (kv *SbarStore) RecordStartActivity(key []byte) error {
-	kv.Lock()
-	defer kv.Unlock()
-	//_, err := kv.storage.Increment(encodeStartActivity(key, false))
 	return nil
 }
 
 func (kv *SbarStore) Close() {
 	kv.Lock()
 	defer kv.Unlock()
+	kv.flushTicker.Stop()
+	flushedItems := kv.flush(&kv.activityBuffer)
+	log.Infof("Flushed %d activties before closing sbar store", flushedItems)
+	flushedItems = kv.flush(&kv.dfRelationBuffer)
+	log.Infof("Flushed %d directly-follows relations before closing sbar store", flushedItems)
 	kv.storage.Close()
 }
 
-func encodeActivity(key []byte, timestamped bool) []byte {
-	if timestamped {
-		return append([]byte{timestampedCode, activityCode}, key...)
-	}
-
-	return append([]byte{activityCode}, key...)
+func (kv *SbarStore) flush(items *[]*storage.KeyValue) int {
+	count := len(*items)
+	kv.storage.SetBatch(*items)
+	*items = make([]*storage.KeyValue, 0)
+	return count
 }
 
-func encodeDfRelation(from []byte, to []byte, timestamped bool) []byte {
-	result := make([]byte, len(from)+len(to)+2)
-	result[0] = dfRelationCode
-	result[len(from)] = seperatorCode
-	for i, b := range from {
-		result[1+i] = b
+func (kv *SbarStore) incr(cache map[string]uint64, key string) (uint64, error) {
+	_, ok := cache[key]
+	if !ok {
+		cache[key] = 1
+		return 1, nil
+	} else {
+		cache[key]++
+		return cache[key], nil
 	}
-	for i, b := range to {
-		result[len(from)+1+i] = b
-	}
-
-	if timestamped {
-		result = append([]byte{timestampedCode}, result...)
-	}
-
-	return result
 }
 
-func encodeStartActivity(key []byte, timestamped bool) []byte {
-	if timestamped {
-		return append([]byte{timestampedCode, startActivityCode}, key...)
-	}
-
-	return append([]byte{startActivityCode}, key...)
-}
-
-func encodeCase(key []byte, timestamped bool) []byte {
-	if timestamped {
-		return append([]byte{timestampedCode, caseCode}, key...)
-	}
-
-	return append([]byte{caseCode}, key...)
+func prefixString(b byte, str string) []byte {
+	return append([]byte{b}, []byte(str)...)
 }

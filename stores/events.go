@@ -192,6 +192,10 @@ func (es *EventStore) GetBinCount() (map[string]uint64, error) {
 	return copiedMap, nil
 }
 
+func (es *EventStore) GetCount() uint64 {
+	return es.counter
+}
+
 func (es *EventStore) Close() {
 	es.Lock()
 	defer es.Unlock()

@@ -59,11 +59,14 @@ func main() {
 	defer eventStore.Close()
 	kvStore := stores.NewKvStore(store)
 	defer kvStore.Close()
-	sbarStore := stores.NewSbarStore(store)
+	sbarStore, err := stores.NewSbarStore(store)
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer sbarStore.Close()
 	receiverList := []processors.StreamingProcessor{
 		processors.NewEventProcessor(eventStore),
-		// processors.NewDfgStreamingAlgorithm(sbarStore),
+		processors.NewDfgStreamingAlgorithm(sbarStore),
 	}
 	for _, source := range cfg.Sources {
 		if !source.Enabled {
@@ -122,7 +125,7 @@ func main() {
 
 	// error handling
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
-		log.Error("Error found..")
+		log.Error(err)
 		code := http.StatusInternalServerError
 		if he, ok := err.(*echo.HTTPError); ok {
 			code = he.Code
@@ -201,42 +204,18 @@ func main() {
 	})
 
 	g.GET("/events/statistics", func(c echo.Context) error {
-		counter, err := kvStore.Get([]byte("EventStoreCounter"))
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, api.JSON{
-				"error": err.Error(),
-			})
-		}
-
-		activityCount, err := sbarStore.CountActivities()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, api.JSON{
-				"error": err.Error(),
-			})
-		}
-
-		dfRelationCount, err := sbarStore.CountDfRelations()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, api.JSON{
-				"error": err.Error(),
-			})
-		}
-
+		counter := eventStore.GetCount()
+		activityCount := sbarStore.CountActivities()
+		dfRelationCount := sbarStore.CountDfRelations()
 		return c.JSON(http.StatusOK, api.JSON{
-			"event_count":       storage.BytesToUint64(counter),
+			"event_count":       counter,
 			"activity_count":    activityCount,
 			"df_relation_count": dfRelationCount,
 		})
 	})
 
 	g.GET("/events/activities", func(c echo.Context) error {
-		v, err := sbarStore.GetActivities()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, api.JSON{
-				"error": err.Error(),
-			})
-		}
-
+		v := sbarStore.GetActivities()
 		return c.JSON(http.StatusOK, api.JSON{
 			"activities": v,
 			"count":      len(v),
@@ -244,13 +223,7 @@ func main() {
 	})
 
 	g.GET("/events/dfrelations", func(c echo.Context) error {
-		v, err := sbarStore.GetDfRelations()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, api.JSON{
-				"error": err.Error(),
-			})
-		}
-
+		v := sbarStore.GetDfRelations()
 		return c.JSON(200, api.JSON{
 			"dfrelations": v,
 			"count":       len(v),

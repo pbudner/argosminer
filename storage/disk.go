@@ -49,6 +49,24 @@ func (s *diskStorage) Set(key []byte, value []byte) error {
 	})
 }
 
+func (s *diskStorage) SetBatch(batch []*KeyValue) error {
+	txn := s.store.NewTransaction(true)
+	for _, kv := range batch {
+		if err := txn.Set(kv.Key, kv.Value); err == badger.ErrTxnTooBig {
+			err = txn.Commit()
+			if err != nil {
+				return err
+			}
+			txn = s.store.NewTransaction(true)
+			err = txn.Set(kv.Key, kv.Value)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return txn.Commit()
+}
+
 func (s *diskStorage) Get(key []byte) ([]byte, error) {
 	var value []byte
 	err := s.store.View(func(txn *badger.Txn) error {

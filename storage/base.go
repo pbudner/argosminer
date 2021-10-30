@@ -4,6 +4,7 @@ type Storage interface {
 	Set(key []byte, value []byte) error
 	Get(key []byte) ([]byte, error)
 	Increment(key []byte) (uint64, error)
+	SetBatch(batch []*KeyValue) error
 	Contains(key []byte) bool
 	GetLast(count int) ([][]byte, error)
 	GetFirst(count int) ([][]byte, error)
