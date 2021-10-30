@@ -2,7 +2,6 @@ package key
 
 import (
 	"encoding/binary"
-	"math"
 	"time"
 
 	"github.com/cespare/xxhash/v2"
@@ -61,18 +60,4 @@ func PrefixOf(seek, until Key) []byte {
 		prefix = append(prefix, seek[i])
 	}
 	return prefix
-}
-
-// First returns the smallest possible key
-func First() Key {
-	return make([]byte, size)
-}
-
-// Last returns the largest possible key
-func Last() Key {
-	out := make([]byte, size)
-	for i := 0; i < size; i++ {
-		out[i] = math.MaxUint8
-	}
-	return out
 }

@@ -9,9 +9,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	valueLogGCDiscardRatio       = 0.5
+	maintenanceIntervalInMinutes = 5
+)
+
 type diskStorage struct {
-	store    *badger.DB
-	gcTicker time.Ticker
+	store           *badger.DB
+	maintenanceDone chan bool
 }
 
 func NewDiskStorageGenerator() StorageGenerator {
@@ -23,8 +28,7 @@ func NewDiskStorageGenerator() StorageGenerator {
 func NewDiskStorage(storeId string) *diskStorage {
 	dir := "/Volumes/PascalsSSD/ArgosMiner/diskStorage"
 	opts := badger.DefaultOptions(path.Join(dir, storeId))
-	opts = opts.WithSyncWrites(false).
-		WithLogger(log.StandardLogger())
+	opts = opts.WithSyncWrites(false).WithLogger(log.StandardLogger()).WithDetectConflicts(false)
 
 	// open the database
 	db, err := badger.Open(opts)
@@ -32,13 +36,12 @@ func NewDiskStorage(storeId string) *diskStorage {
 		return nil
 	}
 
-	// start the daily GC
-	ticker := time.NewTicker(1 * time.Minute)
 	store := diskStorage{
-		store:    db,
-		gcTicker: *ticker,
+		store:           db,
+		maintenanceDone: make(chan bool),
 	}
-	go store.GC()
+
+	go store.maintenance()
 	return &store
 }
 
@@ -49,9 +52,12 @@ func (s *diskStorage) Set(key []byte, value []byte) error {
 	})
 }
 
-func (s *diskStorage) SetBatch(batch []*KeyValue) error {
+func (s *diskStorage) SetBatch(batch []KeyValue) error {
 	txn := s.store.NewTransaction(true)
 	for _, kv := range batch {
+		if len(kv.Key) == 0 {
+			log.Error("Key has a length of 0. This should not happen!")
+		}
 		if err := txn.Set(kv.Key, kv.Value); err == badger.ErrTxnTooBig {
 			err = txn.Commit()
 			if err != nil {
@@ -329,18 +335,32 @@ func (s *diskStorage) CountRange(from []byte, to []byte) (uint64, error) {
 	return counter, err
 }
 
-func (s *diskStorage) GC() {
-	const discardRatio = 0.4
-	for range s.gcTicker.C {
-		for {
-			if s.store.RunValueLogGC(discardRatio) != nil {
-				break
+func (s *diskStorage) maintenance() {
+	maintenanceTicker := time.NewTicker(maintenanceIntervalInMinutes * time.Minute)
+	defer maintenanceTicker.Stop()
+	for {
+		select {
+		case <-s.maintenanceDone:
+			return
+		case <-maintenanceTicker.C:
+			var err error
+			for err == nil {
+				s.store.RunValueLogGC(valueLogGCDiscardRatio)
+			}
+
+			if err == badger.ErrNoRewrite {
+				log.Debug("Successfully finished ValueLogGC")
+			} else {
+				log.Error("Failed to run ValueLogGC:", err)
 			}
 		}
 	}
 }
 
 func (s *diskStorage) Close() {
-	s.gcTicker.Stop()
-	s.store.Close()
+	close(s.maintenanceDone)
+	err := s.store.Close()
+	if err != nil {
+		log.Error(err)
+	}
 }

@@ -64,7 +64,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer sbarStore.Close()
+	//defer sbarStore.Close()
 	eventSampler := utils.NewEventSampler(eventStore)
 	receiverList := []processors.StreamingProcessor{
 		processors.NewEventProcessor(eventStore),

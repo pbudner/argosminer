@@ -20,8 +20,8 @@ type SbarStore struct {
 	dfRelationCounterCache map[string]uint64
 	startEventCounterCache map[string]uint64
 	caseCache              map[string]string
-	activityBuffer         []*storage.KeyValue
-	dfRelationBuffer       []*storage.KeyValue
+	activityBuffer         []storage.KeyValue
+	dfRelationBuffer       []storage.KeyValue
 	flushTicker            *time.Ticker
 	doneChannel            chan bool
 }
@@ -55,8 +55,8 @@ func init() {
 func NewSbarStore(storageGenerator storage.StorageGenerator) (*SbarStore, error) {
 	result := SbarStore{
 		storage:          storageGenerator("sbar"),
-		activityBuffer:   make([]*storage.KeyValue, 0),
-		dfRelationBuffer: make([]*storage.KeyValue, 0),
+		activityBuffer:   make([]storage.KeyValue, 0),
+		dfRelationBuffer: make([]storage.KeyValue, 0),
 		caseCache:        make(map[string]string),
 		doneChannel:      make(chan bool),
 	}
@@ -165,7 +165,7 @@ func (kv *SbarStore) RecordDirectlyFollowsRelation(from string, to string, times
 		return err
 	}
 
-	kv.dfRelationBuffer = append(kv.dfRelationBuffer, &storage.KeyValue{Key: k, Value: storage.Uint64ToBytes(counter)})
+	kv.dfRelationBuffer = append(kv.dfRelationBuffer, storage.KeyValue{Key: k, Value: storage.Uint64ToBytes(counter)})
 	dfRelationBufferMetric.WithLabelValues().Inc()
 	return nil
 }
@@ -183,7 +183,7 @@ func (kv *SbarStore) RecordActivity(activity string, timestamp time.Time) error 
 		return err
 	}
 
-	kv.activityBuffer = append(kv.activityBuffer, &storage.KeyValue{Key: k, Value: storage.Uint64ToBytes(counter)})
+	kv.activityBuffer = append(kv.activityBuffer, storage.KeyValue{Key: k, Value: storage.Uint64ToBytes(counter)})
 	activityBufferMetric.WithLabelValues().Inc()
 	if len(kv.activityBuffer) >= flushAfterEntries {
 		kv.flush()
@@ -258,10 +258,10 @@ func (kv *SbarStore) flush() {
 	dfRelationBufferMetric.Reset()
 }
 
-func (kv *SbarStore) flushBuffer(items *[]*storage.KeyValue) int {
+func (kv *SbarStore) flushBuffer(items *[]storage.KeyValue) int {
 	count := len(*items)
 	kv.storage.SetBatch(*items)
-	*items = make([]*storage.KeyValue, 0)
+	*items = make([]storage.KeyValue, 0)
 	return count
 }
 
