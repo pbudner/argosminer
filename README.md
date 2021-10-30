@@ -11,12 +11,9 @@ The following three key features distinguish ArgosMiner from other process minin
 
 ArgosMiner is a single binary without external dependencies, such as a database. It can be used in client as well as server settings. While the latter is our primary focus, ArgosMiner can also be used on a client to quickly analyze (large) event logs.
 ## ToDos
-- Finish API Endpoints (1 day)
-- Implement a Partitioning Layer above BadgerDB (1 day)
 - Random Event Emitter Source (Regular Intervals, e.g. every second) (2 hours)
 - Turn Raw Events Logstore on and off 
-
-- https://github.com/tidwall/wal
+- Implement a Partitioning Layer above BadgerDB
 
 ## What costs RAM
 - Number of Events in EventLog buffer before flushing (default=100.000)

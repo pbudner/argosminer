@@ -19,8 +19,6 @@ require (
 )
 
 require (
-	github.com/apache/arrow v0.0.0-20211027161228-846b6be5daf5 // indirect
-	github.com/apache/arrow/go/arrow v0.0.0-20211027161228-846b6be5daf5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
@@ -56,7 +54,6 @@ require (
 	golang.org/x/sys v0.0.0-20211015200801-69063c4bb744 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect

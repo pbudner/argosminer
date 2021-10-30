@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cespare/xxhash"
+	"github.com/cespare/xxhash/v2"
 	"github.com/pbudner/argosminer/storage"
 )
 
