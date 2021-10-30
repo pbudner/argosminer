@@ -264,7 +264,6 @@ func getFileSystem(useOS bool) http.FileSystem {
 		return http.FS(os.DirFS("ui/dist"))
 	}
 
-	log.Print("using embed mode")
 	fsys, err := fs.Sub(embededFiles, "ui/dist")
 	if err != nil {
 		panic(err)

@@ -122,7 +122,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 			}
 		}
 
-		if err := r.CommitMessages(ctx, m); err != nil {
+		if err := r.CommitMessages(context.Background(), m); err != nil {
 			log.Error("Failed to commit messages:", err)
 		}
 	}

@@ -28,7 +28,7 @@ func NewDiskStorageGenerator() StorageGenerator {
 func NewDiskStorage(storeId string) *diskStorage {
 	dir := "/Volumes/PascalsSSD/ArgosMiner/diskStorage"
 	opts := badger.DefaultOptions(path.Join(dir, storeId))
-	opts = opts.WithSyncWrites(false).WithLogger(log.StandardLogger()).WithDetectConflicts(false)
+	opts = opts.WithSyncWrites(true).WithLogger(log.StandardLogger()).WithDetectConflicts(false)
 
 	// open the database
 	db, err := badger.Open(opts)
@@ -54,6 +54,7 @@ func (s *diskStorage) Set(key []byte, value []byte) error {
 
 func (s *diskStorage) SetBatch(batch []KeyValue) error {
 	writeBatch := s.store.NewWriteBatch()
+	defer writeBatch.Cancel()
 	for _, kv := range batch {
 		if len(kv.Key) == 0 {
 			log.Error("Key has a length of 0. This should not happen!")
@@ -140,33 +141,30 @@ func (s *diskStorage) Contains(key []byte) bool {
 	return err == nil
 }
 
-func (s *diskStorage) GetLast(count int) ([][]byte, error) {
-	result := make([][]byte, count)
+func (s *diskStorage) IterateReverse(f func(KeyValue) (bool, error)) error {
 	err := s.store.View(func(txn *badger.Txn) error {
-		var err error
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
 		opts.Reverse = true
 		it := txn.NewIterator(opts)
 		defer it.Close()
-		i := 0
 		for it.Rewind(); it.Valid(); it.Next() {
-			if i == count {
-				break
-			}
 			item := it.Item()
-			result[i], err = item.ValueCopy(nil)
+			key := item.KeyCopy(nil)
+			itemBytes, err := item.ValueCopy(nil)
 			if err != nil {
 				return err
 			}
 
-			i++
+			if ok, err := f(KeyValue{Key: key, Value: itemBytes}); !ok {
+				return err
+			}
 		}
 
 		return nil
 	})
 
-	return result, err
+	return err
 }
 
 func (s *diskStorage) GetFirst(count int) ([][]byte, error) {
@@ -230,18 +228,15 @@ func (s *diskStorage) GetRange(from []byte, to []byte) ([][]byte, error) {
 	return result, err
 }
 
-func (s *diskStorage) Find(prefix []byte, reverse bool, f func(KeyValue) (bool, error)) error {
+func (s *diskStorage) Find(prefix []byte, f func(KeyValue) (bool, error)) error {
 	err := s.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
 		opts.Prefix = prefix
-		opts.Reverse = reverse
 		it := txn.NewIterator(opts)
 		defer it.Close()
 		it.Rewind()
-		log.Info("Search for something")
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-			log.Info("Found . something")
 			item := it.Item()
 			key := item.KeyCopy(nil)
 			itemBytes, err := item.ValueCopy(nil)

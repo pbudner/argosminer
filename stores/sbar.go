@@ -75,6 +75,7 @@ func (kv *SbarStore) init() error {
 	if err != nil && err != badger.ErrKeyNotFound {
 		log.Error(err)
 	} else if err == badger.ErrKeyNotFound {
+		log.Info("Initialize empty activity cache.")
 		kv.activityCounterCache = make(map[string]uint64)
 	} else {
 		err = msgpack.Unmarshal(v, &kv.activityCounterCache)
@@ -88,6 +89,7 @@ func (kv *SbarStore) init() error {
 	if err != nil && err != badger.ErrKeyNotFound {
 		log.Error(err)
 	} else if err == badger.ErrKeyNotFound {
+		log.Info("Initialize empty directly-follows relation cache.")
 		kv.dfRelationCounterCache = make(map[string]uint64)
 	} else {
 		err = msgpack.Unmarshal(v, &kv.dfRelationCounterCache)
@@ -248,14 +250,47 @@ func (kv *SbarStore) Close() {
 	kv.storage.Close()
 }
 
-func (kv *SbarStore) flush() {
+func (kv *SbarStore) flush() error {
+	b, err := msgpack.Marshal(kv.activityCounterCache)
+	if err != nil {
+		return err
+	}
+	err = kv.storage.Set(prefixString(metaCode, activityCounterKey), b)
+	if err != nil {
+		return err
+	}
+	b, err = msgpack.Marshal(kv.dfRelationCounterCache)
+	if err != nil {
+		return err
+	}
+	err = kv.storage.Set(prefixString(metaCode, dfRelationCounterKey), b)
+	if err != nil {
+		return err
+	}
+	b, err = msgpack.Marshal(kv.startEventCounterCache)
+	if err != nil {
+		return err
+	}
+	err = kv.storage.Set(prefixString(metaCode, startEventCounterKey), b)
+	if err != nil {
+		return err
+	}
+	caseBuffer := make([]storage.KeyValue, len(kv.caseCache))
+	i := 0
+	for k, v := range kv.caseCache {
+		caseBuffer[i] = storage.KeyValue{Key: prefixString(caseCode, k), Value: []byte(v)}
+		i++
+	}
+	flushedItems := kv.flushBuffer(&caseBuffer)
+	log.Debugf("Flushed %d last activities for a case", flushedItems)
 	kv.caseCache = make(map[string]string)
-	flushedItems := kv.flushBuffer(&kv.activityBuffer)
+	flushedItems = kv.flushBuffer(&kv.activityBuffer)
 	log.Debugf("Flushed %d activties", flushedItems)
 	flushedItems = kv.flushBuffer(&kv.dfRelationBuffer)
 	log.Debugf("Flushed %d directly-follows relations", flushedItems)
 	activityBufferMetric.Reset()
 	dfRelationBufferMetric.Reset()
+	return nil
 }
 
 func (kv *SbarStore) flushBuffer(items *[]storage.KeyValue) int {

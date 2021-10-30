@@ -1,11 +1,10 @@
 package stores
 
 import (
-	"encoding/binary"
+	"bytes"
 	"sync"
 	"time"
 
-	"github.com/cespare/xxhash/v2"
 	"github.com/dgraph-io/badger/v3"
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/storage"
@@ -23,7 +22,7 @@ type EventStore struct {
 	storage      storage.Storage
 	counter      uint64
 	minTimestamp time.Time
-	buffer       []*storage.KeyValue
+	buffer       []storage.KeyValue
 	binCounter   map[string]uint64
 }
 
@@ -80,7 +79,7 @@ func (es *EventStore) Append(event *events.Event) error {
 		es.binCounter[binKey]++
 	}
 
-	k, err := key.New([]byte("event"), t)
+	k, err := key.New([]byte("event"), event.Timestamp)
 	if err != nil {
 		return err
 	}
@@ -90,11 +89,9 @@ func (es *EventStore) Append(event *events.Event) error {
 		return err
 	}
 
-	ev := storage.KeyValue{Key: k, Value: binEvent}
-	es.buffer = append(es.buffer, &ev)
-
+	es.buffer = append(es.buffer, storage.KeyValue{Key: k, Value: binEvent})
 	if len(es.buffer) >= event_flush_count {
-		_, err := es.flush()
+		err := es.flush()
 		if err != nil {
 			return err
 		}
@@ -103,30 +100,11 @@ func (es *EventStore) Append(event *events.Event) error {
 	return nil
 }
 
-// unused so far
-/*
-func (es *EventStore) Get(id []byte) (*events.Event, error) {
-	es.Lock()
-	defer es.Unlock()
-	value, err := es.storage.Get(id)
-	if err != nil {
-		return nil, err
-	}
-
-	var event events.Event
-	err = event.Unmarshal(value)
-	if err != nil {
-		return nil, err
-	}
-
-	return &event, nil
-}*/
-
 func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 	es.Lock()
 	defer es.Unlock()
 
-	var event_arr []*storage.KeyValue
+	var event_arr []storage.KeyValue
 	if count > len(es.buffer) {
 		event_arr = es.buffer[:]
 	} else {
@@ -143,32 +121,23 @@ func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 	}
 
 	if len(eventList) < count {
-		key := make([]byte, 8)
-		binary.BigEndian.PutUint64(key[0:8], xxhash.Sum64([]byte("event_block")))
-		err := es.storage.Find(key, true, func(kv storage.KeyValue) (bool, error) {
-			log.Println("FOUND SOMETHING")
-			var diskEvents []*storage.KeyValue
-			err := msgpack.Unmarshal(kv.Value, &diskEvents)
+		prefix, err := key.New([]byte("event"), time.Now().UTC())
+		if err != nil {
+			return nil, err
+		}
+		err = es.storage.IterateReverse(func(kv storage.KeyValue) (bool, error) {
+			if !bytes.Equal(kv.Key[:8], prefix[:8]) {
+				return true, nil
+			}
+
+			var ev events.Event
+			err := ev.Unmarshal(kv.Value)
 			if err != nil {
 				return false, err
 			}
 
-			diff := count - len(eventList)
-			if len(diskEvents) < diff {
-				diff = len(diskEvents)
-			}
-
-			for _, v := range diskEvents[len(eventList)-diff:] {
-				var ev events.Event
-				err := ev.Unmarshal(v.Value)
-				if err != nil {
-					return false, err
-				}
-
-				eventList = append(eventList, ev)
-			}
-
-			return false, nil
+			eventList = append(eventList, ev)
+			return len(eventList) < count, nil
 		})
 
 		if err != nil {
@@ -199,44 +168,38 @@ func (es *EventStore) GetCount() uint64 {
 func (es *EventStore) Close() {
 	es.Lock()
 	defer es.Unlock()
-	if _, err := es.flush(); err != nil {
+	if err := es.flush(); err != nil {
 		log.Error(err)
 	}
 	es.storage.Close()
 }
 
 // flush flushes the current event buffer as a block to the indexed BadgerDB
-func (es *EventStore) flush() ([]byte, error) {
-	k, err := key.New([]byte("event_block"), es.minTimestamp)
-	if err != nil {
-		return nil, err
+func (es *EventStore) flush() error {
+	if es.buffer == nil || len(es.buffer) == 0 {
+		return nil
 	}
 
-	v, err := msgpack.Marshal(es.buffer)
+	err := es.storage.SetBatch(es.buffer)
 	if err != nil {
-		return nil, err
-	}
-
-	err = es.storage.Set(k, v)
-	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// commit the event counter
 	if err = es.storage.Set([]byte(counter_key), storage.Uint64ToBytes(es.counter)); err != nil {
-		return nil, err
+		return err
 	}
 
 	// commit the bin counter
 	b, err := msgpack.Marshal(es.binCounter)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if err = es.storage.Set([]byte(bin_counter_key), b); err != nil {
-		return nil, err
+		return err
 	}
 
 	es.buffer = nil // reset the buffer
-	return k, nil
+	return nil
 }
