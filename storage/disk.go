@@ -53,24 +53,17 @@ func (s *diskStorage) Set(key []byte, value []byte) error {
 }
 
 func (s *diskStorage) SetBatch(batch []KeyValue) error {
-	txn := s.store.NewTransaction(true)
+	writeBatch := s.store.NewWriteBatch()
 	for _, kv := range batch {
 		if len(kv.Key) == 0 {
 			log.Error("Key has a length of 0. This should not happen!")
 		}
-		if err := txn.Set(kv.Key, kv.Value); err == badger.ErrTxnTooBig {
-			err = txn.Commit()
-			if err != nil {
-				return err
-			}
-			txn = s.store.NewTransaction(true)
-			err = txn.Set(kv.Key, kv.Value)
-			if err != nil {
-				return err
-			}
+		err := writeBatch.Set(kv.Key, kv.Value)
+		if err != nil {
+			return err
 		}
 	}
-	return txn.Commit()
+	return writeBatch.Flush()
 }
 
 func (s *diskStorage) Get(key []byte) ([]byte, error) {
