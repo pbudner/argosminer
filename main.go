@@ -23,6 +23,7 @@ import (
 	"github.com/pbudner/argosminer/sources"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/stores"
+	"github.com/pbudner/argosminer/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
@@ -64,6 +65,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer sbarStore.Close()
+	eventSampler := utils.NewEventSampler(eventStore)
 	receiverList := []processors.StreamingProcessor{
 		processors.NewEventProcessor(eventStore),
 		processors.NewDfgStreamingAlgorithm(sbarStore),
@@ -211,6 +213,7 @@ func main() {
 			"event_count":       counter,
 			"activity_count":    activityCount,
 			"df_relation_count": dfRelationCount,
+			"events_per_second": eventSampler.GetSample(),
 		})
 	})
 
@@ -241,6 +244,7 @@ func main() {
 	signal.Notify(termChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-termChan // Blocks here until interrupted
 	log.Info("SIGTERM received. Shutdown initiated\n")
+	eventSampler.Close()
 	ctxTimeout, cancelFunc2 := context.WithTimeout(ctx, time.Duration(time.Second*15))
 	if err := e.Shutdown(ctxTimeout); err != nil {
 		log.Error(err)

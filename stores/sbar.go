@@ -23,6 +23,7 @@ type SbarStore struct {
 	activityBuffer         []*storage.KeyValue
 	dfRelationBuffer       []*storage.KeyValue
 	flushTicker            *time.Ticker
+	doneChannel            chan bool
 }
 
 const metaCode = 0x00
@@ -57,6 +58,7 @@ func NewSbarStore(storageGenerator storage.StorageGenerator) (*SbarStore, error)
 		activityBuffer:   make([]*storage.KeyValue, 0),
 		dfRelationBuffer: make([]*storage.KeyValue, 0),
 		caseCache:        make(map[string]string),
+		doneChannel:      make(chan bool),
 	}
 	if err := result.init(); err != nil {
 		return nil, err
@@ -108,18 +110,14 @@ func (kv *SbarStore) init() error {
 	}
 
 	kv.flushTicker = time.NewTicker(flushAfterMs * time.Millisecond)
-	done := make(chan bool)
 	go func() {
 		for {
 			select {
-			case <-done:
+			case <-kv.doneChannel:
 				return
 			case <-kv.flushTicker.C:
 				kv.Lock()
-				flushedItems := kv.flush(&kv.activityBuffer)
-				log.Debugf("Flush timer flushed %d activities to disk", flushedItems)
-				flushedItems = kv.flush(&kv.dfRelationBuffer)
-				log.Debugf("Flush timer flushed %d directly-follows relations to disk", flushedItems)
+				kv.flush()
 				kv.Unlock()
 			}
 		}
@@ -169,10 +167,6 @@ func (kv *SbarStore) RecordDirectlyFollowsRelation(from string, to string, times
 
 	kv.dfRelationBuffer = append(kv.dfRelationBuffer, &storage.KeyValue{Key: k, Value: storage.Uint64ToBytes(counter)})
 	dfRelationBufferMetric.WithLabelValues().Inc()
-	if len(kv.dfRelationBuffer) >= flushAfterEntries {
-		flushedItems := kv.flush(&kv.dfRelationBuffer)
-		log.Debugf("Flushed %d directly-follows relations to disk because of buffer size", flushedItems)
-	}
 	return nil
 }
 
@@ -192,8 +186,7 @@ func (kv *SbarStore) RecordActivity(activity string, timestamp time.Time) error 
 	kv.activityBuffer = append(kv.activityBuffer, &storage.KeyValue{Key: k, Value: storage.Uint64ToBytes(counter)})
 	activityBufferMetric.WithLabelValues().Inc()
 	if len(kv.activityBuffer) >= flushAfterEntries {
-		flushedItems := kv.flush(&kv.activityBuffer)
-		log.Debugf("Flushed %d activities to disk because of buffer size", flushedItems)
+		kv.flush()
 	}
 	return nil
 }
@@ -249,15 +242,23 @@ func (kv *SbarStore) RecordStartActivity(key string) error {
 func (kv *SbarStore) Close() {
 	kv.Lock()
 	defer kv.Unlock()
+	close(kv.doneChannel)
 	kv.flushTicker.Stop()
-	flushedItems := kv.flush(&kv.activityBuffer)
-	log.Infof("Flushed %d activties before closing sbar store", flushedItems)
-	flushedItems = kv.flush(&kv.dfRelationBuffer)
-	log.Infof("Flushed %d directly-follows relations before closing sbar store", flushedItems)
+	kv.flush()
 	kv.storage.Close()
 }
 
-func (kv *SbarStore) flush(items *[]*storage.KeyValue) int {
+func (kv *SbarStore) flush() {
+	kv.caseCache = make(map[string]string)
+	flushedItems := kv.flushBuffer(&kv.activityBuffer)
+	log.Debugf("Flushed %d activties", flushedItems)
+	flushedItems = kv.flushBuffer(&kv.dfRelationBuffer)
+	log.Debugf("Flushed %d directly-follows relations", flushedItems)
+	activityBufferMetric.Reset()
+	dfRelationBufferMetric.Reset()
+}
+
+func (kv *SbarStore) flushBuffer(items *[]*storage.KeyValue) int {
 	count := len(*items)
 	kv.storage.SetBatch(*items)
 	*items = make([]*storage.KeyValue, 0)
