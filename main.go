@@ -3,12 +3,10 @@ package main
 import (
 	"context"
 	"embed"
-	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -115,6 +113,7 @@ func main() {
 		middleware.Recover(),   // Recover from all panics to always have your server up
 		middleware.Logger(),    // Log everything to stdout
 		middleware.RequestID(), // Generate a request id on the HTTP response headers for identification
+		middleware.CORS(),
 	)
 
 	e.HidePort = true
@@ -133,93 +132,11 @@ func main() {
 	}))
 
 	g := e.Group("/api")
-	g.GET("/", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, api.JSON{
-			"message": "Hello, world! Welcome to ArgosMiner!",
-			"version": "0.1",
-		})
-	})
+	api.RegisterApiHandlers(g, sbarStore, eventStore, eventSampler)
 
-	g.GET("/events/last/:count", func(c echo.Context) error {
-		counter := 10
-		i, err := strconv.Atoi(c.Param("count"))
-		if err == nil {
-			if i < 0 {
-				counter = 10
-			} else if i > 50 {
-				counter = 50
-			} else {
-				counter = i
-			}
-		}
-
-		events, err := eventStore.GetLast(counter)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, api.JSON{
-				"error": err.Error(),
-			})
-		}
-
-		return c.JSON(http.StatusOK, api.JSON{
-			"events": events,
-			"count":  len(events),
-		})
-	})
-
-	g.GET("/events/frequency", func(c echo.Context) error {
-		counter, err := eventStore.GetBinCount()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, api.JSON{
-				"error": err.Error(),
-			})
-		}
-
-		dailyCounter := make(map[string]uint64)
-		for k, v := range counter {
-			trimmedKey := fmt.Sprintf("%s-%s-%s", k[0:4], k[4:6], k[6:8])
-			_, ok := dailyCounter[trimmedKey]
-			if !ok {
-				dailyCounter[trimmedKey] = v
-			} else {
-				dailyCounter[trimmedKey] += v
-			}
-		}
-
-		return c.JSON(http.StatusOK, api.JSON{
-			"frequency": dailyCounter,
-		})
-	})
-
-	g.GET("/events/statistics", func(c echo.Context) error {
-		counter := eventStore.GetCount()
-		activityCount := sbarStore.CountActivities()
-		dfRelationCount := sbarStore.CountDfRelations()
-		return c.JSON(http.StatusOK, api.JSON{
-			"event_count":       counter,
-			"activity_count":    activityCount,
-			"df_relation_count": dfRelationCount,
-			"events_per_second": eventSampler.GetSample(),
-		})
-	})
-
-	g.GET("/events/activities", func(c echo.Context) error {
-		v := sbarStore.GetActivities()
-		return c.JSON(http.StatusOK, api.JSON{
-			"activities": v,
-			"count":      len(v),
-		})
-	})
-
-	g.GET("/events/dfrelations", func(c echo.Context) error {
-		v := sbarStore.GetDfRelations()
-		return c.JSON(200, api.JSON{
-			"dfrelations": v,
-			"count":       len(v),
-		})
-	})
-
+	// start the server
 	go func() {
-		if err := e.Start(":3000"); err != nil && err != http.ErrServerClosed {
+		if err := e.Start(cfg.Listener); err != nil && err != http.ErrServerClosed {
 			e.Logger.Fatal("shutting down the server")
 		}
 	}()

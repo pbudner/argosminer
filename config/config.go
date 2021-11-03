@@ -19,6 +19,7 @@ type Source struct {
 }
 
 type Config struct {
+	Listener string    `yaml:"listener"`
 	LogLevel log.Level `yaml:"log_level"`
 	Sources  []Source  `yaml:"sources"`
 }

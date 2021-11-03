@@ -6,7 +6,7 @@ import (
 	"github.com/pbudner/argosminer/stores"
 )
 
-type eventSampler struct {
+type EventSampler struct {
 	ticker          *time.Ticker
 	doneChannel     chan bool
 	store           *stores.EventStore
@@ -15,8 +15,8 @@ type eventSampler struct {
 	eventsPerSecond int
 }
 
-func NewEventSampler(es *stores.EventStore) *eventSampler {
-	result := &eventSampler{
+func NewEventSampler(es *stores.EventStore) *EventSampler {
+	result := &EventSampler{
 		ticker:          time.NewTicker(1000 * time.Millisecond),
 		store:           es,
 		lastValue:       0,
@@ -28,16 +28,16 @@ func NewEventSampler(es *stores.EventStore) *eventSampler {
 	return result
 }
 
-func (es *eventSampler) GetSample() int {
+func (es *EventSampler) GetSample() int {
 	return es.eventsPerSecond
 }
 
-func (es *eventSampler) Close() {
+func (es *EventSampler) Close() {
 	close(es.doneChannel)
 	es.ticker.Stop()
 }
 
-func (es *eventSampler) tick() {
+func (es *EventSampler) tick() {
 	for {
 		select {
 		case <-es.doneChannel:

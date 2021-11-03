@@ -1,4 +1,5 @@
 ---
+listener: localhost:8080
 log_level: info
 sources:
   # - enabled: false
@@ -16,7 +17,7 @@ sources:
   #       - column: 10
   #         condition: '!='
   #         value: gestartet
-  - enabled: true
+  - enabled: false
     kafka-config:
       brokers:
       - 'localhost:9092'
