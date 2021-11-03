@@ -52,5 +52,4 @@ func (kv *KvStore) Find(prefix []byte, f func(storage.KeyValue) (bool, error)) e
 func (kv *KvStore) Close() {
 	kv.Lock()
 	defer kv.Unlock()
-	kv.storage.Close()
 }

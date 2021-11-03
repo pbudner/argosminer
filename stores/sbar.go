@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v2"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/storage/key"
 	"github.com/prometheus/client_golang/prometheus"
@@ -251,11 +251,10 @@ func (kv *SbarStore) Close() {
 	close(kv.doneChannel)
 	kv.flushTicker.Stop()
 	kv.flush()
-	kv.storage.Close()
 }
 
 func (kv *SbarStore) flush() error {
-	b, err := msgpack.Marshal(kv.activityCounterCache)
+	b, err := msgpack.Marshal(&kv.activityCounterCache)
 	if err != nil {
 		return err
 	}
@@ -263,7 +262,7 @@ func (kv *SbarStore) flush() error {
 	if err != nil {
 		return err
 	}
-	b, err = msgpack.Marshal(kv.dfRelationCounterCache)
+	b, err = msgpack.Marshal(&kv.dfRelationCounterCache)
 	if err != nil {
 		return err
 	}
@@ -271,7 +270,7 @@ func (kv *SbarStore) flush() error {
 	if err != nil {
 		return err
 	}
-	b, err = msgpack.Marshal(kv.startEventCounterCache)
+	b, err = msgpack.Marshal(&kv.startEventCounterCache)
 	if err != nil {
 		return err
 	}

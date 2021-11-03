@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v2"
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/storage/key"
@@ -25,7 +25,7 @@ type EventStore struct {
 	sync.Mutex
 	storage    storage.Storage
 	counter    uint64
-	buffer     []storage.KeyValue
+	buffer     []events.Event
 	binCounter map[string]uint64
 }
 
@@ -77,17 +77,7 @@ func (es *EventStore) Append(event *events.Event) error {
 		es.binCounter[binKey]++
 	}
 
-	k, err := key.New(eventKey, event.Timestamp)
-	if err != nil {
-		return err
-	}
-
-	binEvent, err := event.Marshal()
-	if err != nil {
-		return err
-	}
-
-	es.buffer = append(es.buffer, storage.KeyValue{Key: k, Value: binEvent})
+	es.buffer = append(es.buffer, *event)
 	if len(es.buffer) >= EventFlushCount {
 		err := es.flush()
 		if err != nil {
@@ -102,7 +92,7 @@ func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 	es.Lock()
 	defer es.Unlock()
 
-	var event_arr []storage.KeyValue
+	var event_arr []events.Event
 	if count > len(es.buffer) {
 		event_arr = es.buffer[:]
 	} else {
@@ -110,15 +100,7 @@ func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 		event_arr = es.buffer[index:]
 	}
 
-	eventList := make([]events.Event, len(event_arr))
-	for i, v := range event_arr {
-		err := eventList[i].Unmarshal(v.Value)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if len(eventList) < count {
+	if len(event_arr) < count {
 		prefix, err := key.New(eventKey, time.Now().UTC())
 		if err != nil {
 			return nil, err
@@ -128,33 +110,26 @@ func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 				return true, nil
 			}
 
-			var evts []storage.KeyValue
-			err := msgpack.Unmarshal(kv.Value, evts)
+			var evts []events.Event
+			err := msgpack.Unmarshal(kv.Value, &evts)
 			if err != nil {
 				return false, err
 			}
-			idx := count - len(eventList)
-			if idx > len(evts) {
-				idx = len(evts)
+			idx := len(evts) - (count - len(event_arr))
+			if idx < 0 {
+				idx = 0
 			}
-			for _, kv := range evts[-idx:] {
-				var ev events.Event
-				err = ev.Unmarshal(kv.Value)
-				if err != nil {
-					return false, err
-				}
 
-				eventList = append(eventList, ev)
-			}
+			event_arr = append(event_arr, evts[idx:]...)
 			return false, nil
 		})
 
 		if err != nil {
-			return eventList, err
+			return nil, err
 		}
 	}
 
-	return eventList, nil
+	return event_arr, nil
 }
 
 func (es *EventStore) GetBinCount() (map[string]uint64, error) {
@@ -180,7 +155,6 @@ func (es *EventStore) Close() {
 	if err := es.flush(); err != nil {
 		log.Error(err)
 	}
-	es.storage.Close()
 }
 
 // flush flushes the current event buffer as a block to the indexed BadgerDB
@@ -193,7 +167,7 @@ func (es *EventStore) flush() error {
 	if err != nil {
 		return err
 	}
-	buffer, err := msgpack.Marshal(es.buffer)
+	buffer, err := msgpack.Marshal(&es.buffer)
 	if err != nil {
 		return err
 	}
@@ -208,7 +182,7 @@ func (es *EventStore) flush() error {
 	}
 
 	// commit the bin counter
-	b, err := msgpack.Marshal(es.binCounter)
+	b, err := msgpack.Marshal(&es.binCounter)
 	if err != nil {
 		return err
 	}

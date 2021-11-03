@@ -60,16 +60,11 @@ func main() {
 
 	// initialize stores
 	eventStore := stores.NewEventStore(store)
-	defer eventStore.Close()
-
 	kvStore := stores.NewKvStore(store)
-	defer kvStore.Close()
-
 	sbarStore, err := stores.NewSbarStore(store)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer sbarStore.Close()
 
 	eventSampler := utils.NewEventSampler(eventStore)
 
@@ -237,7 +232,7 @@ func main() {
 	signal.Notify(termChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-termChan // Blocks here until interrupted
 	log.Info("SIGTERM received. Shutdown initiated\n")
-	eventSampler.Close()
+
 	ctxTimeout, cancelFunc2 := context.WithTimeout(ctx, time.Duration(time.Second*15))
 	if err := e.Shutdown(ctxTimeout); err != nil {
 		log.Error(err)
@@ -248,6 +243,11 @@ func main() {
 
 	// block here until are workers are done
 	wg.Wait()
+	eventSampler.Close()
+	sbarStore.Close()
+	eventStore.Close()
+	kvStore.Close()
+	store.Close()
 	log.Info("All workers finished.. Shutting down!")
 }
 
