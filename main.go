@@ -70,7 +70,9 @@ func main() {
 		log.Fatal(err)
 	}
 	defer sbarStore.Close()
+
 	eventSampler := utils.NewEventSampler(eventStore)
+
 	receiverList := []processors.StreamingProcessor{
 		processors.NewEventProcessor(eventStore),
 		processors.NewDfgStreamingAlgorithm(sbarStore),
@@ -129,24 +131,6 @@ func main() {
 	// Prometheus HTTP handler
 	p := prom.NewPrometheus("echo", nil)
 	p.Use(e)
-
-	// error handling
-	e.HTTPErrorHandler = func(err error, c echo.Context) {
-		log.Error(err)
-		code := http.StatusInternalServerError
-		if he, ok := err.(*echo.HTTPError); ok {
-			code = he.Code
-		}
-		c.JSON(code, api.JSON{
-			"status_code": code,
-			"message":     err.Error(),
-		})
-		// errorPage := fmt.Sprintf("%d.html", code)
-		/*if err := c.File(errorPage); err != nil {
-			c.Logger().Error(err)
-		}*/
-		// c.Logger().Error(err)
-	}
 
 	useOS := len(os.Args) > 1 && os.Args[1] == "live"
 	e.Use(middleware.StaticWithConfig(middleware.StaticConfig{

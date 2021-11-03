@@ -13,6 +13,20 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+const sbarPrefix = 0x01
+
+var (
+	metaCode             = []byte{sbarPrefix, 0x00}
+	caseCode             = []byte{sbarPrefix, 0x01}
+	activityCode         = []byte{sbarPrefix, 0x02}
+	dfRelationCode       = []byte{sbarPrefix, 0x03}
+	activityCounterKey   = append(metaCode, []byte("activity_counter")...)
+	dfRelationCounterKey = append(metaCode, []byte("dfRelation_counter")...)
+	startEventCounterKey = append(metaCode, []byte("startEvent_counter")...)
+	flushAfter           = 10000 * time.Millisecond
+	flushAfterEntries    = 100000
+)
+
 type SbarStore struct {
 	sync.Mutex
 	storage                storage.Storage
@@ -25,16 +39,6 @@ type SbarStore struct {
 	flushTicker            *time.Ticker
 	doneChannel            chan bool
 }
-
-const metaCode = 0x00
-const caseCode = 0x01
-const activityCode = 0x02
-const dfRelationCode = 0x03
-const activityCounterKey = "activity_counter"
-const dfRelationCounterKey = "dfRelation_counter"
-const startEventCounterKey = "startEvent_counter"
-const flushAfterMs = 10000
-const flushAfterEntries = 100000
 
 var activityBufferMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Subsystem: "argosminer_stores_sbar",
@@ -71,7 +75,7 @@ func (kv *SbarStore) init() error {
 	defer kv.Unlock()
 
 	// load activity counter key from disk
-	v, err := kv.storage.Get(prefixString(metaCode, activityCounterKey))
+	v, err := kv.storage.Get(activityCounterKey)
 	if err != nil && err != badger.ErrKeyNotFound {
 		log.Error(err)
 	} else if err == badger.ErrKeyNotFound {
@@ -85,7 +89,7 @@ func (kv *SbarStore) init() error {
 	}
 
 	// load dfRelation counter key from disk
-	v, err = kv.storage.Get(prefixString(metaCode, dfRelationCounterKey))
+	v, err = kv.storage.Get(dfRelationCounterKey)
 	if err != nil && err != badger.ErrKeyNotFound {
 		log.Error(err)
 	} else if err == badger.ErrKeyNotFound {
@@ -99,7 +103,7 @@ func (kv *SbarStore) init() error {
 	}
 
 	// load startEvent counter key from disk
-	v, err = kv.storage.Get(prefixString(metaCode, startEventCounterKey))
+	v, err = kv.storage.Get(startEventCounterKey)
 	if err != nil && err != badger.ErrKeyNotFound {
 		log.Error(err)
 	} else if err == badger.ErrKeyNotFound {
@@ -111,7 +115,7 @@ func (kv *SbarStore) init() error {
 		}
 	}
 
-	kv.flushTicker = time.NewTicker(flushAfterMs * time.Millisecond)
+	kv.flushTicker = time.NewTicker(flushAfter)
 	go func() {
 		for {
 			select {
@@ -255,7 +259,7 @@ func (kv *SbarStore) flush() error {
 	if err != nil {
 		return err
 	}
-	err = kv.storage.Set(prefixString(metaCode, activityCounterKey), b)
+	err = kv.storage.Set(activityCounterKey, b)
 	if err != nil {
 		return err
 	}
@@ -263,7 +267,7 @@ func (kv *SbarStore) flush() error {
 	if err != nil {
 		return err
 	}
-	err = kv.storage.Set(prefixString(metaCode, dfRelationCounterKey), b)
+	err = kv.storage.Set(dfRelationCounterKey, b)
 	if err != nil {
 		return err
 	}
@@ -271,7 +275,7 @@ func (kv *SbarStore) flush() error {
 	if err != nil {
 		return err
 	}
-	err = kv.storage.Set(prefixString(metaCode, startEventCounterKey), b)
+	err = kv.storage.Set(startEventCounterKey, b)
 	if err != nil {
 		return err
 	}
@@ -311,6 +315,6 @@ func (kv *SbarStore) incr(cache map[string]uint64, key string) (uint64, error) {
 	}
 }
 
-func prefixString(b byte, str string) []byte {
-	return append([]byte{b}, []byte(str)...)
+func prefixString(prefix []byte, str string) []byte {
+	return append(prefix, []byte(str)...)
 }

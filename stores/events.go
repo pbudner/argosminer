@@ -13,9 +13,13 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-const event_flush_count = 100000 // decreasing this reduces memory utilization, but also performance
-const counter_key = "counter"
-const bin_counter_key = "bin_counter"
+var (
+	eventPrefix     byte = 0x01
+	counterKey           = append([]byte{eventPrefix}, []byte("counter")...)
+	binCounterKey        = append([]byte{eventPrefix}, []byte("bin_counter")...)
+	eventKey             = append([]byte{eventPrefix}, []byte("event")...)
+	EventFlushCount      = 100000 // decreasing this reduces memory utilization, but also performance
+)
 
 type EventStore struct {
 	sync.Mutex
@@ -36,7 +40,7 @@ func NewEventStore(storage storage.Storage) *EventStore {
 
 func (es *EventStore) init() {
 	// load counter
-	v, err := es.storage.Get([]byte(counter_key))
+	v, err := es.storage.Get(counterKey)
 	if err != nil && err != badger.ErrKeyNotFound {
 		log.Error(err)
 	} else if err == badger.ErrKeyNotFound {
@@ -48,7 +52,7 @@ func (es *EventStore) init() {
 
 	// load bin counter
 	es.binCounter = make(map[string]uint64)
-	v2, err := es.storage.Get([]byte(bin_counter_key))
+	v2, err := es.storage.Get([]byte(binCounterKey))
 	if err != nil && err != badger.ErrKeyNotFound {
 		log.Error(err)
 	} else {
@@ -73,7 +77,7 @@ func (es *EventStore) Append(event *events.Event) error {
 		es.binCounter[binKey]++
 	}
 
-	k, err := key.New([]byte("event"), event.Timestamp)
+	k, err := key.New(eventKey, event.Timestamp)
 	if err != nil {
 		return err
 	}
@@ -84,7 +88,7 @@ func (es *EventStore) Append(event *events.Event) error {
 	}
 
 	es.buffer = append(es.buffer, storage.KeyValue{Key: k, Value: binEvent})
-	if len(es.buffer) >= event_flush_count {
+	if len(es.buffer) >= EventFlushCount {
 		err := es.flush()
 		if err != nil {
 			return err
@@ -115,7 +119,7 @@ func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 	}
 
 	if len(eventList) < count {
-		prefix, err := key.New([]byte("event"), time.Now().UTC())
+		prefix, err := key.New(eventKey, time.Now().UTC())
 		if err != nil {
 			return nil, err
 		}
@@ -185,7 +189,7 @@ func (es *EventStore) flush() error {
 		return nil
 	}
 
-	prefix, err := key.New([]byte("event"), time.Now().UTC())
+	prefix, err := key.New(eventKey, time.Now().UTC())
 	if err != nil {
 		return err
 	}
@@ -199,7 +203,7 @@ func (es *EventStore) flush() error {
 	}
 
 	// commit the event counter
-	if err = es.storage.Set([]byte(counter_key), storage.Uint64ToBytes(es.counter)); err != nil {
+	if err = es.storage.Set(counterKey, storage.Uint64ToBytes(es.counter)); err != nil {
 		return err
 	}
 
@@ -209,7 +213,7 @@ func (es *EventStore) flush() error {
 		return err
 	}
 
-	if err = es.storage.Set([]byte(bin_counter_key), b); err != nil {
+	if err = es.storage.Set(binCounterKey, b); err != nil {
 		return err
 	}
 
