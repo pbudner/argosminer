@@ -6,7 +6,7 @@ type Storage interface {
 	Increment(key []byte) (uint64, error)
 	SetBatch(batch []KeyValue) error
 	Contains(key []byte) bool
-	IterateReverse(f func(KeyValue) (bool, error)) error
+	IterateReverse(prefix []byte, f func(KeyValue) (bool, error)) error
 	GetFirst(count int) ([][]byte, error)
 	GetRange(from []byte, to []byte) ([][]byte, error)
 	TotalCount() (uint64, error)

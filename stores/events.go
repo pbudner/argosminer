@@ -105,9 +105,10 @@ func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = es.storage.IterateReverse(func(kv storage.KeyValue) (bool, error) {
+		err = es.storage.IterateReverse(prefix[:8], func(kv storage.KeyValue) (bool, error) {
 			if !bytes.Equal(kv.Key[:8], prefix[:8]) {
-				return true, nil
+				log.Warn("Prefix search included wrong items. Abort search.")
+				return false, nil
 			}
 
 			var evts []events.Event
