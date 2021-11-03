@@ -6,6 +6,7 @@ import (
 
 	"github.com/pbudner/argosminer/parsers"
 	"github.com/pbudner/argosminer/sources"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
 
@@ -18,7 +19,8 @@ type Source struct {
 }
 
 type Config struct {
-	Sources []Source `yaml:"sources"`
+	LogLevel log.Level `yaml:"log_level"`
+	Sources  []Source  `yaml:"sources"`
 }
 
 // NewConfig returns a new decoded Config struct

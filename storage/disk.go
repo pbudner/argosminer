@@ -15,8 +15,9 @@ const (
 )
 
 type diskStorage struct {
-	store           *badger.DB
-	maintenanceDone chan bool
+	store              *badger.DB
+	maintenanceDone    chan bool
+	maintenanceRunning bool
 }
 
 func NewDiskStorageGenerator() StorageGenerator {
@@ -329,17 +330,30 @@ func (s *diskStorage) CountRange(from []byte, to []byte) (uint64, error) {
 
 func (s *diskStorage) maintenance() {
 	maintenanceTicker := time.NewTicker(maintenanceIntervalInMinutes * time.Minute)
+	maintenanceRunning := false
 	defer maintenanceTicker.Stop()
 	for {
 		select {
 		case <-s.maintenanceDone:
 			return
 		case <-maintenanceTicker.C:
-			var err error
-			for err == nil {
-				s.store.RunValueLogGC(valueLogGCDiscardRatio)
+			if maintenanceRunning {
+				continue
 			}
 
+			var err error
+			log.Info("Performing maintenance on database")
+			for err == nil {
+				select {
+				case <-s.maintenanceDone:
+					return
+				default:
+					log.Trace("RunValueLogGC")
+					s.store.RunValueLogGC(valueLogGCDiscardRatio)
+				}
+			}
+
+			maintenanceRunning = false
 			if err == badger.ErrNoRewrite {
 				log.Debug("Successfully finished ValueLogGC")
 			} else {

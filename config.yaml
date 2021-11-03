@@ -1,4 +1,5 @@
 ---
+log_level: info
 sources:
   # - enabled: false
   #   file-config:
@@ -15,11 +16,11 @@ sources:
   #       - column: 10
   #         condition: '!='
   #         value: gestartet
-  - enabled: false
+  - enabled: true
     kafka-config:
       brokers:
       - 'localhost:9092'
-      group-id: consumer-group-4711-3
+      group-id: consumer-group-4711-6
       timeout: 5s
       commit-interval: 1s
       topic: pmlogs

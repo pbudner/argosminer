@@ -55,6 +55,8 @@ func (es *EventStore) init() {
 	v2, err := es.storage.Get([]byte(binCounterKey))
 	if err != nil && err != badger.ErrKeyNotFound {
 		log.Error(err)
+	} else if err == badger.ErrKeyNotFound {
+		log.Info("Initialize event bin counters as 0")
 	} else {
 		if err := msgpack.Unmarshal(v2, &es.binCounter); err != nil {
 			log.Error(err)

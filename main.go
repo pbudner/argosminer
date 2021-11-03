@@ -37,9 +37,6 @@ var processStartedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 })
 
 func init() {
-	// configure logger
-	log.SetLevel(log.InfoLevel)
-
 	// register global prometheus metrics
 	prometheus.MustRegister(processStartedGauge)
 	processStartedGauge.SetToCurrentTime()
@@ -48,11 +45,11 @@ func init() {
 func main() {
 	log.Info("Starting ArgosMiner..")
 	cfg, err := config.NewConfig()
-
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	log.SetLevel(cfg.LogLevel) // configure logger
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
 
