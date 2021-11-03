@@ -46,6 +46,7 @@ func init() {
 }
 
 func main() {
+	log.Info("Starting ArgosMiner..")
 	cfg, err := config.NewConfig()
 
 	if err != nil {
@@ -148,8 +149,12 @@ func main() {
 	}
 
 	useOS := len(os.Args) > 1 && os.Args[1] == "live"
-	assetHandler := http.FileServer(getFileSystem(useOS))
-	e.GET("/", echo.WrapHandler(assetHandler))
+	e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
+		Root:       "/",
+		Browse:     false,
+		HTML5:      true,
+		Filesystem: getFileSystem(useOS),
+	}))
 
 	g := e.Group("/api")
 	g.GET("/", func(c echo.Context) error {
