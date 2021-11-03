@@ -52,9 +52,9 @@ func init() {
 	prometheus.MustRegister(activityBufferMetric, dfRelationBufferMetric)
 }
 
-func NewSbarStore(storageGenerator storage.StorageGenerator) (*SbarStore, error) {
+func NewSbarStore(store storage.Storage) (*SbarStore, error) {
 	result := SbarStore{
-		storage:          storageGenerator("sbar"),
+		storage:          store,
 		activityBuffer:   make([]storage.KeyValue, 0),
 		dfRelationBuffer: make([]storage.KeyValue, 0),
 		caseCache:        make(map[string]string),

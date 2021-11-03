@@ -2,7 +2,7 @@ package storage
 
 import (
 	"bytes"
-	"path"
+	"errors"
 	"time"
 
 	badger "github.com/dgraph-io/badger/v3"
@@ -25,9 +25,8 @@ func NewDiskStorageGenerator() StorageGenerator {
 	}
 }
 
-func NewDiskStorage(storeId string) *diskStorage {
-	dir := "/Volumes/PascalsSSD/ArgosMiner/diskStorage"
-	opts := badger.DefaultOptions(path.Join(dir, storeId))
+func NewDiskStorage(dataPath string) *diskStorage {
+	opts := badger.DefaultOptions(dataPath)
 	opts = opts.WithSyncWrites(true).WithLogger(log.StandardLogger()).WithDetectConflicts(false)
 
 	// open the database
@@ -69,6 +68,10 @@ func (s *diskStorage) SetBatch(batch []KeyValue) error {
 
 func (s *diskStorage) Get(key []byte) ([]byte, error) {
 	var value []byte
+	if len(key) == 0 {
+		return nil, errors.New("empty key")
+	}
+
 	err := s.store.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
 		if err != nil {

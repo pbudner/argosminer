@@ -19,16 +19,15 @@ const bin_counter_key = "bin_counter"
 
 type EventStore struct {
 	sync.Mutex
-	storage      storage.Storage
-	counter      uint64
-	minTimestamp time.Time
-	buffer       []storage.KeyValue
-	binCounter   map[string]uint64
+	storage    storage.Storage
+	counter    uint64
+	buffer     []storage.KeyValue
+	binCounter map[string]uint64
 }
 
-func NewEventStore(storageGenerator storage.StorageGenerator) *EventStore {
+func NewEventStore(storage storage.Storage) *EventStore {
 	eventStore := &EventStore{
-		storage: storageGenerator("event_log"),
+		storage: storage,
 	}
 
 	eventStore.init()
@@ -62,11 +61,6 @@ func (es *EventStore) init() {
 func (es *EventStore) Append(event *events.Event) error {
 	es.Lock()
 	defer es.Unlock()
-	t := time.Now().UTC()
-
-	if es.buffer == nil {
-		es.minTimestamp = t
-	}
 
 	// increase event counter
 	es.counter++
@@ -130,14 +124,25 @@ func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 				return true, nil
 			}
 
-			var ev events.Event
-			err := ev.Unmarshal(kv.Value)
+			var evts []storage.KeyValue
+			err := msgpack.Unmarshal(kv.Value, evts)
 			if err != nil {
 				return false, err
 			}
+			idx := count - len(eventList)
+			if idx > len(evts) {
+				idx = len(evts)
+			}
+			for _, kv := range evts[-idx:] {
+				var ev events.Event
+				err = ev.Unmarshal(kv.Value)
+				if err != nil {
+					return false, err
+				}
 
-			eventList = append(eventList, ev)
-			return len(eventList) < count, nil
+				eventList = append(eventList, ev)
+			}
+			return false, nil
 		})
 
 		if err != nil {
@@ -180,7 +185,15 @@ func (es *EventStore) flush() error {
 		return nil
 	}
 
-	err := es.storage.SetBatch(es.buffer)
+	prefix, err := key.New([]byte("event"), time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	buffer, err := msgpack.Marshal(es.buffer)
+	if err != nil {
+		return err
+	}
+	err = es.storage.Set(prefix, buffer)
 	if err != nil {
 		return err
 	}

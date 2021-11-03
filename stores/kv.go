@@ -11,9 +11,9 @@ type KvStore struct {
 	storage storage.Storage
 }
 
-func NewKvStore(storageGenerator storage.StorageGenerator) *KvStore {
+func NewKvStore(storage storage.Storage) *KvStore {
 	return &KvStore{
-		storage: storageGenerator("kv"),
+		storage: storage,
 	}
 }
 

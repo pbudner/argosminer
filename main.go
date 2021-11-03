@@ -55,16 +55,20 @@ func main() {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
 
-	store := storage.NewDiskStorageGenerator()
+	store := storage.NewDiskStorage("/Volumes/PascalsSSD/ArgosMiner/diskStorage")
+
+	// initialize stores
 	eventStore := stores.NewEventStore(store)
 	defer eventStore.Close()
+
 	kvStore := stores.NewKvStore(store)
 	defer kvStore.Close()
+
 	sbarStore, err := stores.NewSbarStore(store)
 	if err != nil {
 		log.Fatal(err)
 	}
-	//defer sbarStore.Close()
+	defer sbarStore.Close()
 	eventSampler := utils.NewEventSampler(eventStore)
 	receiverList := []processors.StreamingProcessor{
 		processors.NewEventProcessor(eventStore),
