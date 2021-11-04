@@ -55,7 +55,7 @@ func RegisterApiHandlers(g *echo.Group, sbarStore *stores.SbarStore, eventStore 
 
 		dailyCounter := make(map[string]uint64)
 		for k, v := range counter {
-			trimmedKey := fmt.Sprintf("%s-%s-%s", k[0:4], k[4:6], k[6:8])
+			trimmedKey := fmt.Sprintf("%s/%s/%s", k[0:4], k[4:6], k[6:8])
 			_, ok := dailyCounter[trimmedKey]
 			if !ok {
 				dailyCounter[trimmedKey] = v
