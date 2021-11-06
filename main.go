@@ -29,10 +29,17 @@ import (
 //go:embed ui/dist
 var embededFiles embed.FS
 
-var processStartedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-	Name: "process_started",
-	Help: "Starttime of the process as a unix timestamp.",
-})
+var (
+	GitCommit string
+	Version   string
+)
+
+var (
+	processStartedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "process_started",
+		Help: "Starttime of the process as a unix timestamp.",
+	})
+)
 
 func init() {
 	// register global prometheus metrics
@@ -132,7 +139,7 @@ func main() {
 	}))
 
 	g := e.Group("/api")
-	api.RegisterApiHandlers(g, sbarStore, eventStore, eventSampler)
+	api.RegisterApiHandlers(g, Version, GitCommit, sbarStore, eventStore, eventSampler)
 
 	// start the server
 	go func() {

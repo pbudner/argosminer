@@ -2,6 +2,7 @@ package stores
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +27,17 @@ var (
 	flushAfter           = 10000 * time.Millisecond
 	flushAfterEntries    = 100000
 )
+
+type DirectlyFollowsRelation struct {
+	From  string `json:"from,omitempty"`
+	To    string `json:"to,omitempty"`
+	Count uint64 `json:"count,omitempty"`
+}
+
+type Activity struct {
+	Name  string `json:"name,omitempty"`
+	Count uint64 `json:"count,omitempty"`
+}
 
 type SbarStore struct {
 	sync.Mutex
@@ -197,22 +209,30 @@ func (kv *SbarStore) RecordActivity(activity string, timestamp time.Time) error 
 	return nil
 }
 
-func (kv *SbarStore) GetActivities() map[string]uint64 {
+func (kv *SbarStore) GetActivities() []Activity {
 	kv.Lock()
 	defer kv.Unlock()
-	result := make(map[string]uint64)
+	result := make([]Activity, 0)
 	for k, v := range kv.activityCounterCache {
-		result[k] = v
+		result = append(result, Activity{
+			Name:  k,
+			Count: v,
+		})
 	}
 	return result
 }
 
-func (kv *SbarStore) GetDfRelations() map[string]uint64 {
+func (kv *SbarStore) GetDfRelations() []DirectlyFollowsRelation {
 	kv.Lock()
 	defer kv.Unlock()
-	result := make(map[string]uint64)
+	result := make([]DirectlyFollowsRelation, 0)
 	for k, v := range kv.dfRelationCounterCache {
-		result[k] = v
+		splittedRelation := strings.Split(k, "-->") // this is not good, but
+		result = append(result, DirectlyFollowsRelation{
+			From:  splittedRelation[0],
+			To:    strings.Join(splittedRelation[1:], "-->"),
+			Count: v,
+		})
 	}
 	return result
 }

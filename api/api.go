@@ -3,19 +3,25 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/pbudner/argosminer/utils"
+	"gonum.org/v1/gonum/graph/multi"
+	"gonum.org/v1/gonum/graph/topo"
 )
 
-func RegisterApiHandlers(g *echo.Group, sbarStore *stores.SbarStore, eventStore *stores.EventStore, eventSampler *utils.EventSampler) {
-	v1 := g.Group("/v1")
+func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *stores.SbarStore, eventStore *stores.EventStore, eventSampler *utils.EventSampler) {
+	v1 := g.Group("/v0")
 	v1.GET("/", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, JSON{
-			"message": "Hello, world! Welcome to ArgosMiner!",
-			"version": "0.1",
+			"message": "Hello, world! Welcome to ArgosMiner API!",
+			"version": version,
+			"build":   gitCommit[:6],
 		})
 	})
 
@@ -94,6 +100,67 @@ func RegisterApiHandlers(g *echo.Group, sbarStore *stores.SbarStore, eventStore 
 		return c.JSON(200, JSON{
 			"dfrelations": v,
 			"count":       len(v),
+		})
+	})
+
+	type Edge struct {
+		From   string `json:"from"`
+		To     string `json:"to"`
+		Weight int64  `json:"weight,omitempty"`
+	}
+	type ProcessResult struct {
+		ID      uint64   `json:"id"`
+		Actions []string `json:"actions"`
+		Edges   []Edge   `json:"edges"`
+	}
+	v1.GET("/processes", func(c echo.Context) error {
+		actionMap := make(map[int64]string)
+		g := multi.NewUndirectedGraph()
+		relations := sbarStore.GetDfRelations()
+		for _, relation := range relations {
+			if relation.From != "" {
+				from := xxhash.Sum64String(relation.From)
+				to := xxhash.Sum64String(relation.To)
+				actionMap[int64(from)] = relation.From
+				actionMap[int64(to)] = relation.To
+				g.SetLine(g.NewLine(multi.Node(from), multi.Node(to)))
+			}
+		}
+
+		processes := make([]ProcessResult, 0)
+		connectedComponents := topo.ConnectedComponents(g)
+		for _, nodes := range connectedComponents {
+			processActions := ProcessResult{
+				Actions: make([]string, 0),
+				Edges:   make([]Edge, 0),
+			}
+
+			nodeIdList := make(map[int64]bool)
+
+			for _, node := range nodes {
+				nodeIdList[node.ID()] = true
+				processActions.Actions = append(processActions.Actions, actionMap[node.ID()])
+			}
+			sort.Strings(processActions.Actions)
+
+			edges := g.Edges()
+			for edges.Reset(); edges.Next(); {
+				e := edges.Edge()
+				if nodeIdList[e.From().ID()] || nodeIdList[e.To().ID()] {
+					processActions.Edges = append(processActions.Edges, Edge{
+						From: actionMap[e.From().ID()],
+						To:   actionMap[e.To().ID()],
+					})
+				}
+			}
+
+			processActions.ID = xxhash.Sum64String(strings.Join(processActions.Actions, ";;"))
+			processes = append(processes, processActions)
+		}
+
+		return c.JSON(200, JSON{
+			"processes": processes,
+			"count":     len(processes),
 		})
 	})
 }
