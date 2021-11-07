@@ -233,7 +233,7 @@ func (s *diskStorage) GetRange(from []byte, to []byte) ([][]byte, error) {
 	return result, err
 }
 
-func (s *diskStorage) Find(prefix []byte, f func(KeyValue) (bool, error)) error {
+func (s *diskStorage) Iterate(prefix []byte, f func(KeyValue) (bool, error)) error {
 	err := s.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false

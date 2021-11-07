@@ -2,11 +2,13 @@ package stores
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
+	ulid "github.com/oklog/ulid/v2"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/storage/key"
 	"github.com/prometheus/client_golang/prometheus"
@@ -235,6 +237,51 @@ func (kv *SbarStore) GetDfRelations() []DirectlyFollowsRelation {
 		})
 	}
 	return result
+}
+
+func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map[string]uint64, error) {
+	kv.Lock()
+	defer kv.Unlock()
+
+	result := make(map[string]map[string]uint64)
+
+	for _, activity := range activities {
+		k, err := key.New(prefixString(activityCode, activity), time.Now())
+		if err != nil {
+			return nil, err
+		}
+
+		binCounter := make(map[string]uint64)
+		currentUlid := ulid.ULID{}
+		kv.storage.Iterate(k[0:8], func(item storage.KeyValue) (bool, error) {
+			currentUlid.UnmarshalBinary(item.Key[8:])
+			eventTime := time.UnixMilli(int64(currentUlid.Time()))
+			value := storage.BytesToUint64(item.Value)
+			formatted := eventTime.Format("2006/01/02")
+			if binCounter[formatted] < value {
+				binCounter[formatted] = value
+			}
+			return true, nil
+		})
+
+		keys := make([]string, 0)
+		for k, _ := range binCounter {
+			keys = append(keys, k)
+		}
+
+		sort.Strings(keys)
+		binRate := make(map[string]uint64)
+		for i, k := range keys {
+			if i == 0 {
+				binRate[k] = binCounter[k]
+			} else {
+				binRate[k] = binCounter[k] - binCounter[keys[i-1]]
+			}
+		}
+
+		result[activity] = binRate
+	}
+	return result, nil
 }
 
 func (kv *SbarStore) CountActivities() int {

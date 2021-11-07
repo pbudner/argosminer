@@ -16,7 +16,7 @@ import (
 )
 
 func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *stores.SbarStore, eventStore *stores.EventStore, eventSampler *utils.EventSampler) {
-	v1 := g.Group("/v0")
+	v1 := g.Group("/v1")
 	v1.GET("/", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, JSON{
 			"message": "Hello, world! Welcome to ArgosMiner API!",
@@ -113,6 +113,22 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 		Actions []string `json:"actions"`
 		Edges   []Edge   `json:"edges"`
 	}
+
+	v1.GET("/activities/frequency", func(c echo.Context) error {
+		urlValues := c.Request().URL.Query()
+		activities := urlValues["name"]
+		result, err := sbarStore.DailyCountOfActivities(activities)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, JSON{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(200, JSON{
+			"activities": result,
+		})
+	})
+
 	v1.GET("/processes", func(c echo.Context) error {
 		actionMap := make(map[int64]string)
 		g := multi.NewUndirectedGraph()

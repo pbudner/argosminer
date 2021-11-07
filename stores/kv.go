@@ -42,13 +42,6 @@ func (kv *KvStore) Increment(key []byte) (uint64, error) {
 	return kv.storage.Increment(pKey)
 }
 
-func (kv *KvStore) Find(prefix []byte, f func(storage.KeyValue) (bool, error)) error {
-	kv.Lock()
-	defer kv.Unlock()
-	pKey := append(kvPrefix, prefix...)
-	return kv.storage.Find(pKey, f)
-}
-
 func (kv *KvStore) Close() {
 	kv.Lock()
 	defer kv.Unlock()
