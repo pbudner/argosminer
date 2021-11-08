@@ -239,6 +239,32 @@ func (kv *SbarStore) GetDfRelations() []DirectlyFollowsRelation {
 	return result
 }
 
+func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelation []string, from time.Time, to time.Time) ([]DirectlyFollowsRelation, error) {
+	kv.Lock()
+	defer kv.Unlock()
+
+	result := make([]DirectlyFollowsRelation, 0)
+
+	for _, relation := range dfRelation {
+		k, err := key.New(prefixString(dfRelationCode, relation), from)
+		if err != nil {
+			return nil, err
+		}
+
+		keyValue, err := kv.storage.Seek(k)
+		if err != nil {
+			return nil, err
+		}
+
+		id := ulid.ULID{}
+		id.UnmarshalBinary(keyValue.Key)
+
+		log.Info(time.UnixMilli(int64(id.Time())))
+		log.Info(storage.BytesToUint64(keyValue.Value))
+	}
+	return result, nil
+}
+
 func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map[string]uint64, error) {
 	kv.Lock()
 	defer kv.Unlock()
@@ -265,7 +291,7 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 		})
 
 		keys := make([]string, 0)
-		for k, _ := range binCounter {
+		for k := range binCounter {
 			keys = append(keys, k)
 		}
 

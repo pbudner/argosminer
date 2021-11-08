@@ -58,7 +58,12 @@ func main() {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
 
-	store := storage.NewDiskStorage("/Volumes/PascalsSSD/ArgosMiner/diskStorage")
+	if _, err := os.Stat(cfg.DataPath); os.IsNotExist(err) {
+		log.Panicf("Could not open database path %s", cfg.DataPath)
+	}
+
+	// open storage
+	store := storage.NewDiskStorage(cfg.DataPath)
 
 	// initialize stores
 	eventStore := stores.NewEventStore(store)

@@ -328,6 +328,34 @@ func (s *diskStorage) CountRange(from []byte, to []byte) (uint64, error) {
 	return counter, err
 }
 
+func (s *diskStorage) Seek(key []byte) (KeyValue, error) {
+	var result KeyValue
+	err := s.store.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		opts.Reverse = true
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		it.Rewind()
+		it.Seek(key)
+		it.Valid()
+		it.Next()
+		item := it.Item()
+		key := item.Key()
+		itemBytes, err := item.ValueCopy(nil)
+		if err != nil {
+			return err
+		}
+		result = KeyValue{
+			Key:   key,
+			Value: itemBytes,
+		}
+		return nil
+	})
+
+	return result, err
+}
+
 func (s *diskStorage) maintenance() {
 	maintenanceTicker := time.NewTicker(maintenanceIntervalInMinutes * time.Minute)
 	maintenanceRunning := false

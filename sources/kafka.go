@@ -11,18 +11,25 @@ import (
 	"github.com/pbudner/argosminer/processors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go/sasl/scram"
 	log "github.com/sirupsen/logrus"
 )
 
 type KafkaSourceConfig struct {
-	Brokers            []string      `yaml:"brokers"`
-	GroupID            string        `yaml:"group-id"`
-	Topic              string        `yaml:"topic"`
-	MinBytes           int           `yaml:"min-bytes"`
-	MaxBytes           int           `yaml:"max-bytes"`
-	CommitInterval     time.Duration `yaml:"commit-interval"`
-	Timeout            time.Duration `yaml:"timeout"`
-	StartFromBeginning bool          `yaml:"start-from-beginning"`
+	Brokers            []string         `yaml:"brokers"`
+	GroupID            string           `yaml:"group-id"`
+	Topic              string           `yaml:"topic"`
+	MinBytes           int              `yaml:"min-bytes"`
+	MaxBytes           int              `yaml:"max-bytes"`
+	CommitInterval     time.Duration    `yaml:"commit-interval"`
+	Timeout            time.Duration    `yaml:"timeout"`
+	StartFromBeginning bool             `yaml:"start-from-beginning"`
+	SaslConfig         *KafkaSaslConfig `yaml:"sasl-config"`
+}
+
+type KafkaSaslConfig struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 type kafkaSource struct {
@@ -76,9 +83,17 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 	dialer := &kafka.Dialer{
 		Timeout:   s.Config.Timeout,
 		DualStack: true,
-		// SASLMechanism: mechanism,
-		// TODO: Add TLS * SASL/SCRAM auth options & timeout for connection dialing via Dialer struct
 	}
+
+	if s.Config.SaslConfig != nil {
+		mechanism, err := scram.Mechanism(scram.SHA512, s.Config.SaslConfig.Username, s.Config.SaslConfig.Password)
+		if err != nil {
+			panic(err)
+		}
+
+		dialer.SASLMechanism = mechanism
+	}
+
 	r := kafka.NewReader(kafka.ReaderConfig{
 		Dialer:         dialer,
 		Brokers:        s.Config.Brokers,

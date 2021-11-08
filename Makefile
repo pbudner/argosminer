@@ -8,16 +8,26 @@ hello:
 
 build: clean
 	npm --prefix ui run build
-	go build ${FLAGS} -o ${BINARY}
+	go build ${FLAGS} -o ${BINARY}-mac
+	GOOS=linux GOARCH=386 CGO_ENABLED=0 go build ${FLAGS} -o ${BINARY}-linux
 
 install:
 	go install ${FLAGS}
 
-run: clean
+run: build
 	go build ${FLAGS} -o ${BINARY}
 	./${BINARY}
 
 clean:
 	if [ -f ${BINARY} ] ; then rm ${BINARY} ; fi
+
+docker-build: build
+	docker build . -t pbudner/routines-mining:latest
+
+
+docker-publish:
+	docker push pbudner/routines-mining:latest
+
+docker: docker-build docker-publish
 
 .PHONY: clean install
