@@ -6,11 +6,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/pbudner/argosminer/utils"
+	log "github.com/sirupsen/logrus"
 	"gonum.org/v1/gonum/graph/multi"
 	"gonum.org/v1/gonum/graph/topo"
 )
@@ -95,7 +97,7 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 		})
 	})
 
-	v1.GET("/events/dfrelations", func(c echo.Context) error {
+	v1.GET("/dfrelations", func(c echo.Context) error {
 		v := sbarStore.GetDfRelations()
 		return c.JSON(200, JSON{
 			"dfrelations": v,
@@ -126,6 +128,36 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 
 		return c.JSON(200, JSON{
 			"activities": result,
+		})
+	})
+
+	v1.GET("/dfrelations/timewindow", func(c echo.Context) error {
+		urlValues := c.Request().URL.Query()
+		log.Info(urlValues["from"])
+		fromUnix, err := strconv.Atoi(urlValues["from"][0])
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, JSON{
+				"error": err.Error(),
+			})
+		}
+		from := time.UnixMilli(int64(fromUnix))
+		toUnix, err := strconv.Atoi(urlValues["to"][0])
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, JSON{
+				"error": err.Error(),
+			})
+		}
+		to := time.UnixMilli(int64(toUnix))
+		relations := urlValues["name"]
+		result, err := sbarStore.GetDfRelationsWithinTimewindow(relations, from, to)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, JSON{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(200, JSON{
+			"dfrelations": result,
 		})
 	})
 
