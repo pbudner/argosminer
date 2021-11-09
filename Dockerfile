@@ -11,4 +11,4 @@ WORKDIR /root/
 #COPY --from=0 /go/src/github.com/pbudner/argosminer/config.yaml .
 #COPY --from=0 /go/src/github.com/pbudner/argosminer/app .
 ADD ./dist/argosminer-linux ./argosminer
-CMD ["./argosminer"]  
+ENTRYPOINT ["./argosminer"]  
