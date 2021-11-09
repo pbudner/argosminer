@@ -16,7 +16,7 @@ import (
 )
 
 type KafkaSourceConfig struct {
-	Brokers            []string         `yaml:"brokers"`
+	Brokers            string           `yaml:"brokers"`
 	GroupID            string           `yaml:"group-id"`
 	Topic              string           `yaml:"topic"`
 	MinBytes           int              `yaml:"min-bytes"`
@@ -96,7 +96,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 	r := kafka.NewReader(kafka.ReaderConfig{
 		Dialer:         dialer,
-		Brokers:        s.Config.Brokers,
+		Brokers:        strings.Split(s.Config.Brokers, ","),
 		GroupID:        s.Config.GroupID,
 		Topic:          s.Config.Topic,
 		MinBytes:       s.Config.MinBytes,
@@ -104,7 +104,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		CommitInterval: s.Config.CommitInterval,
 	})
 
-	brokerList := strings.Join(s.Config.Brokers, ",")
+	brokerList := s.Config.Brokers
 
 	for {
 		m, err := r.ReadMessage(ctx)

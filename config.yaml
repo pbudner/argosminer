@@ -20,8 +20,7 @@ sources:
   #         value: gestartet
   - enabled: false
     kafka-config:
-      brokers:
-      - 'localhost:9092'
+      brokers: 'localhost:9092'
       group-id: consumer-group-4711-6
       timeout: 5s
       commit-interval: 1s
