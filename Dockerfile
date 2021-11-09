@@ -10,5 +10,5 @@ RUN apk --no-cache add tzdata
 WORKDIR /root/
 #COPY --from=0 /go/src/github.com/pbudner/argosminer/config.yaml .
 #COPY --from=0 /go/src/github.com/pbudner/argosminer/app .
-ADD ./argosminer-linux ./argosminer
+ADD ./dist/argosminer-linux ./argosminer
 CMD ["./argosminer"]  

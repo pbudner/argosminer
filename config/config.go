@@ -26,12 +26,12 @@ type Config struct {
 }
 
 // NewConfig returns a new decoded Config struct
-func NewConfig() (*Config, error) {
+func NewConfig(path string) (*Config, error) {
 	// Create config structure
 	config := &Config{}
 
 	// Open config file
-	file, err := os.Open("config.yaml")
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}

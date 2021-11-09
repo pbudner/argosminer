@@ -4,3 +4,4 @@ data/
 data_new/
 .DS_Store
 .vscode/
+dist/

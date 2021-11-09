@@ -1,6 +1,6 @@
 VERSION:=$(shell cat ./VERSION)
 GIT_COMMIT:=$(shell git rev-list -1 HEAD)
-BINARY=argosminer
+BINARY=dist/argosminer
 FLAGS=-ldflags '-X "main.GitCommit=${GIT_COMMIT}" -X "main.Version=${VERSION}"'
 
 hello:
@@ -16,17 +16,16 @@ install:
 
 run: build
 	go build ${FLAGS} -o ${BINARY}
-	./${BINARY}
+	./${BINARY} && npm --prefix ui run dev
 
 clean:
 	if [ -f ${BINARY} ] ; then rm ${BINARY} ; fi
 
 docker-build: build
-	docker build . -t pbudner/routines-mining:latest
-
+	docker build . -t pbudner/argosminer:latest
 
 docker-publish:
-	docker push pbudner/routines-mining:latest
+	docker push pbudner/argosminer:latest
 
 docker: docker-build docker-publish
 

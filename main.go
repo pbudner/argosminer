@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"flag"
 	"io/fs"
 	"net/http"
 	"os"
@@ -49,7 +50,12 @@ func init() {
 
 func main() {
 	log.Info("Starting ArgosMiner..")
-	cfg, err := config.NewConfig()
+
+	var configPath string
+	flag.StringVar(&configPath, "config", "config.yaml", "path to config file")
+	flag.Parse()
+
+	cfg, err := config.NewConfig(configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -135,12 +141,11 @@ func main() {
 	p := prom.NewPrometheus("echo", nil)
 	p.Use(e)
 
-	useOS := len(os.Args) > 1 && os.Args[1] == "live"
 	e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
 		Root:       "/",
 		Browse:     false,
 		HTML5:      true,
-		Filesystem: getFileSystem(useOS),
+		Filesystem: getFileSystem(),
 	}))
 
 	g := e.Group("/api")
@@ -177,12 +182,7 @@ func main() {
 	log.Info("All workers finished.. Shutting down!")
 }
 
-func getFileSystem(useOS bool) http.FileSystem {
-	if useOS {
-		log.Print("using live mode")
-		return http.FS(os.DirFS("ui/dist"))
-	}
-
+func getFileSystem() http.FileSystem {
 	fsys, err := fs.Sub(embededFiles, "ui/dist")
 	if err != nil {
 		panic(err)
