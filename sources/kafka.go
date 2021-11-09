@@ -2,6 +2,7 @@ package sources
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ import (
 
 type KafkaSourceConfig struct {
 	Brokers            string           `yaml:"brokers"`
+	Tls                bool             `yaml:"tls"`
 	GroupID            string           `yaml:"group-id"`
 	Topic              string           `yaml:"topic"`
 	MinBytes           int              `yaml:"min-bytes"`
@@ -83,6 +85,10 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 	dialer := &kafka.Dialer{
 		Timeout:   s.Config.Timeout,
 		DualStack: true,
+	}
+
+	if s.Config.Tls {
+		dialer.TLS = &tls.Config{}
 	}
 
 	if s.Config.SaslConfig != nil {
