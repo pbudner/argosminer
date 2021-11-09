@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/pbudner/argosminer/parsers"
@@ -27,30 +28,35 @@ type Config struct {
 
 // NewConfig returns a new decoded Config struct
 func NewConfig(path string) (*Config, error) {
-	// Create config structure
 	config := &Config{}
 
-	// Open config file
-	file, err := os.Open(path)
+	// check that config exists
+	err := validateConfigPath(path)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
 
-	// Init new YAML decode
-	d := yaml.NewDecoder(file)
+	// read config
+	confContent, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
 
-	// Start YAML decoding from file
-	if err := d.Decode(&config); err != nil {
+	// expand config with environment variables
+	confContent = []byte(os.ExpandEnv(string(confContent)))
+
+	// unmarshal yaml
+	err = yaml.Unmarshal(confContent, config)
+	if err != nil {
 		return nil, err
 	}
 
 	return config, nil
 }
 
-// ValidateConfigPath just makes sure, that the path provided is a file,
+// validateConfigPath just makes sure, that the path provided is a file,
 // that can be read
-func ValidateConfigPath(path string) error {
+func validateConfigPath(path string) error {
 	s, err := os.Stat(path)
 	if err != nil {
 		return err

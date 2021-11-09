@@ -60,6 +60,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Info("Listener is:", cfg.LogLevel)
+
 	log.SetLevel(cfg.LogLevel) // configure logger
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}

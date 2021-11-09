@@ -16,10 +16,10 @@ install:
 
 run: build
 	go build ${FLAGS} -o ${BINARY}
-	./${BINARY} && npm --prefix ui run dev
+	./${BINARY}
 
 clean:
-	if [ -f ${BINARY} ] ; then rm ${BINARY} ; fi
+	rm ${BINARY}*
 
 docker-build: build
 	docker build . -t pbudner/argosminer:latest
