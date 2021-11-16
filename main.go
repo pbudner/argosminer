@@ -31,8 +31,8 @@ import (
 var embededFiles embed.FS
 
 var (
-	GitCommit string
-	Version   string
+	GitCommit string = "dev"
+	Version   string = "-live"
 )
 
 var (
@@ -59,8 +59,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	log.Info("Listener is:", cfg.LogLevel)
 
 	log.SetLevel(cfg.LogLevel) // configure logger
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -130,8 +128,8 @@ func main() {
 
 	e := echo.New()
 	e.Use(
-		middleware.Recover(),   // Recover from all panics to always have your server up
-		middleware.Logger(),    // Log everything to stdout
+		middleware.Recover(), // Recover from all panics to always have your server up
+		// middleware.Logger(),    // Log everything to stdout
 		middleware.RequestID(), // Generate a request id on the HTTP response headers for identification
 		middleware.CORS(),
 	)
@@ -155,6 +153,7 @@ func main() {
 
 	// start the server
 	go func() {
+		log.Infof("Start listener on %s", cfg.Listener)
 		if err := e.Start(cfg.Listener); err != nil && err != http.ErrServerClosed {
 			e.Logger.Fatal("shutting down the server")
 		}

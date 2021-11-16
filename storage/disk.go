@@ -6,6 +6,7 @@ import (
 	"time"
 
 	badger "github.com/dgraph-io/badger/v2"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -14,15 +15,25 @@ const (
 	maintenanceIntervalInMinutes = 5
 )
 
+var diskStorageMaintenanceCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Subsystem: "argosminer_storage_disk",
+	Name:      "maintenance_total",
+	Help:      "Count of maintenance runs.",
+}, []string{"path"})
+
+func init() {
+	prometheus.MustRegister(diskStorageMaintenanceCounter)
+}
+
 type diskStorage struct {
-	store              *badger.DB
-	maintenanceDone    chan bool
-	maintenanceRunning bool
+	store           *badger.DB
+	maintenanceDone chan bool
+	path            string
 }
 
 func NewDiskStorageGenerator() StorageGenerator {
-	return func(storeId string) Storage {
-		return NewDiskStorage(storeId)
+	return func(dataPath string) Storage {
+		return NewDiskStorage(dataPath)
 	}
 }
 
@@ -39,6 +50,7 @@ func NewDiskStorage(dataPath string) *diskStorage {
 	store := diskStorage{
 		store:           db,
 		maintenanceDone: make(chan bool),
+		path:            dataPath,
 	}
 
 	go store.maintenance()
@@ -370,7 +382,8 @@ func (s *diskStorage) maintenance() {
 			}
 
 			var err error
-			log.Info("Performing maintenance on database")
+			log.Debug("Performing maintenance on database")
+			diskStorageMaintenanceCounter.WithLabelValues(s.path).Inc()
 			for err == nil {
 				select {
 				case <-s.maintenanceDone:

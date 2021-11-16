@@ -20,10 +20,16 @@ import (
 func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *stores.SbarStore, eventStore *stores.EventStore, eventSampler *utils.EventSampler) {
 	v1 := g.Group("/v1")
 	v1.GET("/", func(c echo.Context) error {
+		var commitPrefix string
+		if len(gitCommit) > 6 {
+			commitPrefix = gitCommit[:6]
+		} else {
+			commitPrefix = gitCommit
+		}
 		return c.JSON(http.StatusOK, JSON{
 			"message": "Hello, world! Welcome to ArgosMiner API!",
 			"version": version,
-			"build":   gitCommit[:6],
+			"build":   commitPrefix,
 		})
 	})
 
