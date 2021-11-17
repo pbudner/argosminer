@@ -19,7 +19,7 @@ run: build
 	./${BINARY}
 
 clean:
-	rm ${BINARY}*
+	if [ -f ${BINARY}* ] ; then rm ${BINARY}* ; fi 
 
 docker-build: build
 	docker build . -t pbudner/argosminer:latest

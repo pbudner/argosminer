@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	b64 "encoding/base64"
+
 	"github.com/cespare/xxhash/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/pbudner/argosminer/stores"
@@ -111,20 +113,36 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 		})
 	})
 
+	type Action struct {
+		Name   string `json:"name"`
+		Degree uint64 `json:"degree,omitempty"`
+	}
 	type Edge struct {
-		From   string `json:"from"`
-		To     string `json:"to"`
-		Weight int64  `json:"weight,omitempty"`
+		From   string  `json:"from"`
+		To     string  `json:"to"`
+		Weight float64 `json:"weight,omitempty"`
 	}
 	type ProcessResult struct {
 		ID      uint64   `json:"id"`
-		Actions []string `json:"actions"`
+		Actions []Action `json:"actions"`
 		Edges   []Edge   `json:"edges"`
 	}
 
 	v1.GET("/activities/frequency", func(c echo.Context) error {
 		urlValues := c.Request().URL.Query()
 		activities := urlValues["name"]
+		for i, v := range activities {
+			vDec, err := b64.StdEncoding.DecodeString(v)
+			if err != nil {
+				log.Error(err)
+				return c.JSON(http.StatusInternalServerError, JSON{
+					"error": err.Error(),
+				})
+			}
+
+			activities[i] = string(vDec)
+		}
+
 		result, err := sbarStore.DailyCountOfActivities(activities)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, JSON{
@@ -169,7 +187,8 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 
 	v1.GET("/processes", func(c echo.Context) error {
 		actionMap := make(map[int64]string)
-		g := multi.NewUndirectedGraph()
+		actionDegreeMap := make(map[int64]uint64)
+		g := multi.NewWeightedUndirectedGraph()
 		relations := sbarStore.GetDfRelations()
 		for _, relation := range relations {
 			if relation.From != "" {
@@ -177,7 +196,9 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 				to := xxhash.Sum64String(relation.To)
 				actionMap[int64(from)] = relation.From
 				actionMap[int64(to)] = relation.To
-				g.SetLine(g.NewLine(multi.Node(from), multi.Node(to)))
+				actionDegreeMap[int64(from)] += relation.Count
+				actionDegreeMap[int64(to)] += relation.Count
+				g.SetWeightedLine(g.NewWeightedLine(multi.Node(from), multi.Node(to), float64(relation.Count)))
 			}
 		}
 
@@ -185,7 +206,7 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 		connectedComponents := topo.ConnectedComponents(g)
 		for _, nodes := range connectedComponents {
 			processActions := ProcessResult{
-				Actions: make([]string, 0),
+				Actions: make([]Action, 0),
 				Edges:   make([]Edge, 0),
 			}
 
@@ -193,22 +214,28 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 
 			for _, node := range nodes {
 				nodeIdList[node.ID()] = true
-				processActions.Actions = append(processActions.Actions, actionMap[node.ID()])
+				processActions.Actions = append(processActions.Actions, Action{Name: actionMap[node.ID()], Degree: actionDegreeMap[node.ID()]})
 			}
-			sort.Strings(processActions.Actions)
 
-			edges := g.Edges()
+			actions := make([]string, 0)
+			for _, action := range processActions.Actions {
+				actions = append(actions, action.Name)
+			}
+
+			sort.Strings(actions)
+			edges := g.WeightedEdges()
 			for edges.Reset(); edges.Next(); {
-				e := edges.Edge()
+				e := edges.WeightedEdge()
 				if nodeIdList[e.From().ID()] || nodeIdList[e.To().ID()] {
 					processActions.Edges = append(processActions.Edges, Edge{
-						From: actionMap[e.From().ID()],
-						To:   actionMap[e.To().ID()],
+						From:   actionMap[e.From().ID()],
+						To:     actionMap[e.To().ID()],
+						Weight: e.Weight(),
 					})
 				}
 			}
 
-			processActions.ID = xxhash.Sum64String(strings.Join(processActions.Actions, ";;"))
+			processActions.ID = xxhash.Sum64String(strings.Join(actions, ";;"))
 			processes = append(processes, processActions)
 		}
 

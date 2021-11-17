@@ -279,13 +279,24 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 
 		binCounter := make(map[string]uint64)
 		currentUlid := ulid.ULID{}
-		kv.storage.Iterate(k[0:8], func(item storage.KeyValue) (bool, error) {
-			currentUlid.UnmarshalBinary(item.Key[8:])
+		prevFormattedTime := ""
+		kv.storage.Iterate(k[0:8], func(key []byte, valueFunc func() ([]byte, error)) (bool, error) {
+			currentUlid.UnmarshalBinary(key[8:])
 			eventTime := time.UnixMilli(int64(currentUlid.Time()))
-			value := storage.BytesToUint64(item.Value)
-			formatted := eventTime.Format("2006/01/02")
-			if binCounter[formatted] < value {
-				binCounter[formatted] = value
+			formattedTime := eventTime.Format("2006/01/02")
+			if prevFormattedTime == "" {
+				prevFormattedTime = formattedTime
+				return true, nil
+			}
+
+			if formattedTime != prevFormattedTime {
+				v, err := valueFunc()
+				if err != nil {
+					return false, nil
+				}
+				value := storage.BytesToUint64(v)
+				binCounter[prevFormattedTime] = value - 1
+				prevFormattedTime = formattedTime
 			}
 			return true, nil
 		})
@@ -301,7 +312,11 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 			if i == 0 {
 				binRate[k] = binCounter[k]
 			} else {
-				binRate[k] = binCounter[k] - binCounter[keys[i-1]]
+				if binCounter[k] < binCounter[keys[i-1]] {
+					log.Warnf("Previous counter in DailyCountOfActivities for activity %s is larger than current. This should not happen.", activity)
+				} else {
+					binRate[k] = binCounter[k] - binCounter[keys[i-1]]
+				}
 			}
 		}
 
