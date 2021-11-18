@@ -133,15 +133,7 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 		urlValues := c.Request().URL.Query()
 		activities := urlValues["name"]
 		for i, v := range activities {
-			vDecQueryEncoded, err := b64.StdEncoding.DecodeString(v)
-			if err != nil {
-				log.Error(err)
-				return c.JSON(http.StatusInternalServerError, JSON{
-					"error": err.Error(),
-				})
-			}
-
-			vDec, err := url.QueryUnescape(string(vDecQueryEncoded))
+			vDec, err := decodeString(v)
 			if err != nil {
 				log.Error(err)
 				return c.JSON(http.StatusInternalServerError, JSON{
@@ -166,24 +158,48 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 
 	v1.GET("/dfrelations/timewindow", func(c echo.Context) error {
 		urlValues := c.Request().URL.Query()
-		log.Info(urlValues["from"])
-		fromUnix, err := strconv.Atoi(urlValues["from"][0])
+		startUnix, err := strconv.Atoi(urlValues["start"][0])
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, JSON{
 				"error": err.Error(),
 			})
 		}
-		from := time.UnixMilli(int64(fromUnix))
-		toUnix, err := strconv.Atoi(urlValues["to"][0])
+		start := time.UnixMilli(int64(startUnix))
+		endUnix, err := strconv.Atoi(urlValues["end"][0])
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, JSON{
 				"error": err.Error(),
 			})
 		}
-		to := time.UnixMilli(int64(toUnix))
-		relations := urlValues["name"]
-		result, err := sbarStore.GetDfRelationsWithinTimewindow(relations, from, to)
+		end := time.UnixMilli(int64(endUnix))
+		encodedFromRelations := urlValues["from"]
+		encodedToRelations := urlValues["to"]
+		if len(encodedFromRelations) != len(encodedToRelations) {
+			return c.JSON(http.StatusBadRequest, JSON{
+				"error": "Not the same amount of 'from' and 'to' queries",
+			})
+		}
+		relations := make([][]string, 0)
+		for i, encodedFromRelation := range encodedFromRelations {
+			from, err := decodeString(encodedFromRelation)
+			if err != nil {
+				log.Error(err)
+				return c.JSON(http.StatusInternalServerError, JSON{
+					"error": err.Error(),
+				})
+			}
+			to, err := decodeString(encodedToRelations[i])
+			if err != nil {
+				log.Error(err)
+				return c.JSON(http.StatusInternalServerError, JSON{
+					"error": err.Error(),
+				})
+			}
+			relations = append(relations, []string{from, to})
+		}
+		result, err := sbarStore.GetDfRelationsWithinTimewindow(relations, start, end)
 		if err != nil {
+			log.Error(err)
 			return c.JSON(http.StatusInternalServerError, JSON{
 				"error": err.Error(),
 			})
@@ -253,4 +269,18 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 			"count":     len(processes),
 		})
 	})
+}
+
+func decodeString(v string) (string, error) {
+	vDecQueryEncoded, err := b64.StdEncoding.DecodeString(v)
+	if err != nil {
+		return "", err
+	}
+
+	vDec, err := url.QueryUnescape(string(vDecQueryEncoded))
+	if err != nil {
+		return "", err
+	}
+
+	return vDec, nil
 }

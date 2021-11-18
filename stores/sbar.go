@@ -174,7 +174,7 @@ func (kv *SbarStore) GetLastActivityForCase(caseId string) (string, error) {
 func (kv *SbarStore) RecordDirectlyFollowsRelation(from string, to string, timestamp time.Time) error {
 	kv.Lock()
 	defer kv.Unlock()
-	dfRelation := fmt.Sprintf("%s-->%s", from, to)
+	dfRelation := encodeDfRelation(from, to)
 	counter, err := kv.incr(kv.dfRelationCounterCache, dfRelation)
 	if err != nil {
 		return err
@@ -239,28 +239,29 @@ func (kv *SbarStore) GetDfRelations() []DirectlyFollowsRelation {
 	return result
 }
 
-func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelation []string, from time.Time, to time.Time) ([]DirectlyFollowsRelation, error) {
+func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelations [][]string, from time.Time, to time.Time) ([]DirectlyFollowsRelation, error) {
 	kv.Lock()
 	defer kv.Unlock()
 
 	result := make([]DirectlyFollowsRelation, 0)
 
-	for _, relation := range dfRelation {
-		k, err := key.New(prefixString(dfRelationCode, relation), from)
+	for _, relation := range dfRelations {
+		k, err := key.New(prefixString(dfRelationCode, encodeDfRelation(relation[0], relation[1])), from)
 		if err != nil {
 			return nil, err
 		}
 
-		keyValue, err := kv.storage.Seek(k)
+		log.Infof("%s: Seek for date %s", encodeDfRelation(relation[0], relation[1]), from)
+		keyValue, err := kv.storage.Seek(k[:14]) // 8 for name name hash + 6 for timestamp
 		if err != nil {
 			return nil, err
 		}
 
 		id := ulid.ULID{}
-		id.UnmarshalBinary(keyValue.Key)
+		id.UnmarshalBinary(keyValue.Key[8:])
 
-		log.Info(time.UnixMilli(int64(id.Time())))
-		log.Info(storage.BytesToUint64(keyValue.Value))
+		log.Infof("Found entry for date %s", time.UnixMilli(int64(id.Time())))
+		log.Infof("Value: %d", storage.BytesToUint64(keyValue.Value))
 	}
 	return result, nil
 }
@@ -424,4 +425,8 @@ func (kv *SbarStore) incr(cache map[string]uint64, key string) (uint64, error) {
 
 func prefixString(prefix []byte, str string) []byte {
 	return append(prefix, []byte(str)...)
+}
+
+func encodeDfRelation(from string, to string) string {
+	return fmt.Sprintf("%s-->%s", from, to)
 }

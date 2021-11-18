@@ -358,18 +358,18 @@ func (s *diskStorage) Seek(key []byte) (KeyValue, error) {
 		opts.Reverse = true
 		it := txn.NewIterator(opts)
 		defer it.Close()
+		// seekKey := append(key[:], 0xFF)
 		it.Rewind()
 		it.Seek(key)
 		it.Valid()
-		it.Next()
 		item := it.Item()
-		key := item.Key()
+		itemKey := item.Key()
 		itemBytes, err := item.ValueCopy(nil)
 		if err != nil {
 			return err
 		}
 		result = KeyValue{
-			Key:   key,
+			Key:   itemKey,
 			Value: itemBytes,
 		}
 		return nil
