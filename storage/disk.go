@@ -157,7 +157,7 @@ func (s *diskStorage) Contains(key []byte) bool {
 	return err == nil
 }
 
-func (s *diskStorage) IterateReverse(prefix []byte, f func(KeyValue) (bool, error)) error {
+func (s *diskStorage) IterateReverse(prefix []byte, f func([]byte, func() ([]byte, error)) (bool, error)) error {
 	err := s.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
@@ -168,12 +168,17 @@ func (s *diskStorage) IterateReverse(prefix []byte, f func(KeyValue) (bool, erro
 		for it.Seek(seekPrefix); it.Valid(); it.Next() {
 			item := it.Item()
 			key := item.KeyCopy(nil)
-			itemBytes, err := item.ValueCopy(nil)
-			if err != nil {
-				return err
+
+			valueFunc := func() ([]byte, error) {
+				itemBytes, err := item.ValueCopy(nil)
+				if err != nil {
+					return nil, err
+				}
+
+				return itemBytes, nil
 			}
 
-			if ok, err := f(KeyValue{Key: key, Value: itemBytes}); !ok {
+			if ok, err := f(key, valueFunc); !ok {
 				return err
 			}
 		}

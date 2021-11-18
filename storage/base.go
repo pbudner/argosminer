@@ -11,7 +11,7 @@ type Storage interface {
 	TotalCount() (uint64, error)
 	CountRange(from []byte, to []byte) (uint64, error)
 	Iterate(prefix []byte, f func([]byte, func() ([]byte, error)) (bool, error)) error
-	IterateReverse(prefix []byte, f func(KeyValue) (bool, error)) error
+	IterateReverse(prefix []byte, f func([]byte, func() ([]byte, error)) (bool, error)) error
 	Seek(key []byte) (KeyValue, error)
 	CountPrefix(prefix []byte) (uint64, error)
 	Close()
