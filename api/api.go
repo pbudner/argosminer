@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	url "net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -132,7 +133,7 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 		urlValues := c.Request().URL.Query()
 		activities := urlValues["name"]
 		for i, v := range activities {
-			vDec, err := b64.StdEncoding.DecodeString(v)
+			vDecQueryEncoded, err := b64.StdEncoding.DecodeString(v)
 			if err != nil {
 				log.Error(err)
 				return c.JSON(http.StatusInternalServerError, JSON{
@@ -140,7 +141,15 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 				})
 			}
 
-			activities[i] = string(vDec)
+			vDec, err := url.QueryUnescape(string(vDecQueryEncoded))
+			if err != nil {
+				log.Error(err)
+				return c.JSON(http.StatusInternalServerError, JSON{
+					"error": err.Error(),
+				})
+			}
+
+			activities[i] = vDec
 		}
 
 		result, err := sbarStore.DailyCountOfActivities(activities)
