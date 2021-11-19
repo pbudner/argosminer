@@ -14,7 +14,7 @@ type Key []byte
 
 // New generates a new lexicographically sortable key
 func New(name []byte, timestamp time.Time) (Key, error) {
-	ulid, err := NewMonotonicULIDGenerator().New(timestamp)
+	ulid, err := newMonotonicULIDGenerator().New(timestamp)
 	if err != nil {
 		return nil, err
 	}

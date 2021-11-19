@@ -20,7 +20,7 @@ type monotonicULIDGenerator struct {
 	lastULID   ulid.ULID  // the last ULID it generated using "github.com/oklog/ulid"
 }
 
-func NewMonotonicULIDGenerator() *monotonicULIDGenerator {
+func newMonotonicULIDGenerator() *monotonicULIDGenerator {
 	once.Do(func() {
 		entropy := rand.New(rand.NewSource(4711))
 		// get an initial ULID to kick the monotonic generation off with

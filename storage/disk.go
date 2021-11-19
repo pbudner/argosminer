@@ -361,7 +361,9 @@ func (s *diskStorage) Seek(key []byte) (KeyValue, error) {
 		// seekKey := append(key[:], 0xFF)
 		it.Rewind()
 		it.Seek(key)
-		it.Valid()
+		if !it.Valid() {
+			return ErrNoResults
+		}
 		item := it.Item()
 		itemKey := item.Key()
 		itemBytes, err := item.ValueCopy(nil)
