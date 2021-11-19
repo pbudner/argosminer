@@ -161,6 +161,7 @@ func (s *diskStorage) IterateReverse(prefix []byte, f func([]byte, func() ([]byt
 	err := s.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
+		opts.Prefix = prefix
 		opts.Reverse = true
 		it := txn.NewIterator(opts)
 		defer it.Close()
@@ -356,12 +357,12 @@ func (s *diskStorage) Seek(key []byte) (KeyValue, error) {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
 		opts.Reverse = true
+		opts.Prefix = key[:8]
 		it := txn.NewIterator(opts)
 		defer it.Close()
-		// seekKey := append(key[:], 0xFF)
-		it.Rewind()
-		it.Seek(key)
-		if !it.Valid() {
+		seekKey := append(key[:], 0xFF)
+		it.Seek(seekKey)
+		if !it.ValidForPrefix(key[:8]) {
 			return ErrNoResults
 		}
 		item := it.Item()

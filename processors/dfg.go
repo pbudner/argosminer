@@ -62,10 +62,7 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	}
 	if lastActivityForCase == "" {
 		// 1. we have not seen this case so far
-		err = a.Store.RecordStartActivity(activityName)
-		if err != nil {
-			return err
-		}
+		a.Store.RecordStartActivity(activityName)
 		err = a.Store.RecordDirectlyFollowsRelation("", activityName, timestamp)
 		if err != nil {
 			return err

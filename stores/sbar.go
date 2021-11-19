@@ -175,11 +175,7 @@ func (kv *SbarStore) RecordDirectlyFollowsRelation(from string, to string, times
 	kv.Lock()
 	defer kv.Unlock()
 	dfRelation := encodeDfRelation(from, to)
-	counter, err := kv.incr(kv.dfRelationCounterCache, dfRelation)
-	if err != nil {
-		return err
-	}
-
+	counter := kv.incr(kv.dfRelationCounterCache, dfRelation)
 	k, err := key.New(prefixString(dfRelationCode, dfRelation), timestamp)
 	if err != nil {
 		return err
@@ -193,11 +189,7 @@ func (kv *SbarStore) RecordDirectlyFollowsRelation(from string, to string, times
 func (kv *SbarStore) RecordActivity(activity string, timestamp time.Time) error {
 	kv.Lock()
 	defer kv.Unlock()
-	counter, err := kv.incr(kv.activityCounterCache, activity)
-	if err != nil {
-		return err
-	}
-
+	counter := kv.incr(kv.activityCounterCache, activity)
 	k, err := key.New(prefixString(activityCode, activity), timestamp)
 	if err != nil {
 		return err
@@ -229,7 +221,7 @@ func (kv *SbarStore) GetDfRelations() []DirectlyFollowsRelation {
 	defer kv.Unlock()
 	result := make([]DirectlyFollowsRelation, 0)
 	for k, v := range kv.dfRelationCounterCache {
-		splittedRelation := strings.Split(k, "-->") // this is not good, but
+		splittedRelation := strings.Split(k, "-->") // this is not good, but ok for now
 		result = append(result, DirectlyFollowsRelation{
 			From:  splittedRelation[0],
 			To:    strings.Join(splittedRelation[1:], "-->"),
@@ -246,13 +238,20 @@ func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelations [][]string, from
 	result := make([]DirectlyFollowsRelation, 0)
 
 	for _, relation := range dfRelations {
-		k, err := key.New(prefixString(dfRelationCode, encodeDfRelation(relation[0], relation[1])), from)
+		encodedRelation := encodeDfRelation(relation[0], relation[1])
+		k, err := key.New(prefixString(dfRelationCode, encodedRelation), from)
 		if err != nil {
 			return nil, err
 		}
 
-		log.Infof("%s: Seek for date %s", encodeDfRelation(relation[0], relation[1]), from)
+		log.Infof("%s: Seek for date %s", encodeDfRelation(relation[0], relation[1]), from.Format(time.RFC3339))
 		keyValue, err := kv.storage.Seek(k[:14]) // 8 for name name hash + 6 for timestamp
+
+		if err == storage.ErrNoResults {
+			log.Infof("Could not find a directly-follows relation for %s", encodedRelation)
+			continue
+		}
+
 		if err != nil {
 			return nil, err
 		}
@@ -260,7 +259,7 @@ func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelations [][]string, from
 		id := ulid.ULID{}
 		id.UnmarshalBinary(keyValue.Key[8:])
 
-		log.Infof("Found entry for date %s", time.UnixMilli(int64(id.Time())))
+		log.Infof("Found entry for date %s", time.UnixMilli(int64(id.Time())).Format(time.RFC3339))
 		log.Infof("Value: %d", storage.BytesToUint64(keyValue.Value))
 	}
 	return result, nil
@@ -344,14 +343,10 @@ func (kv *SbarStore) CountStartActivities() int {
 	return len(kv.startEventCounterCache)
 }
 
-func (kv *SbarStore) RecordStartActivity(key string) error {
+func (kv *SbarStore) RecordStartActivity(key string) {
 	kv.Lock()
 	defer kv.Unlock()
-	_, err := kv.incr(kv.startEventCounterCache, key)
-	if err != nil {
-		return err
-	}
-	return nil
+	kv.incr(kv.startEventCounterCache, key)
 }
 
 func (kv *SbarStore) Close() {
@@ -412,14 +407,14 @@ func (kv *SbarStore) flushBuffer(items *[]storage.KeyValue) int {
 	return count
 }
 
-func (kv *SbarStore) incr(cache map[string]uint64, key string) (uint64, error) {
+func (kv *SbarStore) incr(cache map[string]uint64, key string) uint64 {
 	_, ok := cache[key]
 	if !ok {
 		cache[key] = 1
-		return 1, nil
+		return 1
 	} else {
 		cache[key]++
-		return cache[key], nil
+		return cache[key]
 	}
 }
 

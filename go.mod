@@ -13,6 +13,7 @@ require (
 	github.com/radovskyb/watcher v1.0.7
 	github.com/segmentio/kafka-go v0.4.23
 	github.com/sirupsen/logrus v1.8.1
+	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/gjson v1.11.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	gonum.org/v1/gonum v0.9.3
@@ -44,8 +45,6 @@ require (
 	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
-	github.com/stretchr/objx v0.1.1 // indirect
-	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
