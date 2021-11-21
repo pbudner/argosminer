@@ -197,7 +197,7 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 			}
 			relations = append(relations, []string{from, to})
 		}
-		result, err := sbarStore.GetDfRelationsWithinTimewindow(relations, start, end)
+		edges, err := sbarStore.GetDfRelationsWithinTimewindow(relations, start, end)
 		if err != nil {
 			log.Error(err)
 			return c.JSON(http.StatusInternalServerError, JSON{
@@ -205,8 +205,20 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 			})
 		}
 
+		nodes := make(map[string]struct{})
+		for _, edge := range edges {
+			nodes[edge.From] = struct{}{}
+			nodes[edge.To] = struct{}{}
+		}
+
+		uniqueNodes := make([]string, 0, len(nodes))
+		for k := range nodes {
+			uniqueNodes = append(uniqueNodes, k)
+		}
+
 		return c.JSON(200, JSON{
-			"dfrelations": result,
+			"nodes": uniqueNodes,
+			"edges": edges,
 		})
 	})
 
@@ -221,9 +233,9 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 				to := xxhash.Sum64String(relation.To)
 				actionMap[int64(from)] = relation.From
 				actionMap[int64(to)] = relation.To
-				actionDegreeMap[int64(from)] += relation.Count
-				actionDegreeMap[int64(to)] += relation.Count
-				g.SetWeightedLine(g.NewWeightedLine(multi.Node(from), multi.Node(to), float64(relation.Count)))
+				actionDegreeMap[int64(from)] += relation.Weight
+				actionDegreeMap[int64(to)] += relation.Weight
+				g.SetWeightedLine(g.NewWeightedLine(multi.Node(from), multi.Node(to), float64(relation.Weight)))
 			}
 		}
 

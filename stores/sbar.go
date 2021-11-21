@@ -31,14 +31,14 @@ var (
 )
 
 type DirectlyFollowsRelation struct {
-	From  string `json:"from,omitempty"`
-	To    string `json:"to,omitempty"`
-	Count uint64 `json:"count,omitempty"`
+	From   string `json:"from,omitempty"`
+	To     string `json:"to,omitempty"`
+	Weight uint64 `json:"weight,omitempty"`
 }
 
 type Activity struct {
-	Name  string `json:"name,omitempty"`
-	Count uint64 `json:"count,omitempty"`
+	Name   string `json:"name,omitempty"`
+	Weight uint64 `json:"weight,omitempty"`
 }
 
 type SbarStore struct {
@@ -209,8 +209,8 @@ func (kv *SbarStore) GetActivities() []Activity {
 	result := make([]Activity, 0)
 	for k, v := range kv.activityCounterCache {
 		result = append(result, Activity{
-			Name:  k,
-			Count: v,
+			Name:   k,
+			Weight: v,
 		})
 	}
 	return result
@@ -223,15 +223,15 @@ func (kv *SbarStore) GetDfRelations() []DirectlyFollowsRelation {
 	for k, v := range kv.dfRelationCounterCache {
 		splittedRelation := strings.Split(k, "-->") // this is not good, but ok for now
 		result = append(result, DirectlyFollowsRelation{
-			From:  splittedRelation[0],
-			To:    strings.Join(splittedRelation[1:], "-->"),
-			Count: v,
+			From:   splittedRelation[0],
+			To:     strings.Join(splittedRelation[1:], "-->"),
+			Weight: v,
 		})
 	}
 	return result
 }
 
-func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelations [][]string, from time.Time, to time.Time) ([]DirectlyFollowsRelation, error) {
+func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelations [][]string, start time.Time, end time.Time) ([]DirectlyFollowsRelation, error) {
 	kv.Lock()
 	defer kv.Unlock()
 
@@ -239,28 +239,41 @@ func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelations [][]string, from
 
 	for _, relation := range dfRelations {
 		encodedRelation := encodeDfRelation(relation[0], relation[1])
-		k, err := key.New(prefixString(dfRelationCode, encodedRelation), from)
+
+		getCountForRelation := func(encodedRelation string, timestamp time.Time) (uint64, error) {
+			k, err := key.New(prefixString(dfRelationCode, encodedRelation), timestamp)
+			if err != nil {
+				return 0, err
+			}
+
+			log.Debugf("%s: Seek for date %s", encodedRelation, timestamp.Format(time.RFC3339))
+			keyValue, err := kv.storage.Seek(k[:14]) // 8 for name name hash + 6 for timestamp
+
+			if err == storage.ErrNoResults {
+				log.Debugf("Could not find a directly-follows relation for %s", encodedRelation)
+				return 0, nil
+			}
+
+			if err != nil {
+				return 0, err
+			}
+
+			return storage.BytesToUint64(keyValue.Value), nil
+		}
+
+		startValue, err := getCountForRelation(encodedRelation, start)
+		if err != nil {
+			return nil, err
+		}
+		endValue, err := getCountForRelation(encodedRelation, end)
 		if err != nil {
 			return nil, err
 		}
 
-		log.Infof("%s: Seek for date %s", encodeDfRelation(relation[0], relation[1]), from.Format(time.RFC3339))
-		keyValue, err := kv.storage.Seek(k[:14]) // 8 for name name hash + 6 for timestamp
-
-		if err == storage.ErrNoResults {
-			log.Infof("Could not find a directly-follows relation for %s", encodedRelation)
-			continue
+		diffValue := endValue - startValue
+		if diffValue > 0 {
+			result = append(result, DirectlyFollowsRelation{From: relation[0], To: relation[1], Weight: diffValue})
 		}
-
-		if err != nil {
-			return nil, err
-		}
-
-		id := ulid.ULID{}
-		id.UnmarshalBinary(keyValue.Key[8:])
-
-		log.Infof("Found entry for date %s", time.UnixMilli(int64(id.Time())).Format(time.RFC3339))
-		log.Infof("Value: %d", storage.BytesToUint64(keyValue.Value))
 	}
 	return result, nil
 }
