@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v2"
+	badger "github.com/dgraph-io/badger/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
@@ -207,7 +207,6 @@ func (s *diskStorage) GetFirst(count int) ([][]byte, error) {
 			}
 			i++
 		}
-
 		return nil
 	})
 
@@ -383,17 +382,12 @@ func (s *diskStorage) Seek(key []byte) (KeyValue, error) {
 
 func (s *diskStorage) maintenance() {
 	maintenanceTicker := time.NewTicker(maintenanceIntervalInMinutes * time.Minute)
-	maintenanceRunning := false
 	defer maintenanceTicker.Stop()
 	for {
 		select {
 		case <-s.maintenanceDone:
 			return
 		case <-maintenanceTicker.C:
-			if maintenanceRunning {
-				continue
-			}
-
 			var err error
 			log.Debug("Performing maintenance on database")
 			diskStorageMaintenanceCounter.WithLabelValues(s.path).Inc()
@@ -407,7 +401,6 @@ func (s *diskStorage) maintenance() {
 				}
 			}
 
-			maintenanceRunning = false
 			if err == badger.ErrNoRewrite {
 				log.Debug("Successfully finished ValueLogGC")
 			} else {

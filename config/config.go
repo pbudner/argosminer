@@ -8,7 +8,7 @@ import (
 	"github.com/pbudner/argosminer/parsers"
 	"github.com/pbudner/argosminer/sources"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 type Source struct {

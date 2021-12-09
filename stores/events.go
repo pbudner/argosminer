@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger/v3"
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/storage/key"
@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	eventPrefix     byte = 0x01
+	eventPrefix     byte = 0x02
 	counterKey           = append([]byte{eventPrefix}, []byte("counter")...)
 	binCounterKey        = append([]byte{eventPrefix}, []byte("bin_counter")...)
 	eventKey             = append([]byte{eventPrefix}, []byte("event")...)

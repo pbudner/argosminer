@@ -9,18 +9,7 @@ import (
 )
 
 type JsonParserConfig struct {
-	ActivityPath          string `yaml:"activity-path"`
-	ProcessInstanceIdPath string `yaml:"process-instance-id-path"`
-	TimestampPath         string `yaml:"timestamp-path"`
-	TimestampFormat       string `yaml:"timestamp-format"`      // https://golang.org/src/time/format.go
-	TimestampTzIanakey    string `yaml:"timestamp-tz-iana-key"` // https://golang.org/src/time/format.go
-	IgnoreWhen            []struct {
-		Path      string `yaml:"path"`
-		Condition string `yaml:"condition"`
-		Value     string `yaml:"value"`
-	} `yaml:"ignore-when"`
-}
-type JsonEventParserConfig struct {
+	JsonPath              string `yaml:"json-path"` // refactor that
 	ActivityPath          string `yaml:"activity-path"`
 	ProcessInstanceIdPath string `yaml:"process-instance-id-path"`
 	TimestampPath         string `yaml:"timestamp-path"`
@@ -34,6 +23,7 @@ type JsonEventParserConfig struct {
 }
 
 type jsonParser struct {
+	Parser
 	config          JsonParserConfig
 	conditions      []jsonConditionLiteral
 	timestampParser utils.TimestampParser
@@ -86,6 +76,12 @@ func (p jsonParser) Parse(input []byte) (*events.Event, error) {
 	}
 
 	// TODO: Sanity checks
+
+	// JSON in JSON
+	if p.config.JsonPath != "" {
+		result := gjson.GetBytes(input, p.config.JsonPath)
+		input = []byte(result.Str)
+	}
 
 	results := gjson.GetManyBytes(input, p.config.ProcessInstanceIdPath, p.config.ActivityPath, p.config.TimestampPath)
 	timestamp, err := p.timestampParser.Parse(results[2].Str)

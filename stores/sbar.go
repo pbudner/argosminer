@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger/v3"
 	ulid "github.com/oklog/ulid/v2"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/storage/key"
@@ -16,7 +16,7 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-const sbarPrefix = 0x01
+const sbarPrefix = 0x03
 
 var (
 	metaCode             = []byte{sbarPrefix, 0x00}

@@ -25,6 +25,7 @@ type CsvParserConfig struct {
 }
 
 type csvParser struct {
+	Parser
 	config          CsvParserConfig
 	conditions      []csvConditionLiteral
 	timestampParser utils.TimestampParser
