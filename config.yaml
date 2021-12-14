@@ -18,29 +18,30 @@ sources:
   #       - column: 10
   #         condition: '!='
   #         value: gestartet
-  #- enabled: false
-  #  kafka-config:
-  #    brokers: 'localhost:9092'
-  #    group-id: consumer-group-4711-6
-  #    timeout: 5s
-  #    commit-interval: 1s
-  #    topic: pmlogs
-  #    min-bytes: 10e3 # 10KB
-  #    max-bytes: 10e6 # 10MB
+  - enabled: false
+    kafka-config:
+      brokers: 'localhost:9092'
+      group-id: consumer-group-4711-6
+      timeout: 5s
+      commit-interval: 1s
+      topic: pmlogs
+      min-bytes: 10e3 # 10KB
+      max-bytes: 10e6 # 10MB
+    json-parser:
+      json-path: my_event
+      activity-path: activity
+      process-instance-id-path: process_instance_id
+      timestamp-path: '@timestamp'
+      timestamp-format: '2006-01-02T15:04:05.000-0700'
+      timestamp-tz-iana-key: Europe/Berlin
+  #- enabled: true
+  #  file-config:
+  #    path: '/Users/pascalbudner/Desktop/test.json'
+  #    read-from: start
   #  json-parser:
+  #    json-path: my_json
   #    activity-path: activity
   #    process-instance-path: process_instance_id
   #    timestamp-path: '@timestamp'
   #    timestamp-format: '2006-01-02T15:04:05.000-0700'
   #    timestamp-tz-iana-key: Europe/Berlin
-  - enabled: true
-    file-config:
-      path: '/Users/pascalbudner/Desktop/test.json'
-      read-from: start
-    json-parser:
-      json-path: my_json
-      activity-path: activity
-      process-instance-path: process_instance_id
-      timestamp-path: '@timestamp'
-      timestamp-format: '2006-01-02T15:04:05.000-0700'
-      timestamp-tz-iana-key: Europe/Berlin

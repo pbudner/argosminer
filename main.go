@@ -65,7 +65,7 @@ func main() {
 	wg := &sync.WaitGroup{}
 
 	if _, err := os.Stat(cfg.DataPath); os.IsNotExist(err) {
-		log.Panicf("Could not open database path %s", cfg.DataPath)
+		log.Panicf("Could not open database path as path '%s' does not exist", cfg.DataPath)
 	}
 
 	// open storage
