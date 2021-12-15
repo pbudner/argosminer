@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v2"
 	ulid "github.com/oklog/ulid/v2"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/storage/key"
@@ -284,6 +284,8 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 
 	result := make(map[string]map[string]uint64)
 
+	var smallestDate, largestDate *time.Time
+
 	for _, activity := range activities {
 		k, err := key.New(prefixString(activityCode, activity), time.Now())
 		if err != nil {
@@ -296,6 +298,12 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 		kv.storage.Iterate(k[0:8], func(key []byte, valueFunc func() ([]byte, error)) (bool, error) {
 			currentUlid.UnmarshalBinary(key[8:])
 			eventTime := time.UnixMilli(int64(currentUlid.Time()))
+			if smallestDate == nil || smallestDate.UnixMilli() > eventTime.UnixMilli() {
+				smallestDate = &eventTime
+			}
+			if largestDate == nil || largestDate.UnixMilli() < eventTime.UnixMilli() {
+				largestDate = &eventTime
+			}
 			formattedTime := eventTime.Format("2006/01/02")
 			if prevFormattedTime == "" {
 				prevFormattedTime = formattedTime
@@ -335,6 +343,21 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 
 		result[activity] = binRate
 	}
+
+	for activity := range result {
+		log.Infof("Activity %s", activity)
+		currentDate := *smallestDate
+		for currentDate.UnixMilli() < largestDate.UnixMilli() {
+			formattedTime := currentDate.Format("2006/01/02")
+			_, exists := result[activity][formattedTime]
+			if !exists {
+				log.Infof("Date %s does not exist", formattedTime)
+				result[activity][formattedTime] = 0
+			}
+			currentDate = currentDate.Add(24 * time.Hour)
+		}
+	}
+
 	return result, nil
 }
 

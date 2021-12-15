@@ -30,7 +30,7 @@ sources:
     json-parser:
       json-path: my_event
       activity-path: activity
-      process-instance-id-path: process_instance_id
+      correlation-id-path: process_instance_id
       timestamp-path: '@timestamp'
       timestamp-format: '2006-01-02T15:04:05.000-0700'
       timestamp-tz-iana-key: Europe/Berlin
