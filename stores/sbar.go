@@ -344,14 +344,13 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 		result[activity] = binRate
 	}
 
+	// for all activities: insert a 0 if a date has no value
 	for activity := range result {
-		log.Infof("Activity %s", activity)
 		currentDate := *smallestDate
 		for currentDate.UnixMilli() < largestDate.UnixMilli() {
 			formattedTime := currentDate.Format("2006/01/02")
 			_, exists := result[activity][formattedTime]
 			if !exists {
-				log.Infof("Date %s does not exist", formattedTime)
 				result[activity][formattedTime] = 0
 			}
 			currentDate = currentDate.Add(24 * time.Hour)
