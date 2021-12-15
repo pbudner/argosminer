@@ -3,9 +3,6 @@ GIT_COMMIT:=$(shell git rev-list -1 HEAD)
 BINARY=dist/argosminer
 FLAGS=-ldflags '-X "main.GitCommit=${GIT_COMMIT}" -X "main.Version=${VERSION}"'
 
-hello:
-	echo ${GIT_COMMIT}
-
 build: clean
 	npm --prefix ui run build
 	go build ${FLAGS} -o ${BINARY}-mac
