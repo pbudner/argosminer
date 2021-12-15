@@ -8,12 +8,12 @@ import (
 
 func TestJsoninJsonParser(t *testing.T) {
 	parser := NewJsonParser(JsonParserConfig{
-		JsonPath:              "my_json",
-		ActivityPath:          "activity",
-		ProcessInstanceIdPath: "process_instance_id",
-		TimestampPath:         "@timestamp",
-		TimestampFormat:       "2006-01-02T15:04:05.000",
-		TimestampTzIanakey:    "Europe/Berlin",
+		JsonPath:           "my_json",
+		ActivityPath:       "activity",
+		CorrelationIdPath:  "process_instance_id",
+		TimestampPath:      "@timestamp",
+		TimestampFormat:    "2006-01-02T15:04:05.000",
+		TimestampTzIanakey: "Europe/Berlin",
 	})
 
 	// JSON in JSON

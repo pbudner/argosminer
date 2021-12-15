@@ -11,13 +11,13 @@ import (
 )
 
 type CsvParserConfig struct {
-	Delimiter             string `yaml:"delimiter"`
-	ActivityColumn        uint   `yaml:"activity-column"`
-	ProcessInstanceColumn uint   `yaml:"process-instance-column"`
-	TimestampColumn       uint   `yaml:"timestamp-column"`
-	TimestampFormat       string `yaml:"timestamp-format"`      // https://golang.org/src/time/format.go
-	TimestampTzIanakey    string `yaml:"timestamp-tz-iana-key"` // https://golang.org/src/time/format.go
-	IgnoreWhen            []struct {
+	Delimiter           string `yaml:"delimiter"`
+	ActivityColumn      uint   `yaml:"activity-column"`
+	CorrelationIdColumn uint   `yaml:"correlation-id-column"`
+	TimestampColumn     uint   `yaml:"timestamp-column"`
+	TimestampFormat     string `yaml:"timestamp-format"`      // https://golang.org/src/time/format.go
+	TimestampTzIanakey  string `yaml:"timestamp-tz-iana-key"` // https://golang.org/src/time/format.go
+	IgnoreWhen          []struct {
 		Column    uint   `yaml:"column"`
 		Condition string `yaml:"condition"`
 		Value     string `yaml:"value"`
@@ -83,11 +83,11 @@ func (p csvParser) Parse(input string) (*events.Event, error) {
 	}
 
 	numOfColumnsInEvent := len(eventColumns)
-	if p.config.ProcessInstanceColumn >= uint(numOfColumnsInEvent) || p.config.ActivityColumn >= uint(numOfColumnsInEvent) || p.config.TimestampColumn >= uint(numOfColumnsInEvent) {
+	if p.config.CorrelationIdColumn >= uint(numOfColumnsInEvent) || p.config.ActivityColumn >= uint(numOfColumnsInEvent) || p.config.TimestampColumn >= uint(numOfColumnsInEvent) {
 		return nil, fmt.Errorf("the event does not contain all neccessary columns to parse it")
 	}
 
-	processInstanceId := strings.Trim(eventColumns[p.config.ProcessInstanceColumn], " ")
+	processInstanceId := strings.Trim(eventColumns[p.config.CorrelationIdColumn], " ")
 	activityName := strings.Trim(eventColumns[p.config.ActivityColumn], " ")
 	timestamp, err := p.timestampParser.Parse(eventColumns[p.config.TimestampColumn])
 	if err != nil {
