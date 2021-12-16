@@ -11,7 +11,7 @@ import (
 type JsonParserConfig struct {
 	JsonPath           string `yaml:"json-path"` // refactor that
 	ActivityPath       string `yaml:"activity-path"`
-	CorrelationIdPath  string `yaml:"correlation-id-path"`
+	CaseIdPath         string `yaml:"case-id-path"`
 	TimestampPath      string `yaml:"timestamp-path"`
 	TimestampFormat    string `yaml:"timestamp-format"`      // https://golang.org/src/time/format.go
 	TimestampTzIanakey string `yaml:"timestamp-tz-iana-key"` // https://golang.org/src/time/format.go
@@ -83,7 +83,7 @@ func (p jsonParser) Parse(input []byte) (*events.Event, error) {
 		input = []byte(result.Str)
 	}
 
-	results := gjson.GetManyBytes(input, p.config.CorrelationIdPath, p.config.ActivityPath, p.config.TimestampPath)
+	results := gjson.GetManyBytes(input, p.config.CaseIdPath, p.config.ActivityPath, p.config.TimestampPath)
 	timestamp, err := p.timestampParser.Parse(results[2].Str)
 	if err != nil {
 		return nil, err

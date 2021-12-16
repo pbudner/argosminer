@@ -9,7 +9,7 @@ The following three key features distinguish ArgosMiner from other process minin
 - Focus on change
 - Focus on operational simplicity
 
-ArgosMiner is a single binary without external dependencies, such as a database. It can be used in client as well as server settings. While the latter is our primary focus, ArgosMiner can also be used on a client to quickly analyze (large) event logs.
+ArgosMiner is a single binary without external dependencies, such as a database. It can be used in client as well as server scenarios. While the latter is our primary focus, ArgosMiner can also be used on a client to quickly analyze (large) event logs.
 ## ToDos
 - Random Event Emitter Source (Regular Intervals, e.g. every second) (2 hours)
 - Turn Raw Events Logstore on and off 
