@@ -116,12 +116,12 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 
 	type Action struct {
 		Name   string `json:"name"`
-		Degree uint64 `json:"degree,omitempty"`
+		Degree uint64 `json:"degree"`
 	}
 	type Edge struct {
 		From   string  `json:"from"`
 		To     string  `json:"to"`
-		Weight float64 `json:"weight,omitempty"`
+		Weight float64 `json:"weight"`
 	}
 	type ProcessResult struct {
 		ID      uint64   `json:"id"`
@@ -226,21 +226,23 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 		actionMap := make(map[int64]string)
 		actionDegreeMap := make(map[int64]uint64)
 		g := multi.NewWeightedUndirectedGraph()
+		dg := multi.NewWeightedDirectedGraph()
 		relations := sbarStore.GetDfRelations()
 		for _, relation := range relations {
+			from := xxhash.Sum64String(relation.From)
+			to := xxhash.Sum64String(relation.To)
+			actionMap[int64(from)] = relation.From
+			actionMap[int64(to)] = relation.To
+			actionDegreeMap[int64(to)] += relation.Weight
 			if relation.From != "" {
-				from := xxhash.Sum64String(relation.From)
-				to := xxhash.Sum64String(relation.To)
-				actionMap[int64(from)] = relation.From
-				actionMap[int64(to)] = relation.To
-				actionDegreeMap[int64(from)] += relation.Weight
-				actionDegreeMap[int64(to)] += relation.Weight
 				g.SetWeightedLine(g.NewWeightedLine(multi.Node(from), multi.Node(to), float64(relation.Weight)))
 			}
+			dg.SetWeightedLine(g.NewWeightedLine(multi.Node(from), multi.Node(to), float64(relation.Weight)))
 		}
 
 		processes := make([]ProcessResult, 0)
 		connectedComponents := topo.ConnectedComponents(g)
+
 		for _, nodes := range connectedComponents {
 			processActions := ProcessResult{
 				Actions: make([]Action, 0),
@@ -250,6 +252,9 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 			nodeIdList := make(map[int64]bool)
 
 			for _, node := range nodes {
+				if actionMap[node.ID()] == "" {
+					continue
+				}
 				nodeIdList[node.ID()] = true
 				processActions.Actions = append(processActions.Actions, Action{Name: actionMap[node.ID()], Degree: actionDegreeMap[node.ID()]})
 			}
@@ -260,7 +265,7 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 			}
 
 			sort.Strings(actions)
-			edges := g.WeightedEdges()
+			edges := dg.WeightedEdges()
 			for edges.Reset(); edges.Next(); {
 				e := edges.WeightedEdge()
 				if nodeIdList[e.From().ID()] || nodeIdList[e.To().ID()] {
