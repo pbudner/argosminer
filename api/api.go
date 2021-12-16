@@ -205,15 +205,20 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 			})
 		}
 
+		nodeWeight := make(map[string]uint64)
 		nodes := make(map[string]struct{})
 		for _, edge := range edges {
 			nodes[edge.From] = struct{}{}
 			nodes[edge.To] = struct{}{}
+			nodeWeight[edge.To] += edge.Weight
 		}
 
-		uniqueNodes := make([]string, 0, len(nodes))
+		uniqueNodes := make([]Action, 0, len(nodes))
 		for k := range nodes {
-			uniqueNodes = append(uniqueNodes, k)
+			uniqueNodes = append(uniqueNodes, Action{
+				Name:   k,
+				Degree: nodeWeight[k],
+			})
 		}
 
 		return c.JSON(200, JSON{
