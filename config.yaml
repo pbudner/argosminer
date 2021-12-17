@@ -3,17 +3,17 @@ listener: localhost:4711
 log_level: info
 data_path: /Volumes/PascalsSSD/ArgosMiner/diskStorage
 sources:
-  # - enabled: false
-  #   file-config:
-  #     path: '/Volumes/Pascals Drive/Argos Miner/TrackingDB_Part2.csv'
-  #     read-from: start
-  #   csv-parser:
-  #     delimiter: ';'
-  #     process-instance-column: 4
-  #     activity-column: 12
-  #     timestamp-column: 9
-  #     timestamp-format: '02/01/2006 15:04:05.000000'
-  #     timestamp-tz-iana-key: Europe/Berlin
+  - enabled: false
+    file-config:
+      path: 'assets/event_logs/example.csv'
+      read-from: start
+    csv-parser:
+      delimiter: ';'
+      case-id-column: 1
+      activity-column: 2
+      timestamp-column: 0
+      timestamp-format: '2006-01-02T15:04:05.0000-0700'
+      timestamp-tz-iana-key: Europe/Berlin
   #     ignore-when:
   #       - column: 10
   #         condition: '!='
@@ -30,7 +30,7 @@ sources:
     json-parser:
       json-path: my_event
       activity-path: activity
-      correlation-id-path: process_instance_id
+      case-id-path: process_instance_id
       timestamp-path: '@timestamp'
       timestamp-format: '2006-01-02T15:04:05.000-0700'
       timestamp-tz-iana-key: Europe/Berlin

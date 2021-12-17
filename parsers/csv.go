@@ -67,8 +67,8 @@ func NewCsvParser(config CsvParserConfig) csvParser {
 	}
 }
 
-func (p csvParser) Parse(input string) (*events.Event, error) {
-	eventColumns := strings.Split(input, p.config.Delimiter)
+func (p csvParser) Parse(input []byte) (*events.Event, error) {
+	eventColumns := strings.Split(string(input), p.config.Delimiter)
 	for _, condition := range p.conditions {
 		lineShouldBeIgnored, err := condition(eventColumns)
 		if err != nil {

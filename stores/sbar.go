@@ -284,7 +284,8 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 
 	result := make(map[string]map[string]uint64)
 
-	var smallestDate, largestDate *time.Time
+	datesInitialized := false
+	var smallestDate, largestDate time.Time
 
 	for _, activity := range activities {
 		k, err := key.New(prefixString(activityCode, activity), time.Now())
@@ -294,33 +295,57 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 
 		binCounter := make(map[string]uint64)
 		currentUlid := ulid.ULID{}
-		prevFormattedTime := ""
-		kv.storage.Iterate(k[0:8], func(key []byte, valueFunc func() ([]byte, error)) (bool, error) {
+		var lastSeenKey key.Key
+		lastSeenFormattedTime := ""
+
+		// iterate over all events
+		err = kv.storage.Iterate(k[0:8], func(key []byte, retrieveValue func() ([]byte, error)) (bool, error) {
+			lastSeenKey = key
 			currentUlid.UnmarshalBinary(key[8:])
 			eventTime := time.UnixMilli(int64(currentUlid.Time()))
-			if smallestDate == nil || smallestDate.UnixMilli() > eventTime.UnixMilli() {
-				smallestDate = &eventTime
+			if !datesInitialized {
+				datesInitialized = true
+				smallestDate = eventTime
+				largestDate = eventTime
 			}
-			if largestDate == nil || largestDate.UnixMilli() < eventTime.UnixMilli() {
-				largestDate = &eventTime
+			if smallestDate.UnixMilli() > eventTime.UnixMilli() {
+				smallestDate = eventTime
 			}
-			formattedTime := eventTime.Format("2006/01/02")
-			if prevFormattedTime == "" {
-				prevFormattedTime = formattedTime
-				return true, nil
+			if largestDate.UnixMilli() < eventTime.UnixMilli() {
+				largestDate = eventTime
+			}
+			currentTime := eventTime.Format("2006/01/02")
+			if lastSeenFormattedTime == "" {
+				lastSeenFormattedTime = currentTime
 			}
 
-			if formattedTime != prevFormattedTime {
-				v, err := valueFunc()
+			if currentTime != lastSeenFormattedTime {
+				v, err := retrieveValue()
 				if err != nil {
-					return false, nil
+					return false, err
 				}
 				value := storage.BytesToUint64(v)
-				binCounter[prevFormattedTime] = value - 1
-				prevFormattedTime = formattedTime
+				binCounter[lastSeenFormattedTime] = value - 1
+				lastSeenFormattedTime = currentTime
 			}
+
 			return true, nil
 		})
+
+		if err != nil {
+			log.Error("An unexpected error occurred during iterating through storage:", err)
+		}
+
+		if len(lastSeenKey) > 8 {
+			currentUlid.UnmarshalBinary(lastSeenKey[8:])
+			lastEventTime := time.UnixMilli(int64(currentUlid.Time())).Format("2006/01/02")
+			lastValue, err := kv.storage.Get(lastSeenKey)
+			if err != nil {
+				log.Error("An unexpected error occurred during iterating through storage:", err)
+			}
+			value := storage.BytesToUint64(lastValue)
+			binCounter[lastEventTime] = value
+		}
 
 		keys := make([]string, 0)
 		for k := range binCounter {
@@ -346,8 +371,8 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 
 	// for all activities: insert a 0 if a date has no value
 	for activity := range result {
-		currentDate := *smallestDate
-		for currentDate.UnixMilli() < largestDate.UnixMilli() {
+		currentDate := smallestDate
+		for currentDate.UnixMilli() < largestDate.Add(24*time.Hour).UnixMilli() {
 			formattedTime := currentDate.Format("2006/01/02")
 			_, exists := result[activity][formattedTime]
 			if !exists {

@@ -91,17 +91,16 @@ func main() {
 		}
 
 		// file Source
-		// not functional right now
-		/*if source.FileConfig != nil {
+		if source.FileConfig != nil {
 			log.Debugf("Starting a file source...")
 			wg.Add(1)
 			var parser parsers.Parser
 			if source.CsvParser != nil {
-				// parser = parsers.NewCsvParser(*source.CsvParser)
+				parser = parsers.NewCsvParser(*source.CsvParser)
 			}
 			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receiverList)
 			go fs.Run(ctx, wg)
-		}*/
+		}
 
 		// kafka Source
 		if source.KafkaConfig != nil {
