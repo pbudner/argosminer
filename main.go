@@ -53,7 +53,7 @@ func main() {
 	defer logger.Sync()
 	log := logger.Sugar()
 
-	var configPath, fileSourcePath string
+	var configPath string
 	flag.StringVar(&configPath, "config", "", "path to config file")
 	flag.Parse()
 
@@ -69,16 +69,6 @@ func main() {
 		if err != nil {
 			log.Fatalw("unexpected error during unmarshalling provided log", "error", err, "path", configPath)
 		}
-	}
-
-	if fileSourcePath != "" {
-		cfg.Sources = append(cfg.Sources, config.Source{
-			Enabled: true,
-			FileConfig: &sources.FileSourceConfig{
-				Path:     fileSourcePath,
-				ReadFrom: "beginning",
-			},
-		})
 	}
 
 	logger, _ = cfg.Logger.Build()
@@ -124,7 +114,6 @@ func main() {
 			continue
 		}
 
-		// TODO: FIX THIS HERE: allow multiple parsers
 		// file Source
 		if source.FileConfig != nil {
 			log.Debug("starting a file source...")
@@ -136,7 +125,7 @@ func main() {
 			for _, parser := range source.JsonParser {
 				parserSlice = append(parserSlice, parsers.NewJsonParser(*parser))
 			}
-			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parserSlice, receiverList)
+			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parserSlice, receiverList, kvStore)
 			go fs.Run(ctx, wg)
 		}
 
@@ -187,7 +176,7 @@ func main() {
 
 	// start the server
 	go func() {
-		log.Infof("Started listener on %s", cfg.Listener)
+		log.Infof("Started listener on http://%s", cfg.Listener)
 		if err := e.Start(cfg.Listener); err != nil && err != http.ErrServerClosed {
 			e.Logger.Fatal("shutting down the server")
 		}

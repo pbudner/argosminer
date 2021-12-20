@@ -3,23 +3,24 @@ listener: localhost:4711
 logger:
   level: info
 #data_path: /Volumes/PascalsSSD/ArgosMiner/diskStorage
-data_path: ./data/
+#data_path: ./data/
+data_path: /Volumes/PascalsSSD/ArgosMinerTest
 sources:
   - enabled: true
     file-config:
-      path: 'assets/event_logs/example.csv'
+      path: 'data/eventlog.csv'
       read-from: start
     csv-parsers:
       - delimiter: ';'
-        case-id-column: 1
-        activity-column: 2
-        timestamp-column: 0
-        timestamp-format: '2006-01-02T15:04:05.0000-0700'
+        case-id-column: 4
+        activity-column: 5
+        timestamp-column: 9
+        timestamp-format: '02/01/2006 15:04:05.000000'
         timestamp-tz-iana-key: Europe/Berlin
-  #      ignore-when:
-  #        - column: 10
-  #          condition: '!='
-  #          value: gestartet
+        ignore-when:
+          - column: 10
+            condition: '!='
+            value: gestartet
   - enabled: false
     kafka-config:
       brokers: 'localhost:9092'

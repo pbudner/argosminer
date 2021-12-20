@@ -13,6 +13,8 @@ import (
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/parsers"
 	"github.com/pbudner/argosminer/processors"
+	"github.com/pbudner/argosminer/storage"
+	"github.com/pbudner/argosminer/stores"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/radovskyb/watcher"
 	"go.uber.org/zap"
@@ -31,6 +33,7 @@ type fileSource struct {
 	Receivers        []processors.StreamingProcessor
 	lastFilePosition int64
 	log              *zap.SugaredLogger
+	kvStore          *stores.KvStore
 }
 
 var receivedFileEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -55,7 +58,7 @@ func init() {
 	prometheus.MustRegister(receivedFileEvents, receivedFileEventsWithError, lastReceivedFileEvent)
 }
 
-func NewFileSource(path, readFrom string, parsers []parsers.Parser, receivers []processors.StreamingProcessor) fileSource {
+func NewFileSource(path, readFrom string, parsers []parsers.Parser, receivers []processors.StreamingProcessor, kvStore *stores.KvStore) fileSource {
 	fs := fileSource{
 		Path:             path,
 		ReadFrom:         strings.ToLower(readFrom),
@@ -63,21 +66,24 @@ func NewFileSource(path, readFrom string, parsers []parsers.Parser, receivers []
 		Receivers:        receivers,
 		lastFilePosition: 0,
 		log:              zap.L().Sugar().With("service", "file-source"),
+		kvStore:          kvStore,
+	}
+
+	lastFilePositionBytes, err := fs.kvStore.Get([]byte(fmt.Sprintf("file-source-position-%s", fs.Path)))
+	if err == nil {
+		fs.lastFilePosition = int64(storage.BytesToUint64(lastFilePositionBytes))
+		fs.log.Infow("continuing reading file source", "position", fs.lastFilePosition)
 	}
 
 	return fs
 }
 
 func (fs *fileSource) Close() {
-	err := os.WriteFile("test.txt", []byte(fmt.Sprintf("Position: %d", fs.lastFilePosition)), 0644)
-	if err != nil {
-		fs.log.Error(err)
-	}
+	fs.kvStore.Set([]byte(fmt.Sprintf("file-source-position-%s", fs.Path)), storage.Uint64ToBytes(uint64(fs.lastFilePosition)))
 	fs.Watcher.Close()
 	for _, parser := range fs.Parsers {
 		parser.Close()
 	}
-	//fs.Parser.Close()
 }
 
 func (fs *fileSource) Run(ctx context.Context, wg *sync.WaitGroup) {
