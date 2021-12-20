@@ -10,11 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/parsers"
 	"github.com/pbudner/argosminer/processors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/radovskyb/watcher"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type FileSourceConfig struct {
@@ -29,6 +30,7 @@ type fileSource struct {
 	Parser           parsers.Parser
 	Receivers        []processors.StreamingProcessor
 	lastFilePosition int64
+	log              *zap.SugaredLogger
 }
 
 var receivedFileEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -60,6 +62,7 @@ func NewFileSource(path, readFrom string, parser parsers.Parser, receivers []pro
 		Parser:           parser,
 		Receivers:        receivers,
 		lastFilePosition: 0,
+		log:              zap.L().Sugar().With("service", "file-source"),
 	}
 
 	return fs
@@ -68,14 +71,17 @@ func NewFileSource(path, readFrom string, parser parsers.Parser, receivers []pro
 func (fs *fileSource) Close() {
 	err := os.WriteFile("test.txt", []byte(fmt.Sprintf("Position: %d", fs.lastFilePosition)), 0644)
 	if err != nil {
-		log.Error(err)
+		fs.log.Error(err)
 	}
 	fs.Watcher.Close()
+	/*for _, parser := range fs.Parsers {
+		parser.Close()
+	}*/
 	fs.Parser.Close()
 }
 
 func (fs *fileSource) Run(ctx context.Context, wg *sync.WaitGroup) {
-	log.Debug("Initializing file watcher..")
+	fs.log.Debug("Initializing file watcher..")
 	defer wg.Done()
 	fs.Watcher = watcher.New()
 	fs.Watcher.FilterOps(watcher.Write, watcher.Rename, watcher.Create)
@@ -92,7 +98,7 @@ func (fs *fileSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 					fs.readFile(ctx)
 				}
 			case err := <-fs.Watcher.Error:
-				log.Error(err)
+				fs.log.Error(err)
 			case <-fs.Watcher.Closed:
 				return
 			}
@@ -100,20 +106,20 @@ func (fs *fileSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 	}()
 
 	if err := fs.Watcher.Add(filepath.Dir(fs.Path)); err != nil {
-		log.Error(err)
+		fs.log.Error(err)
 	}
 
 	if err := fs.Watcher.Start(time.Millisecond * 1000); err != nil {
-		log.Error(err)
+		fs.log.Error(err)
 	}
 
-	log.Info("Closed file source")
+	fs.log.Info("Closed file source")
 }
 
 func (fs *fileSource) readFile(ctx context.Context) {
 	f, err := os.Open(fs.Path)
 	if err != nil {
-		log.Fatal(err)
+		fs.log.Fatal(err)
 	}
 
 	if fs.lastFilePosition == 0 {
@@ -122,7 +128,7 @@ func (fs *fileSource) readFile(ctx context.Context) {
 		} else {
 			pos, err := f.Seek(0, 2)
 			if err != nil {
-				log.Fatal(err)
+				fs.log.Fatal(err)
 			}
 
 			fs.lastFilePosition = pos
@@ -130,7 +136,7 @@ func (fs *fileSource) readFile(ctx context.Context) {
 	}
 	_, err = f.Seek(fs.lastFilePosition, 0) // 0 beginning, 1 current, 2 end
 	if err != nil {
-		log.Error(err)
+		fs.log.Error(err)
 	}
 
 	defer f.Close()
@@ -139,11 +145,11 @@ func (fs *fileSource) readFile(ctx context.Context) {
 	for scanner.Scan() {
 		select {
 		case <-ctx.Done():
-			log.Info("Aborting readFile operation..")
+			fs.log.Info("Aborting readFile operation..")
 
 			newPosition, err := f.Seek(0, 1)
 			if err != nil {
-				log.Error(err)
+				fs.log.Error(err)
 			}
 
 			fs.lastFilePosition = newPosition
@@ -153,9 +159,19 @@ func (fs *fileSource) readFile(ctx context.Context) {
 			receivedFileEvents.WithLabelValues(fs.Path).Inc()
 			line := scanner.Text()
 			line = strings.ReplaceAll(line, "\"", "")
-			event, err := fs.Parser.Parse([]byte(line))
-			if err != nil {
-				log.Error(err)
+
+			var event *events.Event
+			var parseErr error
+			event, parseErr = fs.Parser.Parse([]byte(line))
+			/*for _, parser := range fs.Parsers {
+				event, parseErr = parser.Parse([]byte(line))
+				if parseErr == nil && event != nil {
+					break
+				}
+			}*/
+
+			if parseErr != nil {
+				fs.log.Error(err)
 				receivedFileEventsWithError.WithLabelValues(fs.Path).Inc()
 				continue
 			}
@@ -164,7 +180,7 @@ func (fs *fileSource) readFile(ctx context.Context) {
 				for _, receiver := range fs.Receivers {
 					err := receiver.Append(event)
 					if err != nil {
-						log.Error(err)
+						fs.log.Error(err)
 						receivedFileEventsWithError.WithLabelValues(fs.Path).Inc()
 					}
 				}
@@ -174,7 +190,7 @@ func (fs *fileSource) readFile(ctx context.Context) {
 
 	newPosition, err := f.Seek(0, 1)
 	if err != nil {
-		log.Error(err)
+		fs.log.Error(err)
 	}
 
 	fs.lastFilePosition = newPosition
