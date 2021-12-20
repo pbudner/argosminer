@@ -5,12 +5,13 @@ import (
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type dfgStreamingAlgorithm struct {
 	Id    uuid.UUID
 	Store *stores.SbarStore
+	log   *zap.SugaredLogger
 }
 
 var receivedDfgEventsCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -33,12 +34,14 @@ var lastReceviedDfgEventTime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 
 func init() {
 	prometheus.MustRegister(receivedDfgEventsCounter, lastReceivedDfgEvent, lastReceviedDfgEventTime)
+	log = zap.L().Sugar()
 }
 
 func NewDfgStreamingAlgorithm(store *stores.SbarStore) *dfgStreamingAlgorithm {
 	algo := dfgStreamingAlgorithm{
 		Id:    uuid.New(),
 		Store: store,
+		log:   zap.L().Sugar().With("service", "dfg-streaming-algorithm"),
 	}
 	return &algo
 }
@@ -50,7 +53,7 @@ func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
 	activityName := event.ActivityName
 	caseInstance := event.ProcessInstanceId
 	timestamp := event.Timestamp
-	log.Debugf("received activity %s with timestamp %s", event.ActivityName, event.Timestamp)
+	a.log.Debugf("received activity %s with timestamp %s", event.ActivityName, event.Timestamp)
 	// increment general activity counter
 	err := a.Store.RecordActivity(activityName, timestamp)
 	if err != nil {

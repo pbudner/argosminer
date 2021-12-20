@@ -4,7 +4,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/stores"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // this receiver is primarily used for performance testing as it does not cost significant performance
@@ -18,6 +18,8 @@ func NewEventProcessor(eventStore *stores.EventStore) *eventProcessor {
 		Id:         uuid.New(),
 		EventStore: eventStore,
 	}
+
+	log := zap.L().Sugar().With("service", "event-processor")
 	log.Infof("Initialized new EventStore receiver with ID %s", receiver.Id)
 	return receiver
 }

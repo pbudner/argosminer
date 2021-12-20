@@ -12,10 +12,10 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/radovskyb/watcher v1.0.7
 	github.com/segmentio/kafka-go v0.4.25
-	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/gjson v1.12.1
 	github.com/vmihailenco/msgpack/v5 v5.3.5
+	go.uber.org/zap v1.19.1
 	gonum.org/v1/gonum v0.9.3
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
@@ -52,6 +52,8 @@ require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
 	github.com/xdg/stringprep v1.0.0 // indirect
+	go.uber.org/atomic v1.9.0 // indirect
+	go.uber.org/multierr v1.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/exp v0.0.0-20211103171733-83d51122435b // indirect
 	golang.org/x/net v0.0.0-20211101193420-4a448f8816b3 // indirect

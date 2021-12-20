@@ -1,11 +1,13 @@
 package parsers
 
 import (
+	"fmt"
+
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/parsers/utils"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
+	"go.uber.org/zap"
 )
 
 type JsonParserConfig struct {
@@ -27,15 +29,18 @@ type jsonParser struct {
 	config          JsonParserConfig
 	conditions      []jsonConditionLiteral
 	timestampParser utils.TimestampParser
+	log             *zap.SugaredLogger
 }
 
 type jsonConditionLiteral func([]byte) (bool, error)
 
-var jsonSkippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer_parsers_json",
-	Name:      "skipped_events",
-	Help:      "Total number of skipped events.",
-})
+var (
+	jsonSkippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
+		Subsystem: "argosminer_parsers_json",
+		Name:      "skipped_events",
+		Help:      "Total number of skipped events.",
+	})
+)
 
 func init() {
 	prometheus.MustRegister(jsonSkippedEvents)
@@ -55,6 +60,7 @@ func NewJsonParser(config JsonParserConfig) jsonParser {
 		}
 	}
 	return jsonParser{
+		log:             zap.L().Sugar().With("service", "json-parser"),
 		config:          config,
 		conditions:      conditionFuncs,
 		timestampParser: utils.NewTimestampParser(config.TimestampFormat, config.TimestampTzIanakey),
@@ -62,6 +68,12 @@ func NewJsonParser(config JsonParserConfig) jsonParser {
 }
 
 func (p jsonParser) Parse(input []byte) (*events.Event, error) {
+	// JSON in JSON
+	if p.config.JsonPath != "" {
+		result := gjson.GetBytes(input, p.config.JsonPath)
+		input = []byte(result.Str)
+	}
+
 	for _, condition := range p.conditions {
 		lineShouldBeIgnored, err := condition(input)
 		if err != nil {
@@ -70,23 +82,19 @@ func (p jsonParser) Parse(input []byte) (*events.Event, error) {
 
 		if lineShouldBeIgnored {
 			jsonSkippedEvents.Inc()
-			log.Debug("skipping a line as an ignore condition is fulfilled")
+			p.log.Debug("skipping a line as an ignore condition is fulfilled")
 			return nil, nil
 		}
-	}
-
-	// TODO: Sanity checks
-
-	// JSON in JSON
-	if p.config.JsonPath != "" {
-		result := gjson.GetBytes(input, p.config.JsonPath)
-		input = []byte(result.Str)
 	}
 
 	results := gjson.GetManyBytes(input, p.config.CaseIdPath, p.config.ActivityPath, p.config.TimestampPath)
 	timestamp, err := p.timestampParser.Parse(results[2].Str)
 	if err != nil {
 		return nil, err
+	}
+
+	if results[0].Str == "" || results[1].Str == "" {
+		return nil, fmt.Errorf("could not create a new event as some required fields are empty: case_id=%s, activity=%s", results[0].Str, results[1].Str)
 	}
 
 	event := events.NewEvent(results[0].Str, results[1].Str, *timestamp)

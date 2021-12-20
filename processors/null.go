@@ -4,13 +4,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/pbudner/argosminer/events"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // this receiver is primarily used for performance testing as it does not cost significant performance
 type devNullProcessor struct {
 	Id uuid.UUID
 }
+
+var log *zap.SugaredLogger
 
 var receivedNullEventsCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Subsystem: "argosminer_receivers_null",
@@ -31,6 +33,7 @@ var lastReceviedNullEventTime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 }, []string{"guid"})
 
 func init() {
+	log = zap.L().Sugar()
 	prometheus.MustRegister(receivedNullEventsCounter, lastReceivedNullEvent, lastReceviedNullEventTime)
 }
 

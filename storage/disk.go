@@ -7,7 +7,7 @@ import (
 
 	badger "github.com/dgraph-io/badger/v2"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -29,6 +29,7 @@ type diskStorage struct {
 	store           *badger.DB
 	maintenanceDone chan bool
 	path            string
+	log             *zap.SugaredLogger
 }
 
 func NewDiskStorageGenerator() StorageGenerator {
@@ -38,8 +39,9 @@ func NewDiskStorageGenerator() StorageGenerator {
 }
 
 func NewDiskStorage(dataPath string) *diskStorage {
+	log := zap.L().Sugar().With("service", "disk-storage")
 	opts := badger.DefaultOptions(dataPath)
-	opts = opts.WithSyncWrites(true).WithLogger(log.StandardLogger()).WithDetectConflicts(false)
+	opts = opts.WithSyncWrites(true).WithLogger(defaultLogger(log)).WithDetectConflicts(false)
 
 	// open the database
 	db, err := badger.Open(opts)
@@ -69,7 +71,7 @@ func (s *diskStorage) SetBatch(batch []KeyValue) error {
 	defer writeBatch.Cancel()
 	for _, kv := range batch {
 		if len(kv.Key) == 0 {
-			log.Error("Key has a length of 0. This should not happen!")
+			s.log.Error("Key has a length of 0. This should not happen!")
 		}
 		err := writeBatch.Set(kv.Key, kv.Value)
 		if err != nil {
@@ -389,22 +391,22 @@ func (s *diskStorage) maintenance() {
 			return
 		case <-maintenanceTicker.C:
 			var err error
-			log.Debug("Performing maintenance on database")
+			s.log.Debug("Performing maintenance on database")
 			diskStorageMaintenanceCounter.WithLabelValues(s.path).Inc()
 			for err == nil {
 				select {
 				case <-s.maintenanceDone:
 					return
 				default:
-					log.Trace("RunValueLogGC")
+					s.log.Debug("Calling RunValueLogGC()")
 					s.store.RunValueLogGC(valueLogGCDiscardRatio)
 				}
 			}
 
 			if err == badger.ErrNoRewrite {
-				log.Debug("Successfully finished ValueLogGC")
+				s.log.Debug("Successfully finished ValueLogGC")
 			} else {
-				log.Error("Failed to run ValueLogGC:", err)
+				s.log.Error("Failed to run ValueLogGC:", err)
 			}
 		}
 	}
@@ -414,6 +416,6 @@ func (s *diskStorage) Close() {
 	close(s.maintenanceDone)
 	err := s.store.Close()
 	if err != nil {
-		log.Error(err)
+		s.log.Error(err)
 	}
 }

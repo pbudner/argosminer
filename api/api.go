@@ -15,12 +15,13 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/pbudner/argosminer/utils"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"gonum.org/v1/gonum/graph/multi"
 	"gonum.org/v1/gonum/graph/topo"
 )
 
 func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *stores.SbarStore, eventStore *stores.EventStore, eventSampler *utils.EventSampler) {
+	log := zap.L().Sugar()
 	v1 := g.Group("/v1")
 	v1.GET("/", func(c echo.Context) error {
 		var commitPrefix string
@@ -135,7 +136,7 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 		for i, v := range activities {
 			vDec, err := decodeString(v)
 			if err != nil {
-				log.Error(err)
+				log.Errorw("an unexpected error occurred when decoding strings.", "error", err)
 				return c.JSON(http.StatusInternalServerError, JSON{
 					"error": err.Error(),
 				})

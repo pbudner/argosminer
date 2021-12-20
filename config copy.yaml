@@ -1,4 +1,7 @@
 ---
+listener: localhost:4711
+log_level: info
+data_path: /Volumes/PascalsSSD/ArgosMiner/diskStorage
 sources:
   - enabled: false
     file-config:

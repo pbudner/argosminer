@@ -7,7 +7,7 @@ import (
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/parsers/utils"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type CsvParserConfig struct {
@@ -29,15 +29,18 @@ type csvParser struct {
 	config          CsvParserConfig
 	conditions      []csvConditionLiteral
 	timestampParser utils.TimestampParser
+	log             *zap.SugaredLogger
 }
 
 type csvConditionLiteral func([]string) (bool, error)
 
-var csvSkippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
-	Subsystem: "argosminer_parsers_csv",
-	Name:      "skipped_events",
-	Help:      "Total number of skipped events.",
-})
+var (
+	csvSkippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
+		Subsystem: "argosminer_parsers_csv",
+		Name:      "skipped_events",
+		Help:      "Total number of skipped events.",
+	})
+)
 
 func init() {
 	prometheus.MustRegister(csvSkippedEvents)
@@ -61,6 +64,7 @@ func NewCsvParser(config CsvParserConfig) csvParser {
 		}
 	}
 	return csvParser{
+		log:             zap.L().Sugar().With("service", "csv-parser"),
 		config:          config,
 		conditions:      conditionFuncs,
 		timestampParser: utils.NewTimestampParser(config.TimestampFormat, config.TimestampTzIanakey),
@@ -77,7 +81,7 @@ func (p csvParser) Parse(input []byte) (*events.Event, error) {
 
 		if lineShouldBeIgnored {
 			csvSkippedEvents.Inc()
-			log.Debug("skipping a line as an ignore condition is fulfilled")
+			p.log.Debug("skipping a line as an ignore condition is fulfilled")
 			return nil, nil
 		}
 	}

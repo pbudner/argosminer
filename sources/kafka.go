@@ -8,12 +8,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/parsers"
 	"github.com/pbudner/argosminer/processors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl/scram"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type KafkaSourceConfig struct {
@@ -39,6 +40,7 @@ type kafkaSource struct {
 	Reader    *kafka.Reader
 	Parser    parsers.Parser
 	Receivers []processors.StreamingProcessor
+	log       *zap.SugaredLogger
 }
 
 var receivedKafkaEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -68,6 +70,7 @@ func NewKafkaSource(config KafkaSourceConfig, parser parsers.Parser) kafkaSource
 		Config:    config,
 		Parser:    parser,
 		Receivers: []processors.StreamingProcessor{},
+		log:       zap.L().Sugar().With("service", "kafka-source"),
 	}
 }
 
@@ -80,7 +83,7 @@ func (s *kafkaSource) Close() {
 }
 
 func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
-	log.Debug("Initializing kafka source..")
+	s.log.Debug("Initializing kafka source..")
 	defer wg.Done()
 	dialer := &kafka.Dialer{
 		Timeout:   s.Config.Timeout,
@@ -116,9 +119,9 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		m, err := r.ReadMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
-				log.Info("Shutting down kafka source..")
+				s.log.Info("Shutting down kafka source..")
 			} else {
-				log.Error("An unexpected error occurred during ReadMessage:", err)
+				s.log.Error("An unexpected error occurred during ReadMessage:", err)
 			}
 
 			break
@@ -127,9 +130,20 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		receivedKafkaEvents.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 		lastReceivedKafkaEvent.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).SetToCurrentTime()
 
-		event, err := s.Parser.Parse(m.Value)
-		if err != nil {
-			log.Error(err)
+		var event *events.Event
+		var parseErr error
+		event, parseErr = s.Parser.Parse(m.Value)
+
+		/*
+			for _, parser := range s.Parsers {
+				event, parseErr = parser.Parse(m.Value)
+				if parseErr == nil && event != nil {
+					break
+				}
+			}*/
+
+		if parseErr != nil {
+			s.log.Error(err)
 			receivedKafkaEventsWithError.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 			continue
 		}
@@ -137,20 +151,20 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		if event != nil {
 			for _, receiver := range s.Receivers {
 				if err := receiver.Append(event); err != nil {
-					log.Error(err)
+					s.log.Error(err)
 					receivedKafkaEventsWithError.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 				}
 			}
 		}
 
 		if err := r.CommitMessages(context.Background(), m); err != nil {
-			log.Error("Failed to commit messages:", err)
+			s.log.Error("Failed to commit messages:", err)
 		}
 	}
 
 	if err := r.Close(); err != nil {
-		log.Error("Failed to close kafka source reader:", err)
+		s.log.Error("Failed to close kafka source reader:", err)
 	}
 
-	log.Info("Closed Kafka source")
+	s.log.Info("Closed Kafka source")
 }

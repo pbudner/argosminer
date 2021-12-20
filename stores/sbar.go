@@ -12,8 +12,8 @@ import (
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/storage/key"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 	"github.com/vmihailenco/msgpack/v5"
+	"go.uber.org/zap"
 )
 
 const sbarPrefix = 0x03
@@ -52,6 +52,7 @@ type SbarStore struct {
 	dfRelationBuffer       []storage.KeyValue
 	flushTicker            *time.Ticker
 	doneChannel            chan bool
+	log                    *zap.SugaredLogger
 }
 
 var activityBufferMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -77,6 +78,7 @@ func NewSbarStore(store storage.Storage) (*SbarStore, error) {
 		dfRelationBuffer: make([]storage.KeyValue, 0),
 		caseCache:        make(map[string]string),
 		doneChannel:      make(chan bool),
+		log:              zap.L().Sugar().With("service", "sbar-store"),
 	}
 	if err := result.init(); err != nil {
 		return nil, err
@@ -91,9 +93,9 @@ func (kv *SbarStore) init() error {
 	// load activity counter key from disk
 	v, err := kv.storage.Get(activityCounterKey)
 	if err != nil && err != badger.ErrKeyNotFound {
-		log.Error(err)
+		kv.log.Error(err)
 	} else if err == badger.ErrKeyNotFound {
-		log.Info("Initialize empty activity cache.")
+		kv.log.Info("Initialize empty activity cache.")
 		kv.activityCounterCache = make(map[string]uint64)
 	} else {
 		err = msgpack.Unmarshal(v, &kv.activityCounterCache)
@@ -105,9 +107,9 @@ func (kv *SbarStore) init() error {
 	// load dfRelation counter key from disk
 	v, err = kv.storage.Get(dfRelationCounterKey)
 	if err != nil && err != badger.ErrKeyNotFound {
-		log.Error(err)
+		kv.log.Error(err)
 	} else if err == badger.ErrKeyNotFound {
-		log.Info("Initialize empty directly-follows relation cache.")
+		kv.log.Info("Initialize empty directly-follows relation cache.")
 		kv.dfRelationCounterCache = make(map[string]uint64)
 	} else {
 		err = msgpack.Unmarshal(v, &kv.dfRelationCounterCache)
@@ -119,7 +121,7 @@ func (kv *SbarStore) init() error {
 	// load startEvent counter key from disk
 	v, err = kv.storage.Get(startEventCounterKey)
 	if err != nil && err != badger.ErrKeyNotFound {
-		log.Error(err)
+		kv.log.Error(err)
 	} else if err == badger.ErrKeyNotFound {
 		kv.startEventCounterCache = make(map[string]uint64)
 	} else {
@@ -246,11 +248,11 @@ func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelations [][]string, star
 				return 0, err
 			}
 
-			log.Debugf("%s: Seek for date %s", encodedRelation, timestamp.Format(time.RFC3339))
+			kv.log.Debugf("%s: Seek for date %s", encodedRelation, timestamp.Format(time.RFC3339))
 			keyValue, err := kv.storage.Seek(k[:14]) // 8 for name name hash + 6 for timestamp
 
 			if err == storage.ErrNoResults {
-				log.Debugf("Could not find a directly-follows relation for %s", encodedRelation)
+				kv.log.Debugf("Could not find a directly-follows relation for %s", encodedRelation)
 				return 0, nil
 			}
 
@@ -333,7 +335,7 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 		})
 
 		if err != nil {
-			log.Error("An unexpected error occurred during iterating through storage:", err)
+			kv.log.Error("An unexpected error occurred during iterating through storage:", err)
 		}
 
 		if len(lastSeenKey) > 8 {
@@ -341,7 +343,7 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 			lastEventTime := time.UnixMilli(int64(currentUlid.Time())).Format("2006/01/02")
 			lastValue, err := kv.storage.Get(lastSeenKey)
 			if err != nil {
-				log.Error("An unexpected error occurred during iterating through storage:", err)
+				kv.log.Error("An unexpected error occurred during iterating through storage:", err)
 			}
 			value := storage.BytesToUint64(lastValue)
 			binCounter[lastEventTime] = value
@@ -359,7 +361,7 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 				binRate[k] = binCounter[k]
 			} else {
 				if binCounter[k] < binCounter[keys[i-1]] {
-					log.Warnf("Previous counter in DailyCountOfActivities for activity %s is larger than current. This should not happen.", activity)
+					kv.log.Warnf("Previous counter in DailyCountOfActivities for activity %s is larger than current. This should not happen.", activity)
 				} else {
 					binRate[k] = binCounter[k] - binCounter[keys[i-1]]
 				}
@@ -449,12 +451,12 @@ func (kv *SbarStore) flush() error {
 		i++
 	}
 	flushedItems := kv.flushBuffer(&caseBuffer)
-	log.Debugf("Flushed %d last activities for a case", flushedItems)
+	kv.log.Debugf("Flushed %d last activities for a case", flushedItems)
 	kv.caseCache = make(map[string]string)
 	flushedItems = kv.flushBuffer(&kv.activityBuffer)
-	log.Debugf("Flushed %d activties", flushedItems)
+	kv.log.Debugf("Flushed %d activties", flushedItems)
 	flushedItems = kv.flushBuffer(&kv.dfRelationBuffer)
-	log.Debugf("Flushed %d directly-follows relations", flushedItems)
+	kv.log.Debugf("Flushed %d directly-follows relations", flushedItems)
 	activityBufferMetric.Reset()
 	dfRelationBufferMetric.Reset()
 	return nil

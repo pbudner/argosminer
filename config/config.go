@@ -7,7 +7,7 @@ import (
 
 	"github.com/pbudner/argosminer/parsers"
 	"github.com/pbudner/argosminer/sources"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -15,20 +15,24 @@ type Source struct {
 	Enabled     bool                       `yaml:"enabled"`
 	FileConfig  *sources.FileSourceConfig  `yaml:"file-config,omitempty"`
 	KafkaConfig *sources.KafkaSourceConfig `yaml:"kafka-config,omitempty"`
-	CsvParser   *parsers.CsvParserConfig   `yaml:"csv-parser,omitempty"`
-	JsonParser  *parsers.JsonParserConfig  `yaml:"json-parser,omitempty"`
+	CsvParser   *parsers.CsvParserConfig   `yaml:"csv-parsers,omitempty"`
+	JsonParser  *parsers.JsonParserConfig  `yaml:"json-parsers,omitempty"`
 }
 
 type Config struct {
-	Listener string    `yaml:"listener"`
-	LogLevel log.Level `yaml:"log_level"`
-	DataPath string    `yaml:"data_path"`
-	Sources  []Source  `yaml:"sources"`
+	Listener string     `yaml:"listener"`
+	Logger   zap.Config `yaml:"logger"`
+	DataPath string     `yaml:"data_path"`
+	Sources  []Source   `yaml:"sources"`
 }
 
 // NewConfig returns a new decoded Config struct
 func NewConfig(path string) (*Config, error) {
-	config := &Config{}
+	config := &Config{
+		Logger:   zap.NewDevelopmentConfig(),
+		Listener: "localhost:4711",
+		DataPath: "./data/",
+	}
 
 	// check that config exists
 	err := validateConfigPath(path)

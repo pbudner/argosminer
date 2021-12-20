@@ -9,8 +9,8 @@ import (
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/storage/key"
-	log "github.com/sirupsen/logrus"
 	"github.com/vmihailenco/msgpack/v5"
+	"go.uber.org/zap"
 )
 
 var (
@@ -21,17 +21,22 @@ var (
 	EventFlushCount      = 100000 // decreasing this reduces memory utilization, but also performance
 )
 
+func init() {
+}
+
 type EventStore struct {
 	sync.Mutex
 	storage    storage.Storage
 	counter    uint64
 	buffer     []events.Event
 	binCounter map[string]uint64
+	log        *zap.SugaredLogger
 }
 
 func NewEventStore(storage storage.Storage) *EventStore {
 	eventStore := &EventStore{
 		storage: storage,
+		log:     zap.L().Sugar().With("service", "event-store"),
 	}
 
 	eventStore.init()
@@ -42,9 +47,9 @@ func (es *EventStore) init() {
 	// load counter
 	v, err := es.storage.Get(counterKey)
 	if err != nil && err != badger.ErrKeyNotFound {
-		log.Error(err)
+		es.log.Error(err)
 	} else if err == badger.ErrKeyNotFound {
-		log.Info("Initialize event counter as 0")
+		es.log.Info("Initialize event counter as 0")
 		es.counter = 0
 	} else {
 		es.counter = storage.BytesToUint64(v)
@@ -54,12 +59,12 @@ func (es *EventStore) init() {
 	es.binCounter = make(map[string]uint64)
 	v2, err := es.storage.Get([]byte(binCounterKey))
 	if err != nil && err != badger.ErrKeyNotFound {
-		log.Error(err)
+		es.log.Error(err)
 	} else if err == badger.ErrKeyNotFound {
-		log.Info("Initialize event bin counters as 0")
+		es.log.Info("Initialize event bin counters as 0")
 	} else {
 		if err := msgpack.Unmarshal(v2, &es.binCounter); err != nil {
-			log.Error(err)
+			es.log.Error(err)
 		}
 	}
 }
@@ -109,7 +114,7 @@ func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 		}
 		err = es.storage.IterateReverse(prefix[:8], func(key []byte, getValue func() ([]byte, error)) (bool, error) {
 			if !bytes.Equal(key[:8], prefix[:8]) {
-				log.Warn("Prefix search included wrong items. Abort search.")
+				es.log.Warn("Prefix search included wrong items. Abort search.")
 				return false, nil
 			}
 			var evts []events.Event
@@ -159,7 +164,7 @@ func (es *EventStore) Close() {
 	es.Lock()
 	defer es.Unlock()
 	if err := es.flush(); err != nil {
-		log.Error(err)
+		es.log.Error(err)
 	}
 }
 

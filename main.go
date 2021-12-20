@@ -24,7 +24,7 @@ import (
 	"github.com/pbudner/argosminer/stores"
 	"github.com/pbudner/argosminer/utils"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 //go:embed ui/dist
@@ -49,7 +49,10 @@ func init() {
 }
 
 func main() {
-	log.Info("Starting ArgosMiner..")
+	logger, _ := zap.NewDevelopment()
+	defer logger.Sync()
+	log := logger.Sugar()
+	log.Infow("Starting ArgosMiner", "version", Version, "commit", GitCommit)
 
 	var configPath string
 	flag.StringVar(&configPath, "config", "config.yaml", "path to config file")
@@ -57,15 +60,19 @@ func main() {
 
 	cfg, err := config.NewConfig(configPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalw("unexpected error during unmarshalling provided log", "error", err, "path", configPath)
 	}
 
-	log.SetLevel(cfg.LogLevel) // configure logger
+	logger, _ = cfg.Logger.Build()
+	log = logger.Sugar()
+	undo := zap.ReplaceGlobals(logger)
+	defer undo()
+
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
 
 	if _, err := os.Stat(cfg.DataPath); os.IsNotExist(err) {
-		log.Panicf("Could not open database path as path '%s' does not exist", cfg.DataPath)
+		log.Panicw("Could not open database as database path does not exist", "path", cfg.DataPath, "error", err)
 	}
 
 	// open storage
@@ -90,9 +97,10 @@ func main() {
 			continue
 		}
 
+		// TODO: FIX THIS HERE: allow multiple parsers
 		// file Source
 		if source.FileConfig != nil {
-			log.Debugf("Starting a file source...")
+			log.Debug("starting a file source...")
 			wg.Add(1)
 			var parser parsers.Parser
 			if source.CsvParser != nil {
@@ -104,7 +112,7 @@ func main() {
 
 		// kafka Source
 		if source.KafkaConfig != nil {
-			log.Debugf("Starting kafka source...")
+			log.Debug("starting kafka source...")
 			wg.Add(1)
 			var parser parsers.Parser
 			// not functional right now
@@ -127,8 +135,7 @@ func main() {
 
 	e := echo.New()
 	e.Use(
-		middleware.Recover(), // Recover from all panics to always have your server up
-		// middleware.Logger(),    // Log everything to stdout
+		middleware.Recover(),   // Recover from all panics to always have your server up
 		middleware.RequestID(), // Generate a request id on the HTTP response headers for identification
 		middleware.CORS(),
 	)
@@ -162,7 +169,7 @@ func main() {
 	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-termChan // Blocks here until interrupted
-	log.Info("SIGTERM received. Shutdown initiated\n")
+	log.Info("SIGTERM received. Shutdown initiated")
 
 	ctxTimeout, cancelFunc2 := context.WithTimeout(ctx, time.Duration(time.Second*15))
 	if err := e.Shutdown(ctxTimeout); err != nil {
@@ -179,7 +186,7 @@ func main() {
 	eventStore.Close()
 	kvStore.Close()
 	store.Close()
-	log.Info("All workers finished.. Shutting down!")
+	log.Info("all workers finished.. Shutting down!")
 }
 
 func getFileSystem() http.FileSystem {
