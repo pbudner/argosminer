@@ -26,13 +26,21 @@ type Config struct {
 	Sources  []Source   `yaml:"sources"`
 }
 
-// NewConfig returns a new decoded Config struct
-func NewConfig(path string) (*Config, error) {
+func DefaultConfig() *Config {
 	config := &Config{
 		Logger:   zap.NewDevelopmentConfig(),
 		Listener: "localhost:4711",
 		DataPath: "./data/",
 	}
+
+	config.Logger.Level = zap.NewAtomicLevelAt(zap.InfoLevel) // set default level to info
+
+	return config
+}
+
+// NewConfig returns a new decoded Config struct
+func NewConfig(path string) (*Config, error) {
+	config := DefaultConfig()
 
 	// check that config exists
 	err := validateConfigPath(path)

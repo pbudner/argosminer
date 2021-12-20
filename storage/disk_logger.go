@@ -1,6 +1,10 @@
 package storage
 
-import "go.uber.org/zap"
+import (
+	"strings"
+
+	"go.uber.org/zap"
+)
 
 type diskLogger struct {
 	logger *zap.SugaredLogger
@@ -13,17 +17,17 @@ func defaultLogger(logger *zap.SugaredLogger) *diskLogger {
 }
 
 func (l *diskLogger) Errorf(format string, v ...interface{}) {
-	l.logger.Errorf(format, v...)
+	l.logger.Errorf(strings.Trim(format, "\n"), v...)
 }
 
 func (l *diskLogger) Infof(format string, v ...interface{}) {
-	l.logger.Infof(format, v...)
+	l.logger.Infof(strings.Trim(format, "\n"), v...)
 }
 
 func (l *diskLogger) Warningf(format string, v ...interface{}) {
-	l.logger.Warnf(format, v...)
+	l.logger.Warnf(strings.Trim(format, "\n"), v...)
 }
 
 func (l *diskLogger) Debugf(format string, v ...interface{}) {
-	l.logger.Debugf(format, v...)
+	l.logger.Debugf(strings.Trim(format, "\n"), v...)
 }

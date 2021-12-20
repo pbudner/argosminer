@@ -39,9 +39,9 @@ func NewDiskStorageGenerator() StorageGenerator {
 }
 
 func NewDiskStorage(dataPath string) *diskStorage {
-	log := zap.L().Sugar().With("service", "disk-storage")
+	log := zap.L().Sugar()
 	opts := badger.DefaultOptions(dataPath)
-	opts = opts.WithSyncWrites(true).WithLogger(defaultLogger(log)).WithDetectConflicts(false)
+	opts = opts.WithSyncWrites(true).WithLogger(defaultLogger(log.With("service", "badger-db"))).WithDetectConflicts(false)
 
 	// open the database
 	db, err := badger.Open(opts)
@@ -53,6 +53,7 @@ func NewDiskStorage(dataPath string) *diskStorage {
 		store:           db,
 		maintenanceDone: make(chan bool),
 		path:            dataPath,
+		log:             log.With("service", "disk-storage"),
 	}
 
 	go store.maintenance()

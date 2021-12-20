@@ -52,15 +52,23 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 	log := logger.Sugar()
-	log.Infow("Starting ArgosMiner", "version", Version, "commit", GitCommit)
 
 	var configPath string
-	flag.StringVar(&configPath, "config", "config.yaml", "path to config file")
+	flag.StringVar(&configPath, "config", "", "path to config file")
 	flag.Parse()
 
-	cfg, err := config.NewConfig(configPath)
-	if err != nil {
-		log.Fatalw("unexpected error during unmarshalling provided log", "error", err, "path", configPath)
+	var (
+		cfg *config.Config
+		err error
+	)
+
+	if configPath == "" {
+		cfg = config.DefaultConfig()
+	} else {
+		cfg, err = config.NewConfig(configPath)
+		if err != nil {
+			log.Fatalw("unexpected error during unmarshalling provided log", "error", err, "path", configPath)
+		}
 	}
 
 	logger, _ = cfg.Logger.Build()
@@ -68,11 +76,20 @@ func main() {
 	undo := zap.ReplaceGlobals(logger)
 	defer undo()
 
+	log.Infow("Starting ArgosMiner", "version", Version, "commit", GitCommit)
+
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
 
+	// ensure data path exists
+	err = os.MkdirAll(cfg.DataPath, os.ModePerm)
+	if err != nil {
+		log.Panicw("Could not ensure data path exists", "path", cfg.DataPath, "error", err)
+	}
+
+	// check data path exists
 	if _, err := os.Stat(cfg.DataPath); os.IsNotExist(err) {
-		log.Panicw("Could not open database as database path does not exist", "path", cfg.DataPath, "error", err)
+		log.Panicw("Could not open database as data path does not exist", "path", cfg.DataPath, "error", err)
 	}
 
 	// open storage
@@ -159,7 +176,7 @@ func main() {
 
 	// start the server
 	go func() {
-		log.Infof("Start listener on %s", cfg.Listener)
+		log.Infof("Started listener on %s", cfg.Listener)
 		if err := e.Start(cfg.Listener); err != nil && err != http.ErrServerClosed {
 			e.Logger.Fatal("shutting down the server")
 		}
