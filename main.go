@@ -53,7 +53,7 @@ func main() {
 	defer logger.Sync()
 	log := logger.Sugar()
 
-	var configPath string
+	var configPath, fileSourcePath string
 	flag.StringVar(&configPath, "config", "", "path to config file")
 	flag.Parse()
 
@@ -69,6 +69,16 @@ func main() {
 		if err != nil {
 			log.Fatalw("unexpected error during unmarshalling provided log", "error", err, "path", configPath)
 		}
+	}
+
+	if fileSourcePath != "" {
+		cfg.Sources = append(cfg.Sources, config.Source{
+			Enabled: true,
+			FileConfig: &sources.FileSourceConfig{
+				Path:     fileSourcePath,
+				ReadFrom: "beginning",
+			},
+		})
 	}
 
 	logger, _ = cfg.Logger.Build()
@@ -119,11 +129,14 @@ func main() {
 		if source.FileConfig != nil {
 			log.Debug("starting a file source...")
 			wg.Add(1)
-			var parser parsers.Parser
-			if source.CsvParser != nil {
-				parser = parsers.NewCsvParser(*source.CsvParser)
+			parserSlice := make([]parsers.Parser, 0)
+			for _, parser := range source.CsvParser {
+				parserSlice = append(parserSlice, parsers.NewCsvParser(*parser))
 			}
-			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parser, receiverList)
+			for _, parser := range source.JsonParser {
+				parserSlice = append(parserSlice, parsers.NewJsonParser(*parser))
+			}
+			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parserSlice, receiverList)
 			go fs.Run(ctx, wg)
 		}
 
@@ -131,17 +144,15 @@ func main() {
 		if source.KafkaConfig != nil {
 			log.Debug("starting kafka source...")
 			wg.Add(1)
-			var parser parsers.Parser
-			// not functional right now
-			/*if source.CsvParser != nil {
-				parser = parsers.NewCsvParser(*source.CsvParser)
-			}*/
-
-			if source.JsonParser != nil {
-				parser = parsers.NewJsonParser(*source.JsonParser)
+			parserSlice := make([]parsers.Parser, 0)
+			for _, parser := range source.CsvParser {
+				parserSlice = append(parserSlice, parsers.NewCsvParser(*parser))
+			}
+			for _, parser := range source.JsonParser {
+				parserSlice = append(parserSlice, parsers.NewJsonParser(*parser))
 			}
 
-			fs := sources.NewKafkaSource(*source.KafkaConfig, parser)
+			fs := sources.NewKafkaSource(*source.KafkaConfig, parserSlice)
 			for _, receiver := range receiverList {
 				fs.AddReceiver(receiver)
 			}

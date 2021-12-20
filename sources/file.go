@@ -27,7 +27,7 @@ type fileSource struct {
 	Path             string
 	ReadFrom         string
 	Watcher          *watcher.Watcher
-	Parser           parsers.Parser
+	Parsers          []parsers.Parser
 	Receivers        []processors.StreamingProcessor
 	lastFilePosition int64
 	log              *zap.SugaredLogger
@@ -55,11 +55,11 @@ func init() {
 	prometheus.MustRegister(receivedFileEvents, receivedFileEventsWithError, lastReceivedFileEvent)
 }
 
-func NewFileSource(path, readFrom string, parser parsers.Parser, receivers []processors.StreamingProcessor) fileSource {
+func NewFileSource(path, readFrom string, parsers []parsers.Parser, receivers []processors.StreamingProcessor) fileSource {
 	fs := fileSource{
 		Path:             path,
 		ReadFrom:         strings.ToLower(readFrom),
-		Parser:           parser,
+		Parsers:          parsers,
 		Receivers:        receivers,
 		lastFilePosition: 0,
 		log:              zap.L().Sugar().With("service", "file-source"),
@@ -74,10 +74,10 @@ func (fs *fileSource) Close() {
 		fs.log.Error(err)
 	}
 	fs.Watcher.Close()
-	/*for _, parser := range fs.Parsers {
+	for _, parser := range fs.Parsers {
 		parser.Close()
-	}*/
-	fs.Parser.Close()
+	}
+	//fs.Parser.Close()
 }
 
 func (fs *fileSource) Run(ctx context.Context, wg *sync.WaitGroup) {
@@ -162,13 +162,13 @@ func (fs *fileSource) readFile(ctx context.Context) {
 
 			var event *events.Event
 			var parseErr error
-			event, parseErr = fs.Parser.Parse([]byte(line))
-			/*for _, parser := range fs.Parsers {
+			// event, parseErr = fs.Parser.Parse([]byte(line))
+			for _, parser := range fs.Parsers {
 				event, parseErr = parser.Parse([]byte(line))
 				if parseErr == nil && event != nil {
 					break
 				}
-			}*/
+			}
 
 			if parseErr != nil {
 				fs.log.Error(err)

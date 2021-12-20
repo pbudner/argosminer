@@ -38,7 +38,7 @@ type KafkaSaslConfig struct {
 type kafkaSource struct {
 	Config    KafkaSourceConfig
 	Reader    *kafka.Reader
-	Parser    parsers.Parser
+	Parsers   []parsers.Parser
 	Receivers []processors.StreamingProcessor
 	log       *zap.SugaredLogger
 }
@@ -65,10 +65,10 @@ func init() {
 	prometheus.MustRegister(receivedKafkaEvents, receivedKafkaEventsWithError, lastReceivedKafkaEvent)
 }
 
-func NewKafkaSource(config KafkaSourceConfig, parser parsers.Parser) kafkaSource {
+func NewKafkaSource(config KafkaSourceConfig, parsers []parsers.Parser) kafkaSource {
 	return kafkaSource{
 		Config:    config,
-		Parser:    parser,
+		Parsers:   parsers,
 		Receivers: []processors.StreamingProcessor{},
 		log:       zap.L().Sugar().With("service", "kafka-source"),
 	}
@@ -80,6 +80,9 @@ func (s *kafkaSource) AddReceiver(receiver processors.StreamingProcessor) {
 
 func (s *kafkaSource) Close() {
 	s.Reader.Close()
+	for _, parser := range s.Parsers {
+		parser.Close()
+	}
 }
 
 func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
@@ -132,15 +135,13 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 		var event *events.Event
 		var parseErr error
-		event, parseErr = s.Parser.Parse(m.Value)
-
-		/*
-			for _, parser := range s.Parsers {
-				event, parseErr = parser.Parse(m.Value)
-				if parseErr == nil && event != nil {
-					break
-				}
-			}*/
+		// event, parseErr = s.Parser.Parse(m.Value)
+		for _, parser := range s.Parsers {
+			event, parseErr = parser.Parse(m.Value)
+			if parseErr == nil && event != nil {
+				break
+			}
+		}
 
 		if parseErr != nil {
 			s.log.Error(err)
