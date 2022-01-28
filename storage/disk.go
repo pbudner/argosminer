@@ -2,10 +2,9 @@ package storage
 
 import (
 	"bytes"
-	"errors"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v2"
+	badger "github.com/dgraph-io/badger/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -85,12 +84,15 @@ func (s *diskStorage) SetBatch(batch []KeyValue) error {
 func (s *diskStorage) Get(key []byte) ([]byte, error) {
 	var value []byte
 	if len(key) == 0 {
-		return nil, errors.New("empty key")
+		return nil, ErrEmptyKey
 	}
 
 	err := s.store.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
 		if err != nil {
+			if err == badger.ErrKeyNotFound {
+				return ErrKeyNotFound
+			}
 			return err
 		}
 
@@ -152,6 +154,9 @@ func (s *diskStorage) Contains(key []byte) bool {
 	err := s.store.View(func(txn *badger.Txn) error {
 		_, err := txn.Get(key)
 		if err != nil {
+			if err == badger.ErrKeyNotFound {
+				return ErrKeyNotFound
+			}
 			return err
 		}
 		return nil

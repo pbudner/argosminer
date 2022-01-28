@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgraph-io/badger/v2"
 	ulid "github.com/oklog/ulid/v2"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/storage/key"
@@ -92,9 +91,9 @@ func (kv *SbarStore) init() error {
 
 	// load activity counter key from disk
 	v, err := kv.storage.Get(activityCounterKey)
-	if err != nil && err != badger.ErrKeyNotFound {
+	if err != nil && err != storage.ErrKeyNotFound {
 		kv.log.Error(err)
-	} else if err == badger.ErrKeyNotFound {
+	} else if err == storage.ErrKeyNotFound {
 		kv.log.Info("Initialize empty activity cache.")
 		kv.activityCounterCache = make(map[string]uint64)
 	} else {
@@ -106,9 +105,9 @@ func (kv *SbarStore) init() error {
 
 	// load dfRelation counter key from disk
 	v, err = kv.storage.Get(dfRelationCounterKey)
-	if err != nil && err != badger.ErrKeyNotFound {
+	if err != nil && err != storage.ErrKeyNotFound {
 		kv.log.Error(err)
-	} else if err == badger.ErrKeyNotFound {
+	} else if err == storage.ErrKeyNotFound {
 		kv.log.Info("Initialize empty directly-follows relation cache.")
 		kv.dfRelationCounterCache = make(map[string]uint64)
 	} else {
@@ -120,9 +119,9 @@ func (kv *SbarStore) init() error {
 
 	// load startEvent counter key from disk
 	v, err = kv.storage.Get(startEventCounterKey)
-	if err != nil && err != badger.ErrKeyNotFound {
+	if err != nil && err != storage.ErrKeyNotFound {
 		kv.log.Error(err)
-	} else if err == badger.ErrKeyNotFound {
+	} else if err == storage.ErrKeyNotFound {
 		kv.startEventCounterCache = make(map[string]uint64)
 	} else {
 		err = msgpack.Unmarshal(v, &kv.startEventCounterCache)
@@ -164,10 +163,10 @@ func (kv *SbarStore) GetLastActivityForCase(caseId string) (string, error) {
 	}
 	// otherwise, try to get from disk
 	b, err := kv.storage.Get(prefixString(caseCode, caseId))
-	if err != nil && err != badger.ErrKeyNotFound {
+	if err != nil && err != storage.ErrKeyNotFound {
 		return "", err
 	}
-	if err == badger.ErrKeyNotFound {
+	if err == storage.ErrKeyNotFound {
 		return "", nil
 	}
 	return string(b), nil

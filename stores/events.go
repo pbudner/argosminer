@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgraph-io/badger/v2"
 	"github.com/pbudner/argosminer/events"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/storage/key"
@@ -46,9 +45,9 @@ func NewEventStore(storage storage.Storage) *EventStore {
 func (es *EventStore) init() {
 	// load counter
 	v, err := es.storage.Get(counterKey)
-	if err != nil && err != badger.ErrKeyNotFound {
+	if err != nil && err != storage.ErrKeyNotFound {
 		es.log.Error(err)
-	} else if err == badger.ErrKeyNotFound {
+	} else if err == storage.ErrKeyNotFound {
 		es.log.Info("Initialize event counter as 0")
 		es.counter = 0
 	} else {
@@ -58,9 +57,9 @@ func (es *EventStore) init() {
 	// load bin counter
 	es.binCounter = make(map[string]uint64)
 	v2, err := es.storage.Get([]byte(binCounterKey))
-	if err != nil && err != badger.ErrKeyNotFound {
+	if err != nil && err != storage.ErrKeyNotFound {
 		es.log.Error(err)
-	} else if err == badger.ErrKeyNotFound {
+	} else if err == storage.ErrKeyNotFound {
 		es.log.Info("Initialize event bin counters as 0")
 	} else {
 		if err := msgpack.Unmarshal(v2, &es.binCounter); err != nil {
@@ -168,7 +167,7 @@ func (es *EventStore) Close() {
 	}
 }
 
-// flush flushes the current event buffer as a block to the indexed BadgerDB
+// flush flushes the current event buffer as a block to the indexed database
 func (es *EventStore) flush() error {
 	if es.buffer == nil || len(es.buffer) == 0 {
 		return nil
