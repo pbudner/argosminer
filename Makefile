@@ -21,9 +21,7 @@ run: build
 	./${DIST_FOLDER}/${BINARY}
 
 clean:
-	rm ${DIST_FOLDER}/*
-	rm -r ./ui/dist/* 
-
+	
 docker-build: build
 	docker build . -t pbudner/argosminer:latest
 

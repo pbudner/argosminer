@@ -1,12 +1,13 @@
 ---
-listener: localhost:4711
+listener: localhost:3000
 logger:
   level: info
 #data_path: /Volumes/PascalsSSD/ArgosMiner/diskStorage
 #data_path: ./data/
-data_path: /Volumes/PascalsSSD/ArgosMinerTest
+#data_path: /Volumes/PascalsSSD/ArgosMinerTest
+data_path: /Volumes/PascalsSSD/ArgosMiner/newStorage
 sources:
-  - enabled: true
+  - enabled: false
     file-config:
       path: 'data/eventlog.csv'
       read-from: start
@@ -24,19 +25,19 @@ sources:
   - enabled: false
     kafka-config:
       brokers: 'localhost:9092'
-      group-id: consumer-group-4711-6
+      group-id: consumer-group-4711-4711
       timeout: 5s
       commit-interval: 1s
       topic: pmlogs
       min-bytes: 10e3 # 10KB
       max-bytes: 10e6 # 10MB
-    json-parser:
-      json-path: my_event
-      activity-path: activity
-      case-id-path: process_instance_id
-      timestamp-path: '@timestamp'
-      timestamp-format: '2006-01-02T15:04:05.000-0700'
-      timestamp-tz-iana-key: Europe/Berlin
+    json-parsers:
+      - json-path: my_event
+        activity-path: activity
+        case-id-path: process_instance_id
+        timestamp-path: '@timestamp'
+        timestamp-format: '2006-01-02T15:04:05.000-0700'
+        timestamp-tz-iana-key: Europe/Berlin
   #- enabled: true
   #  file-config:
   #    path: '/Users/pascalbudner/Desktop/test.json'
