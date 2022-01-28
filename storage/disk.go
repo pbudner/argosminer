@@ -4,31 +4,48 @@ import (
 	"bytes"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v3"
+	badger "github.com/dgraph-io/badger/v2"
 	"github.com/prometheus/client_golang/prometheus"
+
 	"go.uber.org/zap"
 )
 
 const (
 	valueLogGCDiscardRatio       = 0.5
 	maintenanceIntervalInMinutes = 5
+	monitorIntervalInMiliseconds = 1000
 )
 
-var diskStorageMaintenanceCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
-	Subsystem: "argosminer_storage_disk",
-	Name:      "maintenance_total",
-	Help:      "Count of maintenance runs.",
-}, []string{"path"})
+var (
+	diskStorageMaintenanceCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Subsystem: "argosminer_storage_disk",
+		Name:      "maintenance_total",
+		Help:      "Count of maintenance runs.",
+	}, []string{"path"})
+
+	lsmSizeGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Subsystem: "argosminer_storage_disk",
+		Name:      "lsm_size",
+		Help:      "Size of the log-structured merge tree in bytes.",
+	}, []string{"path"})
+
+	vlogSizeGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Subsystem: "argosminer_storage_disk",
+		Name:      "vlog_size",
+		Help:      "Size of the value log in bytes.",
+	}, []string{"path"})
+)
 
 func init() {
 	prometheus.MustRegister(diskStorageMaintenanceCounter)
 }
 
 type diskStorage struct {
-	store           *badger.DB
-	maintenanceDone chan bool
-	path            string
-	log             *zap.SugaredLogger
+	store            *badger.DB
+	closeMaintenance chan bool
+	closeMonitor     chan bool
+	path             string
+	log              *zap.SugaredLogger
 }
 
 func NewDiskStorageGenerator() StorageGenerator {
@@ -45,24 +62,25 @@ func NewDiskStorage(dataPath string) *diskStorage {
 	// open the database
 	db, err := badger.Open(opts)
 	if err != nil {
-		return nil
+		panic(err)
 	}
 
 	store := diskStorage{
-		store:           db,
-		maintenanceDone: make(chan bool),
-		path:            dataPath,
-		log:             log.With("service", "disk-storage"),
+		store:            db,
+		closeMaintenance: make(chan bool),
+		closeMonitor:     make(chan bool),
+		path:             dataPath,
+		log:              log.With("service", "disk-storage"),
 	}
 
 	go store.maintenance()
+	go store.monitor()
 	return &store
 }
 
 func (s *diskStorage) Set(key []byte, value []byte) error {
 	return s.store.Update(func(txn *badger.Txn) error {
-		err := txn.Set(key, value)
-		return err
+		return txn.Set(key, value)
 	})
 }
 
@@ -82,11 +100,10 @@ func (s *diskStorage) SetBatch(batch []KeyValue) error {
 }
 
 func (s *diskStorage) Get(key []byte) ([]byte, error) {
-	var value []byte
 	if len(key) == 0 {
 		return nil, ErrEmptyKey
 	}
-
+	var value []byte
 	err := s.store.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
 		if err != nil {
@@ -95,20 +112,10 @@ func (s *diskStorage) Get(key []byte) ([]byte, error) {
 			}
 			return err
 		}
-
 		value, err = item.ValueCopy(nil)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return err
 	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return value, nil
+	return value, err
 }
 
 func (s *diskStorage) Increment(key []byte) (uint64, error) {
@@ -128,7 +135,7 @@ func (s *diskStorage) Increment(key []byte) (uint64, error) {
 				return err
 			}
 
-			// TODO: We could increase performance here, if we increment on byte level...
+			// TODO: We could increase performance here, if we would increment on byte level...
 			itemValue = BytesToUint64(valCopy)
 		}
 
@@ -393,7 +400,7 @@ func (s *diskStorage) maintenance() {
 	defer maintenanceTicker.Stop()
 	for {
 		select {
-		case <-s.maintenanceDone:
+		case <-s.closeMaintenance:
 			return
 		case <-maintenanceTicker.C:
 			var err error
@@ -401,7 +408,7 @@ func (s *diskStorage) maintenance() {
 			diskStorageMaintenanceCounter.WithLabelValues(s.path).Inc()
 			for err == nil {
 				select {
-				case <-s.maintenanceDone:
+				case <-s.closeMaintenance:
 					return
 				default:
 					s.log.Debug("Calling RunValueLogGC()")
@@ -418,8 +425,25 @@ func (s *diskStorage) maintenance() {
 	}
 }
 
+func (s *diskStorage) monitor() {
+	monitorTicker := time.NewTicker(monitorIntervalInMiliseconds * time.Millisecond)
+	defer monitorTicker.Stop()
+	for {
+		select {
+		case <-s.closeMonitor:
+			return
+		case <-monitorTicker.C:
+			s.log.Debug("Update monitoring metrics")
+			lsm, vlog := s.store.Size()
+			lsmSizeGauge.WithLabelValues(s.path).Set(float64(lsm))
+			vlogSizeGauge.WithLabelValues(s.path).Set(float64(vlog))
+		}
+	}
+}
+
 func (s *diskStorage) Close() {
-	close(s.maintenanceDone)
+	close(s.closeMaintenance)
+	close(s.closeMonitor)
 	err := s.store.Close()
 	if err != nil {
 		s.log.Error(err)

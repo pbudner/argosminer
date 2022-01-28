@@ -24,6 +24,7 @@ import (
 	"github.com/pbudner/argosminer/stores"
 	"github.com/pbudner/argosminer/utils"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"go.uber.org/zap"
 )
 
@@ -44,7 +45,7 @@ var (
 
 func init() {
 	// register global prometheus metrics
-	prometheus.MustRegister(processStartedGauge)
+	prometheus.MustRegister(processStartedGauge, collectors.NewBuildInfoCollector())
 	processStartedGauge.SetToCurrentTime()
 }
 

@@ -1,11 +1,11 @@
 ---
-listener: localhost:3000
+listener: localhost:4711
 logger:
   level: info
 #data_path: /Volumes/PascalsSSD/ArgosMiner/diskStorage
 #data_path: ./data/
 #data_path: /Volumes/PascalsSSD/ArgosMinerTest
-data_path: /Volumes/PascalsSSD/ArgosMiner/newStorage
+data_path: /Volumes/PascalsSSD/ArgosMiner/badgerv2
 sources:
   - enabled: false
     file-config:
@@ -22,10 +22,10 @@ sources:
           - column: 10
             condition: '!='
             value: gestartet
-  - enabled: false
+  - enabled: true
     kafka-config:
       brokers: 'localhost:9092'
-      group-id: consumer-group-4711-4711
+      group-id: consumer-group-4711-10001
       timeout: 5s
       commit-interval: 1s
       topic: pmlogs
