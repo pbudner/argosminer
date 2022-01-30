@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -78,6 +79,7 @@ func main() {
 	defer undo()
 
 	log.Infow("Starting ArgosMiner", "version", Version, "commit", GitCommit)
+	log.Infow("Config", "ignore-activities", strings.Join(cfg.IgnoreActivities, ", "))
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
@@ -173,7 +175,7 @@ func main() {
 	}))
 
 	g := e.Group("/api")
-	api.RegisterApiHandlers(g, Version, GitCommit, sbarStore, eventStore, eventSampler)
+	api.RegisterApiHandlers(g, cfg, Version, GitCommit, sbarStore, eventStore, eventSampler)
 
 	// start the server
 	go func() {

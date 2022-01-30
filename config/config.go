@@ -20,10 +20,11 @@ type Source struct {
 }
 
 type Config struct {
-	Listener string     `yaml:"listener"`
-	Logger   zap.Config `yaml:"logger"`
-	DataPath string     `yaml:"data_path"`
-	Sources  []Source   `yaml:"sources"`
+	Listener         string     `yaml:"listener"`
+	Logger           zap.Config `yaml:"logger"`
+	DataPath         string     `yaml:"data_path"`
+	Sources          []Source   `yaml:"sources"`
+	IgnoreActivities []string   `yaml:"ignore-activities"`
 }
 
 func DefaultConfig() *Config {

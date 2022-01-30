@@ -13,6 +13,7 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/labstack/echo/v4"
+	"github.com/pbudner/argosminer/config"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/pbudner/argosminer/utils"
 	"go.uber.org/zap"
@@ -20,7 +21,7 @@ import (
 	"gonum.org/v1/gonum/graph/topo"
 )
 
-func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *stores.SbarStore, eventStore *stores.EventStore, eventSampler *utils.EventSampler) {
+func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit string, sbarStore *stores.SbarStore, eventStore *stores.EventStore, eventSampler *utils.EventSampler) {
 	log := zap.L().Sugar()
 	v1 := g.Group("/v1")
 	v1.GET("/", func(c echo.Context) error {
@@ -235,6 +236,18 @@ func RegisterApiHandlers(g *echo.Group, version, gitCommit string, sbarStore *st
 		dg := multi.NewWeightedDirectedGraph()
 		relations := sbarStore.GetDfRelations()
 		for _, relation := range relations {
+			// Ignore certain activites when creating the holistic process map
+			foundActivityToIgnore := false
+			for _, v := range cfg.IgnoreActivities {
+				if v == relation.From || v == relation.To {
+					log.Infow("Ignored an activity", "activity", v)
+					foundActivityToIgnore = true
+					break
+				}
+			}
+			if foundActivityToIgnore {
+				continue
+			}
 			from := xxhash.Sum64String(relation.From)
 			to := xxhash.Sum64String(relation.To)
 			actionMap[int64(from)] = relation.From

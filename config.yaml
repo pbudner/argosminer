@@ -6,6 +6,8 @@ logger:
 #data_path: ./data/
 #data_path: /Volumes/PascalsSSD/ArgosMinerTest
 data_path: /Volumes/PascalsSSD/ArgosMiner/badgerv2
+ignore-activities:
+  - 'krankenAngeboteWiederherstellen::Start'
 sources:
   - enabled: false
     file-config:
