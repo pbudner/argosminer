@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	url "net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -230,33 +231,35 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 	})
 
 	v1.GET("/processes", func(c echo.Context) error {
+		ignoreActionReExprs := make([]*regexp.Regexp, 0)
+		for _, expr := range cfg.IgnoreActivities {
+			ignoreActionReExprs = append(ignoreActionReExprs, regexp.MustCompile(expr))
+		}
+
 		actionMap := make(map[int64]string)
 		actionDegreeMap := make(map[int64]uint64)
 		g := multi.NewWeightedUndirectedGraph()
 		dg := multi.NewWeightedDirectedGraph()
 		relations := sbarStore.GetDfRelations()
 		for _, relation := range relations {
-			// Ignore certain activites when creating the holistic process map
+			// ignore certain activites when creating the holistic process map
 			foundActivityToIgnore := false
-			for _, v := range cfg.IgnoreActivities {
-				if v == relation.From || v == relation.To {
-					log.Infow("Ignored an activity", "activity", v)
+			for _, re := range ignoreActionReExprs {
+				if re.MatchString(relation.From) || re.MatchString(relation.To) {
+					log.Infow("Ignored a relation for the generation of the holistic graph", "from", relation.From, "to", relation.To)
 					foundActivityToIgnore = true
 					break
 				}
-			}
-			if foundActivityToIgnore {
-				continue
 			}
 			from := xxhash.Sum64String(relation.From)
 			to := xxhash.Sum64String(relation.To)
 			actionMap[int64(from)] = relation.From
 			actionMap[int64(to)] = relation.To
 			actionDegreeMap[int64(to)] += relation.Weight
-			if relation.From != "" {
+			if !foundActivityToIgnore && relation.From != "" {
 				g.SetWeightedLine(g.NewWeightedLine(multi.Node(from), multi.Node(to), float64(relation.Weight)))
 			}
-			dg.SetWeightedLine(g.NewWeightedLine(multi.Node(from), multi.Node(to), float64(relation.Weight)))
+			dg.SetWeightedLine(dg.NewWeightedLine(multi.Node(from), multi.Node(to), float64(relation.Weight)))
 		}
 
 		processes := make([]ProcessResult, 0)
@@ -285,6 +288,8 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 
 			sort.Strings(actions)
 			edges := dg.WeightedEdges()
+			postAddedNodeIdList := make(map[int64]bool)
+
 			for edges.Reset(); edges.Next(); {
 				e := edges.WeightedEdge()
 				if nodeIdList[e.From().ID()] || nodeIdList[e.To().ID()] {
@@ -293,6 +298,16 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 						To:     actionMap[e.To().ID()],
 						Weight: e.Weight(),
 					})
+
+					// add action if it was not in there before
+					if !nodeIdList[e.From().ID()] && !postAddedNodeIdList[e.From().ID()] {
+						postAddedNodeIdList[e.From().ID()] = true
+						processActions.Actions = append(processActions.Actions, Action{Name: actionMap[e.From().ID()], Degree: actionDegreeMap[e.From().ID()]})
+					}
+					if !nodeIdList[e.To().ID()] && !postAddedNodeIdList[e.To().ID()] {
+						postAddedNodeIdList[e.From().ID()] = true
+						processActions.Actions = append(processActions.Actions, Action{Name: actionMap[e.To().ID()], Degree: actionDegreeMap[e.To().ID()]})
+					}
 				}
 			}
 
