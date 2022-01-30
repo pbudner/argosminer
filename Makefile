@@ -23,7 +23,7 @@ run: build
 clean:
 	
 docker-build: build
-	docker build . -t pbudner/argosminer:latest
+	docker build . -t pbudner/argosminer:latest --build-arg VERSION=${VERSION}
 
 docker-publish:
 	docker push pbudner/argosminer:latest
