@@ -15,8 +15,8 @@ type Source struct {
 	Enabled     bool                        `yaml:"enabled"`
 	FileConfig  *sources.FileSourceConfig   `yaml:"file-config,omitempty"`
 	KafkaConfig *sources.KafkaSourceConfig  `yaml:"kafka-config,omitempty"`
-	CsvParser   []*parsers.CsvParserConfig  `yaml:"csv-parsers,omitempty"`
-	JsonParser  []*parsers.JsonParserConfig `yaml:"json-parsers,omitempty"`
+	CsvParsers  []*parsers.CsvParserConfig  `yaml:"csv-parsers,omitempty"`
+	JsonParsers []*parsers.JsonParserConfig `yaml:"json-parsers,omitempty"`
 }
 
 type Config struct {

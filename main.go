@@ -122,10 +122,10 @@ func main() {
 			log.Debug("starting a file source...")
 			wg.Add(1)
 			parserSlice := make([]parsers.Parser, 0)
-			for _, parser := range source.CsvParser {
+			for _, parser := range source.CsvParsers {
 				parserSlice = append(parserSlice, parsers.NewCsvParser(*parser))
 			}
-			for _, parser := range source.JsonParser {
+			for _, parser := range source.JsonParsers {
 				parserSlice = append(parserSlice, parsers.NewJsonParser(*parser))
 			}
 			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parserSlice, receiverList, kvStore)
@@ -137,10 +137,10 @@ func main() {
 			log.Debug("starting kafka source...")
 			wg.Add(1)
 			parserSlice := make([]parsers.Parser, 0)
-			for _, parser := range source.CsvParser {
+			for _, parser := range source.CsvParsers {
 				parserSlice = append(parserSlice, parsers.NewCsvParser(*parser))
 			}
-			for _, parser := range source.JsonParser {
+			for _, parser := range source.JsonParsers {
 				parserSlice = append(parserSlice, parsers.NewJsonParser(*parser))
 			}
 
