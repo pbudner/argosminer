@@ -8,7 +8,7 @@ FROM alpine:3.15
 ARG VERSION
 RUN apk --no-cache add ca-certificates
 RUN apk --no-cache add tzdata
-WORKDIR /root/
-ADD ./dist/argosminer-${VERSION}-linux-amd64 ./argosminer
-RUN chmod +x ./argosminer
-ENTRYPOINT ["./argosminer"]  
+ADD ./dist/argosminer-${VERSION}-linux-amd64 /etc/argosminer
+RUN chmod +x /etc/argosminer
+ENTRYPOINT ["/etc/argosminer"]  
+CMD []

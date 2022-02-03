@@ -144,7 +144,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		}
 
 		if parseErr != nil {
-			s.log.Error(err)
+			s.log.Error(parseErr)
 			receivedKafkaEventsWithError.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 			continue
 		}

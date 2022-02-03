@@ -27,7 +27,8 @@ docker-build: build
 
 docker-publish:
 	docker push pbudner/argosminer:${VERSION}
-	dockere tag pbudner/argosminer:${VERSION} pbudner/argosminer:latest
+	docker tag pbudner/argosminer:${VERSION} pbudner/argosminer:latest
+	docker image push --all-tags pbudner/argosminer
 
 docker: docker-build docker-publish
 
