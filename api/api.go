@@ -305,7 +305,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 						processActions.Actions = append(processActions.Actions, Action{Name: actionMap[e.From().ID()], Degree: actionDegreeMap[e.From().ID()]})
 					}
 					if !nodeIdList[e.To().ID()] && !postAddedNodeIdList[e.To().ID()] {
-						postAddedNodeIdList[e.From().ID()] = true
+						postAddedNodeIdList[e.To().ID()] = true
 						processActions.Actions = append(processActions.Actions, Action{Name: actionMap[e.To().ID()], Degree: actionDegreeMap[e.To().ID()]})
 					}
 				}
