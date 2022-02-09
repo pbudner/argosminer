@@ -24,7 +24,7 @@ func NewEventProcessor(eventStore *stores.EventStore) *eventProcessor {
 	return receiver
 }
 
-func (a *eventProcessor) Append(event *events.Event) error {
+func (a *eventProcessor) Append(event events.Event) error {
 	return a.EventStore.Append(event)
 }
 

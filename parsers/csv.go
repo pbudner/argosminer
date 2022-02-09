@@ -28,7 +28,7 @@ type csvParser struct {
 	Parser
 	config          CsvParserConfig
 	conditions      []csvConditionLiteral
-	timestampParser utils.TimestampParser
+	timestampParser *utils.TimestampParser
 	log             *zap.SugaredLogger
 }
 
@@ -71,35 +71,35 @@ func NewCsvParser(config CsvParserConfig) csvParser {
 	}
 }
 
-func (p csvParser) Parse(input []byte) (*events.Event, error) {
+func (p csvParser) Parse(input []byte) (events.Event, error) {
+	event := events.Event{}
 	eventColumns := strings.Split(string(input), p.config.Delimiter)
 	for _, condition := range p.conditions {
 		lineShouldBeIgnored, err := condition(eventColumns)
 		if err != nil {
-			return nil, err
+			return event, err
 		}
 
 		if lineShouldBeIgnored {
 			csvSkippedEvents.Inc()
 			p.log.Debug("skipping a line as an ignore condition is fulfilled")
-			return nil, nil
+			return event, nil
 		}
 	}
 
 	numOfColumnsInEvent := len(eventColumns)
 	if p.config.CaseIdColumn >= uint(numOfColumnsInEvent) || p.config.ActivityColumn >= uint(numOfColumnsInEvent) || p.config.TimestampColumn >= uint(numOfColumnsInEvent) {
-		return nil, fmt.Errorf("the event does not contain all neccessary columns to parse it")
+		return event, fmt.Errorf("the event does not contain all neccessary columns to parse it")
 	}
 
 	processInstanceId := strings.Trim(eventColumns[p.config.CaseIdColumn], " ")
 	activityName := strings.Trim(eventColumns[p.config.ActivityColumn], " ")
 	timestamp, err := p.timestampParser.Parse(eventColumns[p.config.TimestampColumn])
 	if err != nil {
-		return nil, err
+		return event, err
 	}
 
-	event := events.NewEvent(processInstanceId, activityName, timestamp.UTC())
-	return &event, nil
+	return events.NewEvent(processInstanceId, activityName, timestamp.UTC()), nil
 }
 
 func (p csvParser) Close() {

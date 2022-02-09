@@ -166,12 +166,12 @@ func (fs *fileSource) readFile(ctx context.Context) {
 			line := scanner.Text()
 			line = strings.ReplaceAll(line, "\"", "")
 
-			var event *events.Event
+			var event events.Event
 			var parseErr error
 			// event, parseErr = fs.Parser.Parse([]byte(line))
 			for _, parser := range fs.Parsers {
 				event, parseErr = parser.Parse([]byte(line))
-				if parseErr == nil && event != nil {
+				if parseErr == nil && event.ActivityName != "" {
 					break
 				}
 			}
@@ -182,7 +182,7 @@ func (fs *fileSource) readFile(ctx context.Context) {
 				continue
 			}
 
-			if event != nil {
+			if event.IsParsed {
 				for _, receiver := range fs.Receivers {
 					err := receiver.Append(event)
 					if err != nil {

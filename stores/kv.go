@@ -11,7 +11,7 @@ var (
 )
 
 type KvStore struct {
-	sync.Mutex
+	sync.RWMutex
 	storage storage.Storage
 }
 
@@ -29,8 +29,8 @@ func (kv *KvStore) Set(key []byte, value []byte) error {
 }
 
 func (kv *KvStore) Get(key []byte) ([]byte, error) {
-	kv.Lock()
-	defer kv.Unlock()
+	kv.RLock()
+	defer kv.RUnlock()
 	pKey := append(kvPrefix, key...)
 	return kv.storage.Get(pKey)
 }

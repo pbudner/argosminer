@@ -9,19 +9,19 @@ type TimestampParser struct {
 	format string `yaml:"timestamp-format"` // https://golang.org/src/time/format.go
 }
 
-func NewTimestampParser(format string, tzIanaKey string) TimestampParser {
+func NewTimestampParser(format string, tzIanaKey string) *TimestampParser {
 	var tz *time.Location = nil
 	if tzIanaKey != "" {
 		tz, _ = time.LoadLocation(tzIanaKey)
 	}
 
-	return TimestampParser{
+	return &TimestampParser{
 		format: format,
 		tz:     tz,
 	}
 }
 
-func (p TimestampParser) Parse(input string) (*time.Time, error) {
+func (p TimestampParser) Parse(input string) (time.Time, error) {
 	var (
 		timestamp time.Time
 		err       error
@@ -29,15 +29,14 @@ func (p TimestampParser) Parse(input string) (*time.Time, error) {
 	if p.tz != nil {
 		timestamp, err = time.ParseInLocation(p.format, input, p.tz)
 		if err != nil {
-			return nil, err
+			return timestamp, err
 		}
 	} else {
 		timestamp, err = time.Parse(p.format, input)
 		if err != nil {
-			return nil, err
+			return timestamp, err
 		}
 	}
 
-	timestamp = timestamp.UTC()
-	return &timestamp, nil
+	return timestamp.UTC(), nil
 }

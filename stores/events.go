@@ -24,7 +24,7 @@ func init() {
 }
 
 type EventStore struct {
-	sync.Mutex
+	sync.RWMutex
 	storage    storage.Storage
 	counter    uint64
 	buffer     []events.Event
@@ -43,6 +43,9 @@ func NewEventStore(storage storage.Storage) *EventStore {
 }
 
 func (es *EventStore) init() {
+	es.Lock()
+	defer es.Unlock()
+
 	// load counter
 	v, err := es.storage.Get(counterKey)
 	if err != nil && err != storage.ErrKeyNotFound {
@@ -68,7 +71,7 @@ func (es *EventStore) init() {
 	}
 }
 
-func (es *EventStore) Append(event *events.Event) error {
+func (es *EventStore) Append(event events.Event) error {
 	es.Lock()
 	defer es.Unlock()
 
@@ -83,7 +86,7 @@ func (es *EventStore) Append(event *events.Event) error {
 		es.binCounter[binKey]++
 	}
 
-	es.buffer = append(es.buffer, *event)
+	es.buffer = append(es.buffer, event)
 	if len(es.buffer) >= EventFlushCount {
 		err := es.flush()
 		if err != nil {
@@ -95,8 +98,8 @@ func (es *EventStore) Append(event *events.Event) error {
 }
 
 func (es *EventStore) GetLast(count int) ([]events.Event, error) {
-	es.Lock()
-	defer es.Unlock()
+	es.RLock()
+	defer es.RUnlock()
 
 	var event_arr []events.Event
 	if count > len(es.buffer) {
@@ -143,8 +146,8 @@ func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 }
 
 func (es *EventStore) GetBinCount() (map[string]uint64, error) {
-	es.Lock()
-	defer es.Unlock()
+	es.RLock()
+	defer es.RUnlock()
 
 	// we need to copy the map as concurrent read and write operations are not allowed (and we unlock the mutex after returning)
 	copiedMap := make(map[string]uint64)

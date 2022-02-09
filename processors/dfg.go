@@ -46,7 +46,8 @@ func NewDfgStreamingAlgorithm(store *stores.SbarStore) *dfgStreamingAlgorithm {
 	return &algo
 }
 
-func (a *dfgStreamingAlgorithm) Append(event *events.Event) error {
+func (a *dfgStreamingAlgorithm) Append(event events.Event) error {
+	// update metrics
 	lastReceivedDfgEvent.WithLabelValues(a.Id.String()).SetToCurrentTime()
 	receivedDfgEventsCounter.WithLabelValues(a.Id.String()).Inc()
 	lastReceviedDfgEventTime.WithLabelValues(a.Id.String()).Set(float64(event.Timestamp.Unix()))

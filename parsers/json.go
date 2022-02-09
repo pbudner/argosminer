@@ -28,7 +28,7 @@ type jsonParser struct {
 	Parser
 	config          JsonParserConfig
 	conditions      []jsonConditionLiteral
-	timestampParser utils.TimestampParser
+	timestampParser *utils.TimestampParser
 	log             *zap.SugaredLogger
 }
 
@@ -67,7 +67,9 @@ func NewJsonParser(config JsonParserConfig) jsonParser {
 	}
 }
 
-func (p jsonParser) Parse(input []byte) (*events.Event, error) {
+func (p jsonParser) Parse(input []byte) (events.Event, error) {
+	event := events.Event{}
+
 	// JSON in JSON
 	if p.config.JsonPath != "" {
 		result := gjson.GetBytes(input, p.config.JsonPath)
@@ -77,28 +79,27 @@ func (p jsonParser) Parse(input []byte) (*events.Event, error) {
 	for _, condition := range p.conditions {
 		lineShouldBeIgnored, err := condition(input)
 		if err != nil {
-			return nil, err
+			return event, err
 		}
 
 		if lineShouldBeIgnored {
 			jsonSkippedEvents.Inc()
 			p.log.Debug("skipping a line as an ignore condition is fulfilled")
-			return nil, nil
+			return event, nil
 		}
 	}
 
 	results := gjson.GetManyBytes(input, p.config.CaseIdPath, p.config.ActivityPath, p.config.TimestampPath)
 	timestamp, err := p.timestampParser.Parse(results[2].Str)
 	if err != nil {
-		return nil, err
+		return event, err
 	}
 
 	if results[0].Str == "" || results[1].Str == "" {
-		return nil, fmt.Errorf("could not create a new event as some required fields are empty: case_id=%s, activity=%s", results[0].Str, results[1].Str)
+		return event, fmt.Errorf("could not create a new event as some required fields are empty: case_id=%s, activity=%s", results[0].Str, results[1].Str)
 	}
 
-	event := events.NewEvent(results[0].Str, results[1].Str, *timestamp)
-	return &event, nil
+	return events.NewEvent(results[0].Str, results[1].Str, timestamp), nil
 }
 
 func (p jsonParser) Close() {

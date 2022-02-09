@@ -25,7 +25,8 @@ import (
 func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit string, sbarStore *stores.SbarStore, eventStore *stores.EventStore, eventSampler *utils.EventSampler) {
 	log := zap.L().Sugar()
 	v1 := g.Group("/v1")
-	v1.GET("/", func(c echo.Context) error {
+
+	welcomeHandlerFunc := func(c echo.Context) error {
 		var commitPrefix string
 		if len(gitCommit) > 6 {
 			commitPrefix = gitCommit[:6]
@@ -37,7 +38,10 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 			"version": version,
 			"build":   commitPrefix,
 		})
-	})
+	}
+
+	v1.GET("", welcomeHandlerFunc)
+	v1.GET("/", welcomeHandlerFunc)
 
 	v1.GET("/events/last/:count", func(c echo.Context) error {
 		counter := 10
@@ -246,7 +250,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 			foundActivityToIgnore := false
 			for _, re := range ignoreActionReExprs {
 				if re.MatchString(relation.From) || re.MatchString(relation.To) {
-					log.Infow("Ignored a relation for the generation of the holistic graph", "from", relation.From, "to", relation.To)
+					log.Debugw("Ignored a relation for the generation of the holistic graph", "from", relation.From, "to", relation.To)
 					foundActivityToIgnore = true
 					break
 				}

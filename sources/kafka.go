@@ -133,23 +133,23 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		receivedKafkaEvents.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 		lastReceivedKafkaEvent.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).SetToCurrentTime()
 
-		var event *events.Event
+		var event events.Event
 		var parseErr error
-		// event, parseErr = s.Parser.Parse(m.Value)
 		for _, parser := range s.Parsers {
 			event, parseErr = parser.Parse(m.Value)
-			if parseErr == nil && event != nil {
+			if parseErr == nil && event.IsParsed {
+				// event successfully parsed, hence skip remaining parsers
 				break
 			}
 		}
 
-		if event == nil && parseErr != nil {
+		if !event.IsParsed && parseErr != nil {
 			s.log.Errorw("Could not parse an incoming message", "message", string(m.Value), "error", parseErr)
 			receivedKafkaEventsWithError.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 			continue
 		}
 
-		if event != nil {
+		if event.IsParsed {
 			for _, receiver := range s.Receivers {
 				if err := receiver.Append(event); err != nil {
 					s.log.Error(err)
