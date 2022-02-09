@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v3"
+	badger "github.com/dgraph-io/badger/v2"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"go.uber.org/zap"
