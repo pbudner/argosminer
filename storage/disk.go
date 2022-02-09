@@ -404,7 +404,7 @@ func (s *diskStorage) maintenance() {
 			return
 		case <-maintenanceTicker.C:
 			var err error
-			s.log.Debug("Performing maintenance on database")
+			s.log.Info("Performing maintenance on database")
 			diskStorageMaintenanceCounter.WithLabelValues(s.path).Inc()
 			for err == nil {
 				select {
@@ -417,7 +417,7 @@ func (s *diskStorage) maintenance() {
 			}
 
 			if err == badger.ErrNoRewrite {
-				s.log.Debug("Successfully finished ValueLogGC")
+				s.log.Info("Successfully finished ValueLogGC")
 			} else {
 				s.log.Error("Failed to run ValueLogGC:", err)
 			}

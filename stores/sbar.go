@@ -41,7 +41,7 @@ type Activity struct {
 }
 
 type SbarStore struct {
-	sync.Mutex
+	sync.RWMutex
 	storage                storage.Storage
 	activityCounterCache   map[string]uint64
 	dfRelationCounterCache map[string]uint64
@@ -154,8 +154,8 @@ func (kv *SbarStore) RecordActivityForCase(activity string, caseId string, times
 }
 
 func (kv *SbarStore) GetLastActivityForCase(caseId string) (string, error) {
-	kv.Lock()
-	defer kv.Unlock()
+	kv.RLock()
+	defer kv.RUnlock()
 	// first, try to get from cache
 	v, ok := kv.caseCache[caseId]
 	if ok {
@@ -205,8 +205,8 @@ func (kv *SbarStore) RecordActivity(activity string, timestamp time.Time) error 
 }
 
 func (kv *SbarStore) GetActivities() []Activity {
-	kv.Lock()
-	defer kv.Unlock()
+	kv.RLock()
+	defer kv.RUnlock()
 	result := make([]Activity, 0)
 	for k, v := range kv.activityCounterCache {
 		result = append(result, Activity{
@@ -218,8 +218,8 @@ func (kv *SbarStore) GetActivities() []Activity {
 }
 
 func (kv *SbarStore) GetDfRelations() []DirectlyFollowsRelation {
-	kv.Lock()
-	defer kv.Unlock()
+	kv.RLock()
+	defer kv.RUnlock()
 	result := make([]DirectlyFollowsRelation, 0)
 	for k, v := range kv.dfRelationCounterCache {
 		splittedRelation := strings.Split(k, "-->") // this is not good, but ok for now
@@ -233,8 +233,8 @@ func (kv *SbarStore) GetDfRelations() []DirectlyFollowsRelation {
 }
 
 func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelations [][]string, start time.Time, end time.Time) ([]DirectlyFollowsRelation, error) {
-	kv.Lock()
-	defer kv.Unlock()
+	kv.RLock()
+	defer kv.RUnlock()
 
 	result := make([]DirectlyFollowsRelation, 0)
 
@@ -280,8 +280,8 @@ func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelations [][]string, star
 }
 
 func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map[string]uint64, error) {
-	kv.Lock()
-	defer kv.Unlock()
+	kv.RLock()
+	defer kv.RUnlock()
 
 	result := make(map[string]map[string]uint64)
 
@@ -387,20 +387,20 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 }
 
 func (kv *SbarStore) CountActivities() int {
-	kv.Lock()
-	defer kv.Unlock()
+	kv.RLock()
+	defer kv.RUnlock()
 	return len(kv.activityCounterCache)
 }
 
 func (kv *SbarStore) CountDfRelations() int {
-	kv.Lock()
-	defer kv.Unlock()
+	kv.RLock()
+	defer kv.RUnlock()
 	return len(kv.dfRelationCounterCache)
 }
 
 func (kv *SbarStore) CountStartActivities() int {
-	kv.Lock()
-	defer kv.Unlock()
+	kv.RLock()
+	defer kv.RUnlock()
 	return len(kv.startEventCounterCache)
 }
 
