@@ -7,6 +7,7 @@ import (
 
 	"github.com/pbudner/argosminer/parsers"
 	"github.com/pbudner/argosminer/sources"
+	"github.com/pbudner/argosminer/storage"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
@@ -20,18 +21,21 @@ type Source struct {
 }
 
 type Config struct {
-	Listener         string     `yaml:"listener"`
-	Logger           zap.Config `yaml:"logger"`
-	DataPath         string     `yaml:"data_path"`
-	Sources          []Source   `yaml:"sources"`
-	IgnoreActivities []string   `yaml:"ignore-activities"`
+	Listener         string         `yaml:"listener"`
+	Logger           zap.Config     `yaml:"logger"`
+	Database         storage.Config `yaml:"db"`
+	Sources          []Source       `yaml:"sources"`
+	IgnoreActivities []string       `yaml:"ignore-activities"`
 }
 
 func DefaultConfig() *Config {
 	config := &Config{
 		Logger:   zap.NewDevelopmentConfig(),
 		Listener: "localhost:4711",
-		DataPath: "./data/",
+		Database: storage.Config{
+			Path:       "./data/",
+			SyncWrites: false,
+		},
 	}
 
 	config.Logger.Level = zap.NewAtomicLevelAt(zap.InfoLevel) // set default level to info

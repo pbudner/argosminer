@@ -28,7 +28,7 @@ type EventStore struct {
 	storage    storage.Storage
 	counter    uint64
 	buffer     []events.Event
-	binCounter map[string]uint64
+	binCounter map[string]uint64 // stores a counter for each day (key = yyyymmdd)
 	log        *zap.SugaredLogger
 }
 

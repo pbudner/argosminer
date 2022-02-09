@@ -2,10 +2,8 @@
 listener: localhost:4711
 logger:
   level: info
-#data_path: /Volumes/PascalsSSD/ArgosMiner/diskStorage
-#data_path: ./data/
-#data_path: /Volumes/PascalsSSD/ArgosMinerTest
-data_path: /Volumes/PascalsSSD/ArgosMiner/badgerv2
+db:
+  path: /Volumes/PascalsSSD/ArgosMiner/badgerv3_nopointer_nosync
 ignore-activities:
   - 'krankenAngeboteWiederherstellen::Start'
 sources:
@@ -27,7 +25,7 @@ sources:
   - enabled: true
     kafka-config:
       brokers: 'localhost:9092'
-      group-id: consumer-group-4711-10001
+      group-id: consumer-group-4711-10003
       timeout: 5s
       commit-interval: 1s
       topic: pmlogs

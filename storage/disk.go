@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v2"
+	badger "github.com/dgraph-io/badger/v3"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"go.uber.org/zap"
@@ -49,15 +49,15 @@ type diskStorage struct {
 }
 
 func NewDiskStorageGenerator() StorageGenerator {
-	return func(dataPath string) Storage {
-		return NewDiskStorage(dataPath)
+	return func(config Config) Storage {
+		return NewDiskStorage(config)
 	}
 }
 
-func NewDiskStorage(dataPath string) *diskStorage {
+func NewDiskStorage(config Config) *diskStorage {
 	log := zap.L().Sugar()
-	opts := badger.DefaultOptions(dataPath)
-	opts = opts.WithSyncWrites(true).WithLogger(defaultLogger(log.With("service", "badger-db"))).WithDetectConflicts(false)
+	opts := badger.DefaultOptions(config.Path)
+	opts = opts.WithSyncWrites(config.SyncWrites).WithLogger(defaultLogger(log.With("service", "badger-db"))).WithDetectConflicts(false)
 
 	// open the database
 	db, err := badger.Open(opts)
@@ -69,7 +69,7 @@ func NewDiskStorage(dataPath string) *diskStorage {
 		store:            db,
 		closeMaintenance: make(chan bool),
 		closeMonitor:     make(chan bool),
-		path:             dataPath,
+		path:             config.Path,
 		log:              log.With("service", "disk-storage"),
 	}
 

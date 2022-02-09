@@ -33,4 +33,9 @@ type KeyValue struct {
 	Value []byte
 }
 
-type StorageGenerator func(string) Storage
+type Config struct {
+	Path       string `yaml:"path"`
+	SyncWrites bool   `yaml:"sync-writes"`
+}
+
+type StorageGenerator func(Config) Storage

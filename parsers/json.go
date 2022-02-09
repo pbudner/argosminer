@@ -67,8 +67,7 @@ func NewJsonParser(config JsonParserConfig) jsonParser {
 	}
 }
 
-func (p jsonParser) Parse(input []byte) (events.Event, error) {
-	event := events.Event{}
+func (p jsonParser) Parse(input []byte) (nilEvent events.Event, err error) {
 
 	// JSON in JSON
 	if p.config.JsonPath != "" {
@@ -76,27 +75,29 @@ func (p jsonParser) Parse(input []byte) (events.Event, error) {
 		input = []byte(result.Str)
 	}
 
+	var lineShouldBeIgnored bool
+
 	for _, condition := range p.conditions {
-		lineShouldBeIgnored, err := condition(input)
+		lineShouldBeIgnored, err = condition(input)
 		if err != nil {
-			return event, err
+			return
 		}
 
 		if lineShouldBeIgnored {
 			jsonSkippedEvents.Inc()
 			p.log.Debug("skipping a line as an ignore condition is fulfilled")
-			return event, nil
+			return
 		}
 	}
 
 	results := gjson.GetManyBytes(input, p.config.CaseIdPath, p.config.ActivityPath, p.config.TimestampPath)
 	timestamp, err := p.timestampParser.Parse(results[2].Str)
 	if err != nil {
-		return event, err
+		return
 	}
 
 	if results[0].Str == "" || results[1].Str == "" {
-		return event, fmt.Errorf("could not create a new event as some required fields are empty: case_id=%s, activity=%s", results[0].Str, results[1].Str)
+		return nilEvent, fmt.Errorf("could not create a new event as some required fields are empty: case_id=%s, activity=%s", results[0].Str, results[1].Str)
 	}
 
 	return events.NewEvent(results[0].Str, results[1].Str, timestamp), nil

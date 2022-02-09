@@ -85,18 +85,18 @@ func main() {
 	wg := &sync.WaitGroup{}
 
 	// ensure data path exists
-	err = os.MkdirAll(cfg.DataPath, os.ModePerm)
+	err = os.MkdirAll(cfg.Database.Path, os.ModePerm)
 	if err != nil {
-		log.Panicw("Could not ensure data path exists", "path", cfg.DataPath, "error", err)
+		log.Panicw("Could not ensure data path exists", "path", cfg.Database.Path, "error", err)
 	}
 
 	// check data path exists
-	if _, err := os.Stat(cfg.DataPath); os.IsNotExist(err) {
-		log.Panicw("Could not open database as data path does not exist", "path", cfg.DataPath, "error", err)
+	if _, err := os.Stat(cfg.Database.Path); os.IsNotExist(err) {
+		log.Panicw("Could not open database as data path does not exist", "path", cfg.Database.Path, "error", err)
 	}
 
 	// open storage
-	store := storage.NewDiskStorage(cfg.DataPath)
+	store := storage.NewDiskStorage(cfg.Database)
 
 	// initialize stores
 	eventStore := stores.NewEventStore(store)

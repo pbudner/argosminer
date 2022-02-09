@@ -16,7 +16,7 @@ func TestDiskStorageGetAndSet(t *testing.T) {
 	require.NoError(t, err)
 	defer removeDir(dir)
 
-	storage := NewDiskStorage(dir)
+	storage := NewDiskStorage(Config{Path: dir})
 	defer storage.Close()
 
 	// fill with test data
@@ -35,7 +35,7 @@ func TestDiskStorageSeek(t *testing.T) {
 	require.NoError(t, err)
 	defer removeDir(dir)
 
-	storage := NewDiskStorage(dir)
+	storage := NewDiskStorage(Config{Path: dir})
 	defer storage.Close()
 
 	// fill with test data
