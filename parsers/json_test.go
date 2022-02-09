@@ -23,6 +23,15 @@ func TestJsoninJsonParser(t *testing.T) {
 	require.EqualValues(t, "my_activity", evt.ActivityName)
 	require.EqualValues(t, 2021, evt.Timestamp.Year())
 
+	// JSON in JSON + additional attributes
+	evt3, err := parser.Parse([]byte("{\"my_json\": \"{\\\"activity\\\": \\\"my_activity\\\", \\\"case_id\\\": \\\"my_instance\\\", \\\"@timestamp\\\": \\\"2021-11-22T12:13:14.000\\\", \\\"inner_attribute\\\": \\\"foo\\\"}\", \"outer_attribute\": \"bar\"}"))
+	require.NoError(t, err)
+	require.EqualValues(t, "my_instance", evt3.ProcessInstanceId)
+	require.EqualValues(t, "my_activity", evt3.ActivityName)
+	require.EqualValues(t, 2021, evt3.Timestamp.Year())
+	require.EqualValues(t, "foo", evt3.AdditionalFields["inner_attribute"])
+	t.Logf("Additional fields has length of %d", len(evt3.AdditionalFields))
+
 	// normal JSON
 	parser.config.JsonPath = ""
 	evt2, err := parser.Parse([]byte("{\"activity\": \"my_activity\", \"case_id\": \"my_instance\", \"@timestamp\": \"2021-11-22T12:13:14.000\", \"inner_attribute\": \"foo\"}"))

@@ -1,0 +1,13 @@
+syntax = "proto3";
+package argosminer;
+
+option go_package = "github.com/pbudner/argosminer/proto";
+
+import "google/protobuf/timestamp.proto";
+
+message Event {
+  string ProcessInstanceId = 1;
+  string ActivityName = 2;
+  google.protobuf.Timestamp Timestamp = 3;
+  map<string, string> AdditionalFields = 4;
+}

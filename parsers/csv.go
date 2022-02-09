@@ -99,7 +99,7 @@ func (p csvParser) Parse(input []byte) (events.Event, error) {
 		return event, err
 	}
 
-	return events.NewEvent(processInstanceId, activityName, timestamp.UTC()), nil
+	return events.NewEvent(processInstanceId, activityName, timestamp.UTC(), nil), nil
 }
 
 func (p csvParser) Close() {
