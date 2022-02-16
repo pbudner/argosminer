@@ -236,8 +236,13 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 
 	v1.GET("/processes", func(c echo.Context) error {
 		ignoreActionReExprs := make([]*regexp.Regexp, 0)
+		removeActionReExprs := make([]*regexp.Regexp, 0)
 		for _, expr := range cfg.IgnoreActivities {
-			ignoreActionReExprs = append(ignoreActionReExprs, regexp.MustCompile(expr))
+			if expr.Remove {
+				removeActionReExprs = append(removeActionReExprs, regexp.MustCompile(expr.Name))
+			} else {
+				ignoreActionReExprs = append(ignoreActionReExprs, regexp.MustCompile(expr.Name))
+			}
 		}
 
 		actionMap := make(map[int64]string)
@@ -246,23 +251,66 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 		dg := multi.NewWeightedDirectedGraph()
 		relations := sbarStore.GetDfRelations()
 		for _, relation := range relations {
-			// ignore certain activites when creating the holistic process map
-			foundActivityToIgnore := false
-			for _, re := range ignoreActionReExprs {
-				if re.MatchString(relation.From) || re.MatchString(relation.To) {
-					log.Debugw("Ignored a relation for the generation of the holistic graph", "from", relation.From, "to", relation.To)
-					foundActivityToIgnore = true
+			ignoreFromActivity := false
+			removeFromActivity := false
+			ignoreToActivity := false
+			removeToActivity := false
+			// completely ignore certain activites
+			for _, re := range removeActionReExprs {
+				if re.MatchString(relation.From) {
+					removeFromActivity = true
+				}
+				if re.MatchString(relation.To) {
+					removeToActivity = true
+				}
+				if removeFromActivity && removeToActivity {
 					break
 				}
 			}
+
+			if !removeFromActivity && !removeToActivity {
+				// ignore certain activites only for creating the holistic process map
+				for _, re := range ignoreActionReExprs {
+					if re.MatchString(relation.From) {
+						ignoreFromActivity = true
+					}
+					if re.MatchString(relation.To) {
+						ignoreToActivity = true
+					}
+					if ignoreFromActivity && ignoreToActivity {
+						break
+					}
+				}
+			}
+
+			if removeFromActivity || removeToActivity {
+				log.Debugw("Remove a relation for the generation of the holistic graph", "from", relation.From, "to", relation.To)
+			}
+
+			if ignoreFromActivity || ignoreToActivity {
+				log.Debugw("Ignored a relation for the generation of the holistic graph", "from", relation.From, "to", relation.To)
+			}
+
 			from := xxhash.Sum64String(relation.From)
+			if !removeFromActivity {
+				actionMap[int64(from)] = relation.From
+			}
+
 			to := xxhash.Sum64String(relation.To)
-			actionMap[int64(from)] = relation.From
-			actionMap[int64(to)] = relation.To
-			actionDegreeMap[int64(to)] += relation.Weight
-			if !foundActivityToIgnore && relation.From != "" {
+			if !removeToActivity {
+				actionMap[int64(to)] = relation.To
+				actionDegreeMap[int64(to)] += relation.Weight
+			}
+
+			// completely remove a directly-follows relation, as one of the activities should be removed
+			if removeFromActivity || removeToActivity {
+				continue
+			}
+
+			if !ignoreFromActivity && !ignoreToActivity && relation.From != "" {
 				g.SetWeightedLine(g.NewWeightedLine(multi.Node(from), multi.Node(to), float64(relation.Weight)))
 			}
+
 			dg.SetWeightedLine(dg.NewWeightedLine(multi.Node(from), multi.Node(to), float64(relation.Weight)))
 		}
 
@@ -296,21 +344,30 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 
 			for edges.Reset(); edges.Next(); {
 				e := edges.WeightedEdge()
-				if nodeIdList[e.From().ID()] || nodeIdList[e.To().ID()] {
+				fromId := e.From().ID()
+
+				toId := e.To().ID()
+				if nodeIdList[fromId] || nodeIdList[toId] {
 					processActions.Edges = append(processActions.Edges, Edge{
-						From:   actionMap[e.From().ID()],
-						To:     actionMap[e.To().ID()],
+						From:   actionMap[fromId],
+						To:     actionMap[toId],
 						Weight: e.Weight(),
 					})
 
 					// add action if it was not in there before
-					if !nodeIdList[e.From().ID()] && !postAddedNodeIdList[e.From().ID()] {
-						postAddedNodeIdList[e.From().ID()] = true
-						processActions.Actions = append(processActions.Actions, Action{Name: actionMap[e.From().ID()], Degree: actionDegreeMap[e.From().ID()]})
+					if !nodeIdList[fromId] && !postAddedNodeIdList[fromId] {
+						if actionMap[fromId] == "" {
+							continue
+						}
+						postAddedNodeIdList[fromId] = true
+						processActions.Actions = append(processActions.Actions, Action{Name: actionMap[fromId], Degree: actionDegreeMap[fromId]})
 					}
-					if !nodeIdList[e.To().ID()] && !postAddedNodeIdList[e.To().ID()] {
-						postAddedNodeIdList[e.To().ID()] = true
-						processActions.Actions = append(processActions.Actions, Action{Name: actionMap[e.To().ID()], Degree: actionDegreeMap[e.To().ID()]})
+					if !nodeIdList[toId] && !postAddedNodeIdList[toId] {
+						if actionMap[toId] == "" {
+							continue
+						}
+						postAddedNodeIdList[toId] = true
+						processActions.Actions = append(processActions.Actions, Action{Name: actionMap[toId], Degree: actionDegreeMap[toId]})
 					}
 				}
 			}

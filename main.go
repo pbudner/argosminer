@@ -85,7 +85,6 @@ func main() {
 	defer undo()
 
 	log.Infow("Starting ArgosMiner", "version", Version, "commit", GitCommit)
-	log.Infow("Config", "ignore-activities", strings.Join(cfg.IgnoreActivities, ", "))
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
@@ -178,7 +177,7 @@ func main() {
 		log.Info(err)
 		c.JSON(code, api.JSON{
 			"status_code": code,
-			"hello":       "world",
+			"message":     "Sorry, we could not find the requested URL.",
 		})
 	}
 

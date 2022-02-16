@@ -22,12 +22,17 @@ type Source struct {
 }
 
 type Config struct {
-	Listener         string         `yaml:"listener"`
-	BaseURL          string         `yaml:"base-url"`
-	Logger           zap.Config     `yaml:"logger"`
-	Database         storage.Config `yaml:"db"`
-	Sources          []Source       `yaml:"sources"`
-	IgnoreActivities []string       `yaml:"ignore-activities"`
+	Listener         string           `yaml:"listener"`
+	BaseURL          string           `yaml:"base-url"`
+	Logger           zap.Config       `yaml:"logger"`
+	Database         storage.Config   `yaml:"db"`
+	Sources          []Source         `yaml:"sources"`
+	IgnoreActivities []IgnoreActivity `yaml:"ignore-activities"`
+}
+
+type IgnoreActivity struct {
+	Name   string `yaml:"name"`
+	Remove bool   `yaml:"remove,omitempty"`
 }
 
 func DefaultConfig() *Config {

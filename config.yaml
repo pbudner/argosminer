@@ -6,7 +6,9 @@ logger:
 db:
   path: /Volumes/PascalsSSD/ArgosMiner/badgerv2_nopointer_nosync
 ignore-activities:
-  - 'krankenAngeboteWiederherstellen::Start'
+  - name: 'krankenAngeboteWiederherstellen::Start'
+  - name: '.*::Start'
+    remove: true
 sources:
   - enabled: false
     file-config:
