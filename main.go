@@ -1,13 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"flag"
+	"fmt"
+	"html/template"
 	"io/fs"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -167,12 +171,40 @@ func main() {
 	p := prom.NewPrometheus("echo", nil)
 	p.Use(e)
 
-	e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
+	/*e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
 		Root:       "/",
 		Browse:     false,
 		HTML5:      true,
 		Filesystem: getFileSystem(),
-	}))
+	}))*/
+
+	fsys, err := fs.Sub(embededFiles, "ui/dist")
+	if err != nil {
+		panic(err)
+	}
+
+	fs := http.FS(fsys)
+	assetHandler := http.FileServer(fs)
+	e.GET("/test/*", echo.WrapHandler(assetHandler))
+
+	handleIndexFunc := func(c echo.Context) error {
+		response, err := parseTemplate("ui/dist/index.html", cfg)
+		if err != nil {
+			log.Error(err)
+			return c.JSON(http.StatusInternalServerError, api.JSON{
+				"message": "Could not parse index.html template.",
+			})
+		}
+		return c.HTML(http.StatusOK, response)
+	}
+
+	e.GET("/test/index.html", handleIndexFunc)
+
+	e.GET("/test", handleIndexFunc)
+
+	e.GET("/config.js", func(c echo.Context) error {
+		return c.String(http.StatusOK, fmt.Sprintf("var baseURL = '%s';", cfg.BaseURL))
+	})
 
 	g := e.Group("/api")
 	api.RegisterApiHandlers(g, cfg, Version, GitCommit, sbarStore, eventStore, eventSampler)
@@ -216,4 +248,21 @@ func getFileSystem() http.FileSystem {
 	}
 
 	return http.FS(fsys)
+}
+
+func parseTemplate(templateFileName string, data interface{}) (string, error) {
+	templateName := filepath.Base(templateFileName)
+	t, err := template.New(templateName).Funcs(template.FuncMap{
+		"replaceNewline": func(s string) template.HTML {
+			return template.HTML(strings.Replace(template.HTMLEscapeString(s), "\n", "<br>", -1))
+		},
+	}).ParseFS(embededFiles, templateFileName)
+	if err != nil {
+		return "", err
+	}
+	buf := new(bytes.Buffer)
+	if err = t.Execute(buf, data); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }

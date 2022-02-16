@@ -22,6 +22,7 @@ type Source struct {
 
 type Config struct {
 	Listener         string         `yaml:"listener"`
+	BaseURL          string         `yaml:"base-url"`
 	Logger           zap.Config     `yaml:"logger"`
 	Database         storage.Config `yaml:"db"`
 	Sources          []Source       `yaml:"sources"`
@@ -31,6 +32,7 @@ type Config struct {
 func DefaultConfig() *Config {
 	config := &Config{
 		Logger:   zap.NewDevelopmentConfig(),
+		BaseURL:  "/",
 		Listener: "localhost:4711",
 		Database: storage.Config{
 			Path:       "./data/",
@@ -45,6 +47,7 @@ func DefaultConfig() *Config {
 
 // NewConfig returns a new decoded Config struct
 func NewConfig(path string) (*Config, error) {
+	defaultConfig := DefaultConfig()
 	config := DefaultConfig()
 
 	// check that config exists
@@ -66,6 +69,10 @@ func NewConfig(path string) (*Config, error) {
 	err = yaml.Unmarshal(confContent, config)
 	if err != nil {
 		return nil, err
+	}
+
+	if config.BaseURL == "" {
+		config.BaseURL = defaultConfig.BaseURL
 	}
 
 	return config, nil

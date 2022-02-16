@@ -32,7 +32,7 @@ type jsonParser struct {
 	log             *zap.SugaredLogger
 }
 
-type jsonConditionLiteral func([]byte) (bool, error)
+type jsonConditionLiteral func(gjson.Result) (bool, error)
 
 var (
 	jsonSkippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
@@ -49,8 +49,8 @@ func init() {
 func NewJsonParser(config JsonParserConfig) jsonParser {
 	conditionFuncs := make([]jsonConditionLiteral, len(config.IgnoreWhen))
 	for i, ignoreWhen := range config.IgnoreWhen {
-		conditionFuncs[i] = func(json []byte) (bool, error) {
-			val := gjson.GetBytes(json, ignoreWhen.Path).String()
+		conditionFuncs[i] = func(json gjson.Result) (bool, error) {
+			val := json.Get(ignoreWhen.Path).String()
 
 			if ignoreWhen.Condition == "==" {
 				return val == ignoreWhen.Value, nil
@@ -68,17 +68,18 @@ func NewJsonParser(config JsonParserConfig) jsonParser {
 }
 
 func (p jsonParser) Parse(input []byte) (nilEvent events.Event, err error) {
-
 	// JSON in JSON
 	if p.config.JsonPath != "" {
 		result := gjson.GetBytes(input, p.config.JsonPath)
 		input = []byte(result.Str)
 	}
 
+	parsedJson := gjson.ParseBytes(input)
+
 	var lineShouldBeIgnored bool
 
 	for _, condition := range p.conditions {
-		lineShouldBeIgnored, err = condition(input)
+		lineShouldBeIgnored, err = condition(parsedJson)
 		if err != nil {
 			return
 		}
@@ -90,17 +91,25 @@ func (p jsonParser) Parse(input []byte) (nilEvent events.Event, err error) {
 		}
 	}
 
-	results := gjson.GetManyBytes(input, p.config.CaseIdPath, p.config.ActivityPath, p.config.TimestampPath)
-	timestamp, err := p.timestampParser.Parse(results[2].Str)
+	caseId := parsedJson.Get(p.config.CaseIdPath).String()
+	activity := parsedJson.Get(p.config.ActivityPath).String()
+	rawTimestamp := parsedJson.Get(p.config.TimestampPath).String()
+	timestamp, err := p.timestampParser.Parse(rawTimestamp)
 	if err != nil {
 		return
 	}
 
-	if results[0].Str == "" || results[1].Str == "" {
-		return nilEvent, fmt.Errorf("could not create a new event as some required fields are empty: case_id=%s, activity=%s", results[0].Str, results[1].Str)
+	if caseId == "" || activity == "" {
+		return nilEvent, fmt.Errorf("could not create a new event as some required fields are empty: case_id=%s, activity=%s", caseId, activity)
 	}
 
-	return events.NewEvent(results[0].Str, results[1].Str, timestamp), nil
+	additionalFields := make(map[string]string)
+	parsedJson.ForEach(func(key, value gjson.Result) bool {
+		additionalFields[key.String()] = value.String()
+		return true
+	})
+
+	return events.NewEvent(caseId, activity, timestamp, additionalFields), nil
 }
 
 func (p jsonParser) Close() {
