@@ -235,7 +235,7 @@ func main() {
 	baseGroup.GET("/index.html", handleIndexFunc)
 	baseGroup.GET("/", handleIndexFunc)
 	baseGroup.GET("/argos_config.js", func(c echo.Context) error {
-		return c.String(http.StatusOK, fmt.Sprintf("var baseURL = '%s';", baseURL.RequestURI()))
+		return c.Blob(http.StatusOK, echo.MIMEApplicationJavaScriptCharsetUTF8, []byte(fmt.Sprintf("var baseURL = '%s';", baseURL.RequestURI())))
 	})
 
 	g := baseGroup.Group("/api")
