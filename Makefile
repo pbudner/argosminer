@@ -4,8 +4,11 @@ DIST_FOLDER=./dist
 BINARY=argosminer
 FLAGS=-ldflags '-X "main.GitCommit=${GIT_COMMIT}" -X "main.Version=${VERSION}"'
 
-build: clean
+build-ui:
 	npm --prefix ui run build
+	sed -i '' 's/"\/assets/"{{ .BaseURL }}\/assets/gi' ./ui/dist/index.html
+
+build: clean build-ui
 	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build ${FLAGS} -o ${DIST_FOLDER}/${BINARY}-${VERSION}-darwin-amd64
 	cd ${DIST_FOLDER} && tar -zcvf ${BINARY}-${VERSION}-darwin-amd64.tar.gz ${BINARY}-${VERSION}-darwin-amd64
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build ${FLAGS} -o ${DIST_FOLDER}/${BINARY}-${VERSION}-linux-amd64

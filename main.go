@@ -9,8 +9,10 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -167,26 +169,30 @@ func main() {
 	e.HidePort = true
 	e.HideBanner = true
 
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		log.Info("IM IN")
+		code := http.StatusInternalServerError
+		if he, ok := err.(*echo.HTTPError); ok {
+			code = he.Code
+		}
+		log.Info(err)
+		c.JSON(code, api.JSON{
+			"status_code": code,
+			"hello":       "world",
+		})
+	}
+
 	// Prometheus HTTP handler
 	p := prom.NewPrometheus("echo", nil)
 	p.Use(e)
 
-	/*e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
-		Root:       "/",
-		Browse:     false,
-		HTML5:      true,
-		Filesystem: getFileSystem(),
-	}))*/
-
-	fsys, err := fs.Sub(embededFiles, "ui/dist")
+	// parse BaseURL
+	baseURL, err := url.Parse(cfg.BaseURL)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	fs := http.FS(fsys)
-	assetHandler := http.FileServer(fs)
-	e.GET("/test/*", echo.WrapHandler(assetHandler))
-
+	baseGroup := e.Group(baseURL.RequestURI())
 	handleIndexFunc := func(c echo.Context) error {
 		response, err := parseTemplate("ui/dist/index.html", cfg)
 		if err != nil {
@@ -198,15 +204,41 @@ func main() {
 		return c.HTML(http.StatusOK, response)
 	}
 
-	e.GET("/test/index.html", handleIndexFunc)
+	fsys, err := fs.Sub(embededFiles, "ui/dist")
+	if err != nil {
+		panic(err)
+	}
 
-	e.GET("/test", handleIndexFunc)
+	assetHandler := func(root http.FileSystem) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			fileServer := http.FileServer(root)
+			path := strings.TrimPrefix(path.Clean(c.Request().URL.Path), baseURL.RequestURI())
+			_, err := root.Open(path) // Do not allow path traversals.
+			if os.IsNotExist(err) {
+				return handleIndexFunc(c)
+			}
 
-	e.GET("/config.js", func(c echo.Context) error {
-		return c.String(http.StatusOK, fmt.Sprintf("var baseURL = '%s';", cfg.BaseURL))
+			fsPath, err := url.Parse(path)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, api.JSON{
+					"message": "Could not serve static asset.",
+				})
+			}
+
+			c.Request().URL = fsPath
+			fileServer.ServeHTTP(c.Response(), c.Request())
+			return nil
+		}
+	}
+
+	baseGroup.GET("/*", assetHandler(http.FS(fsys)))
+	baseGroup.GET("/index.html", handleIndexFunc)
+	baseGroup.GET("/", handleIndexFunc)
+	baseGroup.GET("/argos_config.js", func(c echo.Context) error {
+		return c.String(http.StatusOK, fmt.Sprintf("var baseURL = '%s';", baseURL.RequestURI()))
 	})
 
-	g := e.Group("/api")
+	g := baseGroup.Group("/api")
 	api.RegisterApiHandlers(g, cfg, Version, GitCommit, sbarStore, eventStore, eventSampler)
 
 	// start the server

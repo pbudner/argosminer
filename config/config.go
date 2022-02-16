@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/pbudner/argosminer/parsers"
 	"github.com/pbudner/argosminer/sources"
@@ -75,6 +76,7 @@ func NewConfig(path string) (*Config, error) {
 		config.BaseURL = defaultConfig.BaseURL
 	}
 
+	config.BaseURL = strings.TrimRight(config.BaseURL, "/") // remove tailing slashes
 	return config, nil
 }
 
