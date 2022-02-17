@@ -181,15 +181,16 @@ func main() {
 		})
 	}
 
-	// Prometheus HTTP handler
-	p := prom.NewPrometheus("echo", nil)
-	p.Use(e)
-
 	// parse BaseURL
 	baseURL, err := url.Parse(cfg.BaseURL)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Prometheus HTTP handler
+	p := prom.NewPrometheus("echo", nil)
+	p.MetricsPath = fmt.Sprintf("%s/metrics", baseURL.RequestURI())
+	p.Use(e)
 
 	baseGroup := e.Group(baseURL.RequestURI())
 	handleIndexFunc := func(c echo.Context) error {
