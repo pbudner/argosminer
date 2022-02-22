@@ -192,7 +192,10 @@ func main() {
 	p.MetricsPath = fmt.Sprintf("%s/metrics", baseURL.RequestURI())
 	p.Use(e)
 
-	baseGroup := e.Group(baseURL.RequestURI())
+	baseUrlPath := strings.TrimRight(baseURL.RequestURI(), "/")
+	log.Infof("base url for webserver is '%s'", baseUrlPath)
+	baseGroup := e.Group(baseUrlPath)
+
 	handleIndexFunc := func(c echo.Context) error {
 		response, err := parseTemplate("ui/dist/index.html", cfg)
 		if err != nil {
@@ -234,9 +237,6 @@ func main() {
 	baseGroup.GET("/*", assetHandler(http.FS(fsys)))
 	baseGroup.GET("/index.html", handleIndexFunc)
 	baseGroup.GET("/", handleIndexFunc)
-	baseGroup.GET("/argos_config.js", func(c echo.Context) error {
-		return c.Blob(http.StatusOK, echo.MIMEApplicationJavaScriptCharsetUTF8, []byte(fmt.Sprintf("var baseURL = '%s';", baseURL.RequestURI())))
-	})
 
 	g := baseGroup.Group("/api")
 	api.RegisterApiHandlers(g, cfg, Version, GitCommit, sbarStore, eventStore, eventSampler)
@@ -271,15 +271,6 @@ func main() {
 	kvStore.Close()
 	store.Close()
 	log.Info("all workers finished.. Shutting down!")
-}
-
-func getFileSystem() http.FileSystem {
-	fsys, err := fs.Sub(embededFiles, "ui/dist")
-	if err != nil {
-		panic(err)
-	}
-
-	return http.FS(fsys)
 }
 
 func parseTemplate(templateFileName string, data interface{}) (string, error) {

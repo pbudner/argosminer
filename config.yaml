@@ -1,6 +1,5 @@
 ---
 listener: localhost:4711
-base-url: http://localhost:4711/ArgosMiner
 logger:
   level: info
 db:
