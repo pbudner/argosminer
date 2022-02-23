@@ -24,9 +24,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/pbudner/argosminer/api"
 	"github.com/pbudner/argosminer/config"
-	"github.com/pbudner/argosminer/parsers"
-	"github.com/pbudner/argosminer/processors"
-	"github.com/pbudner/argosminer/sources"
+	"github.com/pbudner/argosminer/pipeline"
+	"github.com/pbudner/argosminer/pipeline/sinks"
+	"github.com/pbudner/argosminer/pipeline/sources"
+	"github.com/pbudner/argosminer/pipeline/transforms"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/pbudner/argosminer/utils"
@@ -85,8 +86,6 @@ func main() {
 	defer undo()
 
 	log.Infow("Starting ArgosMiner", "version", Version, "commit", GitCommit)
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
 
 	// ensure data path exists
@@ -113,9 +112,9 @@ func main() {
 
 	eventSampler := utils.NewEventSampler(eventStore)
 
-	receiverList := []processors.StreamingProcessor{
-		processors.NewEventProcessor(eventStore),
-		processors.NewDfgStreamingAlgorithm(sbarStore),
+	receiverList := []pipeline.Component{
+		sinks.NewEventProcessor(eventStore),
+		sinks.NewDfgStreamingAlgorithm(sbarStore),
 	}
 	for _, source := range cfg.Sources {
 		if !source.Enabled {
@@ -123,7 +122,7 @@ func main() {
 		}
 
 		// file Source
-		if source.FileConfig != nil {
+		/*if source.FileConfig != nil {
 			log.Debug("starting a file source...")
 			wg.Add(1)
 			parserSlice := make([]parsers.Parser, 0)
@@ -135,26 +134,43 @@ func main() {
 			}
 			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parserSlice, receiverList, kvStore)
 			go fs.Run(ctx, wg)
-		}
+		}*/
 
 		// kafka Source
 		if source.KafkaConfig != nil {
-			log.Debug("starting kafka source...")
-			wg.Add(1)
-			parserSlice := make([]parsers.Parser, 0)
-			for _, parser := range source.CsvParsers {
-				parserSlice = append(parserSlice, parsers.NewCsvParser(*parser))
+			log.Debug("Starting kafka source...")
+			kafkaSource := sources.NewKafka(source.KafkaConfig)
+
+			components := make([]pipeline.Component, 0)
+			for _, config := range source.CsvParsers {
+				parser := transforms.NewCsvParser(*config)
+				parser.Link(kafkaSource.Subscribe())
+				components = append(components, parser)
+				for _, receiver := range receiverList {
+					receiver.Link(parser.Subscribe())
+				}
+				wg.Add(1)
+				go parser.Run(wg)
 			}
-			for _, parser := range source.JsonParsers {
-				parserSlice = append(parserSlice, parsers.NewJsonParser(*parser))
+			for _, config := range source.JsonParsers {
+				parser := transforms.NewJsonParser(*config)
+				defer parser.Close()
+				parser.Link(kafkaSource.Subscribe())
+				components = append(components, parser)
+				for _, receiver := range receiverList {
+					receiver.Link(parser.Subscribe())
+				}
+				wg.Add(1)
+				go parser.Run(wg)
 			}
 
-			fs := sources.NewKafkaSource(*source.KafkaConfig, parserSlice)
 			for _, receiver := range receiverList {
-				fs.AddReceiver(receiver)
+				wg.Add(1)
+				go receiver.Run(wg)
 			}
 
-			go fs.Run(ctx, wg)
+			wg.Add(1)
+			go kafkaSource.Run(wg)
 		}
 	}
 
@@ -169,7 +185,6 @@ func main() {
 	e.HideBanner = true
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
-		log.Info("IM IN")
 		code := http.StatusInternalServerError
 		if he, ok := err.(*echo.HTTPError); ok {
 			code = he.Code
@@ -254,12 +269,12 @@ func main() {
 	<-termChan // Blocks here until interrupted
 	log.Info("SIGTERM received. Shutdown initiated")
 
-	ctxTimeout, cancelFunc2 := context.WithTimeout(ctx, time.Duration(time.Second*15))
+	log.Info("Shutting down echo..")
+	ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
 	if err := e.Shutdown(ctxTimeout); err != nil {
 		log.Error(err)
 	}
 
-	cancelFunc2()
 	cancelFunc()
 
 	// block here until are workers are done

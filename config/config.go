@@ -6,19 +6,19 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pbudner/argosminer/parsers"
-	"github.com/pbudner/argosminer/sources"
+	"github.com/pbudner/argosminer/pipeline/sources"
+	"github.com/pbudner/argosminer/pipeline/transforms"
 	"github.com/pbudner/argosminer/storage"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
 type Source struct {
-	Enabled     bool                        `yaml:"enabled"`
-	FileConfig  *sources.FileSourceConfig   `yaml:"file-config,omitempty"`
-	KafkaConfig *sources.KafkaSourceConfig  `yaml:"kafka-config,omitempty"`
-	CsvParsers  []*parsers.CsvParserConfig  `yaml:"csv-parsers,omitempty"`
-	JsonParsers []*parsers.JsonParserConfig `yaml:"json-parsers,omitempty"`
+	Enabled bool `yaml:"enabled"`
+	// FileConfig  *sources.FileSourceConfig   `yaml:"file-config,omitempty"`
+	KafkaConfig *sources.KafkaConfig           `yaml:"kafka-config,omitempty"`
+	CsvParsers  []*transforms.CsvParserConfig  `yaml:"csv-parsers,omitempty"`
+	JsonParsers []*transforms.JsonParserConfig `yaml:"json-parsers,omitempty"`
 }
 
 type Config struct {

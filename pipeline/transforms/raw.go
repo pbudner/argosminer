@@ -9,7 +9,6 @@ import (
 
 // this parser is primarily used for performance testing as it does not cost significant performance
 type rawParser struct {
-	pipeline.Component
 	pipeline.Consumer
 	pipeline.Publisher
 	Event *pipeline.Event

@@ -25,7 +25,6 @@ type CsvParserConfig struct {
 }
 
 type csvParser struct {
-	pipeline.Component
 	pipeline.Consumer
 	pipeline.Publisher
 	config          CsvParserConfig
@@ -48,7 +47,7 @@ func init() {
 	prometheus.MustRegister(csvSkippedEvents)
 }
 
-func NewCsvParser(config CsvParserConfig) csvParser {
+func NewCsvParser(config CsvParserConfig) *csvParser {
 	conditionFuncs := make([]csvConditionLiteral, len(config.IgnoreWhen))
 	for i, ignoreWhen := range config.IgnoreWhen {
 		conditionFuncs[i] = func(eventColumns []string) (bool, error) {
@@ -65,7 +64,7 @@ func NewCsvParser(config CsvParserConfig) csvParser {
 			return val != ignoreWhen.Value, nil
 		}
 	}
-	return csvParser{
+	return &csvParser{
 		log:             zap.L().Sugar().With("service", "csv-parser"),
 		config:          config,
 		conditions:      conditionFuncs,

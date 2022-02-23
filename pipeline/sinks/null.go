@@ -1,6 +1,8 @@
-package processors
+package sinks
 
 import (
+	"sync"
+
 	"github.com/google/uuid"
 	"github.com/pbudner/argosminer/pipeline"
 	"github.com/prometheus/client_golang/prometheus"
@@ -9,6 +11,7 @@ import (
 
 // this receiver is primarily used for performance testing as it does not cost significant performance
 type devNullProcessor struct {
+	pipeline.Consumer
 	Id uuid.UUID
 }
 
@@ -45,11 +48,18 @@ func NewDevNullProcessor() *devNullProcessor {
 	return &algo
 }
 
-func (a *devNullProcessor) Append(event pipeline.Event) error {
-	lastReceivedNullEvent.WithLabelValues(a.Id.String()).SetToCurrentTime()
-	receivedNullEventsCounter.WithLabelValues(a.Id.String()).Inc()
-	lastReceviedNullEventTime.WithLabelValues(a.Id.String()).Set(float64(event.Timestamp.Unix()))
-	return nil
+func (dp *devNullProcessor) Subscribe(parent chan interface{}) {
+	panic("A sink component must not be subscribed to")
+}
+
+func (dp *devNullProcessor) Run(wg *sync.WaitGroup) {
+	defer wg.Done()
+	for input := range dp.Consumes {
+		lastReceivedNullEvent.WithLabelValues(dp.Id.String()).SetToCurrentTime()
+		receivedNullEventsCounter.WithLabelValues(dp.Id.String()).Inc()
+		lastReceviedNullEventTime.WithLabelValues(dp.Id.String()).Set(float64((input.(pipeline.Event)).Timestamp.Unix()))
+		dp.Consumes <- true
+	}
 }
 
 func (a *devNullProcessor) Close() {

@@ -1,6 +1,8 @@
-package processors
+package sinks
 
 import (
+	"sync"
+
 	"github.com/google/uuid"
 	"github.com/pbudner/argosminer/pipeline"
 	"github.com/pbudner/argosminer/stores"
@@ -9,6 +11,7 @@ import (
 )
 
 type dfgStreamingAlgorithm struct {
+	pipeline.Consumer
 	Id    uuid.UUID
 	Store *stores.SbarStore
 	log   *zap.SugaredLogger
@@ -46,7 +49,25 @@ func NewDfgStreamingAlgorithm(store *stores.SbarStore) *dfgStreamingAlgorithm {
 	return &algo
 }
 
-func (a *dfgStreamingAlgorithm) Append(event pipeline.Event) error {
+func (a *dfgStreamingAlgorithm) Subscribe() chan interface{} {
+	panic("A sink component must not be subscribed to")
+}
+
+func (a *dfgStreamingAlgorithm) Run(wg *sync.WaitGroup) {
+	a.log.Info("Starting pipeline.sinks.DFG")
+	defer wg.Done()
+	for input := range a.Consumes {
+		err := a.append(input.(pipeline.Event))
+		if err == nil {
+			a.Consumes <- true
+		} else {
+			a.Consumes <- false
+		}
+	}
+	a.log.Info("Shutting down pipeline.sinks.DFG")
+}
+
+func (a *dfgStreamingAlgorithm) append(event pipeline.Event) error {
 	// update metrics
 	lastReceivedDfgEvent.WithLabelValues(a.Id.String()).SetToCurrentTime()
 	receivedDfgEventsCounter.WithLabelValues(a.Id.String()).Inc()
