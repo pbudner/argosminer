@@ -1,13 +1,18 @@
-package parsers
+package transforms
 
 import (
-	"github.com/pbudner/argosminer/events"
+	"sync"
+
+	"github.com/pbudner/argosminer/pipeline"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 // this parser is primarily used for performance testing as it does not cost significant performance
 type rawParser struct {
-	Event *events.Event
+	pipeline.Component
+	pipeline.Consumer
+	pipeline.Publisher
+	Event *pipeline.Event
 }
 
 var rawSkippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
@@ -22,14 +27,18 @@ func init() {
 
 func NewRawParser() rawParser {
 	return rawParser{
-		Event: &events.Event{},
+		Event: &pipeline.Event{},
 	}
 }
 
-func (p rawParser) Parse(input string) (*events.Event, error) {
-	return p.Event, nil
+func (rp *rawParser) Run(wg *sync.WaitGroup) {
+	defer wg.Done()
+	for input := range rp.Consumes {
+		rp.Consumes <- true
+		rp.Publish(input, true)
+	}
 }
 
-func (p rawParser) Close() {
-	// nothing to do here
+func (rp *rawParser) Close() {
+	rp.Publisher.Close()
 }

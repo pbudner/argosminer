@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pbudner/argosminer/events"
+	"github.com/pbudner/argosminer/pipeline"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/storage/key"
 	"github.com/vmihailenco/msgpack/v5"
@@ -27,7 +27,7 @@ type EventStore struct {
 	sync.RWMutex
 	storage    storage.Storage
 	counter    uint64
-	buffer     []events.Event
+	buffer     []pipeline.Event
 	binCounter map[string]uint64 // stores a counter for each day (key = yyyymmdd)
 	log        *zap.SugaredLogger
 }
@@ -71,7 +71,7 @@ func (es *EventStore) init() {
 	}
 }
 
-func (es *EventStore) Append(event events.Event) error {
+func (es *EventStore) Append(event pipeline.Event) error {
 	es.Lock()
 	defer es.Unlock()
 
@@ -97,11 +97,11 @@ func (es *EventStore) Append(event events.Event) error {
 	return nil
 }
 
-func (es *EventStore) GetLast(count int) ([]events.Event, error) {
+func (es *EventStore) GetLast(count int) ([]pipeline.Event, error) {
 	es.RLock()
 	defer es.RUnlock()
 
-	var event_arr []events.Event
+	var event_arr []pipeline.Event
 	if count > len(es.buffer) {
 		event_arr = es.buffer[:]
 	} else {
@@ -119,7 +119,7 @@ func (es *EventStore) GetLast(count int) ([]events.Event, error) {
 				es.log.Warn("Prefix search included wrong items. Abort search.")
 				return false, nil
 			}
-			var evts []events.Event
+			var evts []pipeline.Event
 			value, err := getValue()
 			if err != nil {
 				return false, err

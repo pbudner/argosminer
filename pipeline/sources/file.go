@@ -1,5 +1,6 @@
 package sources
 
+/*
 import (
 	"bufio"
 	"context"
@@ -201,3 +202,4 @@ func (fs *fileSource) readFile(ctx context.Context) {
 
 	fs.lastFilePosition = newPosition
 }
+*/

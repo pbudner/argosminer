@@ -2,7 +2,7 @@ package processors
 
 import (
 	"github.com/google/uuid"
-	"github.com/pbudner/argosminer/events"
+	"github.com/pbudner/argosminer/pipeline"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -45,7 +45,7 @@ func NewDevNullProcessor() *devNullProcessor {
 	return &algo
 }
 
-func (a *devNullProcessor) Append(event *events.Event) error {
+func (a *devNullProcessor) Append(event pipeline.Event) error {
 	lastReceivedNullEvent.WithLabelValues(a.Id.String()).SetToCurrentTime()
 	receivedNullEventsCounter.WithLabelValues(a.Id.String()).Inc()
 	lastReceviedNullEventTime.WithLabelValues(a.Id.String()).Set(float64(event.Timestamp.Unix()))

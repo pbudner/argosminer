@@ -1,4 +1,4 @@
-package events
+package pipeline
 
 import (
 	"encoding/json"

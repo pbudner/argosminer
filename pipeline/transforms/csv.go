@@ -1,11 +1,11 @@
-package parsers
+package transforms
 
 import (
 	"fmt"
 	"strings"
+	"sync"
 
-	"github.com/pbudner/argosminer/events"
-	"github.com/pbudner/argosminer/parsers/utils"
+	"github.com/pbudner/argosminer/pipeline"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -25,10 +25,12 @@ type CsvParserConfig struct {
 }
 
 type csvParser struct {
-	Parser
+	pipeline.Component
+	pipeline.Consumer
+	pipeline.Publisher
 	config          CsvParserConfig
 	conditions      []csvConditionLiteral
-	timestampParser *utils.TimestampParser
+	timestampParser *TimestampParser
 	log             *zap.SugaredLogger
 }
 
@@ -67,12 +69,25 @@ func NewCsvParser(config CsvParserConfig) csvParser {
 		log:             zap.L().Sugar().With("service", "csv-parser"),
 		config:          config,
 		conditions:      conditionFuncs,
-		timestampParser: utils.NewTimestampParser(config.TimestampFormat, config.TimestampTzIanakey),
+		timestampParser: NewTimestampParser(config.TimestampFormat, config.TimestampTzIanakey),
 	}
 }
 
-func (p csvParser) Parse(input []byte) (events.Event, error) {
-	event := events.Event{}
+func (cp *csvParser) Run(wg *sync.WaitGroup) {
+	cp.log.Info("Starting pipeline.transforms.CsvParser")
+	defer wg.Done()
+	for input := range cp.Consumes {
+		evt, err := cp.parse(input.([]byte))
+		if err != nil {
+			cp.Consumes <- true
+			cp.Publish(evt, true)
+		}
+	}
+	cp.log.Info("Shutting down pipeline.transforms.CsvParser")
+}
+
+func (p *csvParser) parse(input []byte) (pipeline.Event, error) {
+	event := pipeline.Event{}
 	eventColumns := strings.Split(string(input), p.config.Delimiter)
 	for _, condition := range p.conditions {
 		lineShouldBeIgnored, err := condition(eventColumns)
@@ -99,9 +114,9 @@ func (p csvParser) Parse(input []byte) (events.Event, error) {
 		return event, err
 	}
 
-	return events.NewEvent(processInstanceId, activityName, timestamp.UTC(), nil), nil
+	return pipeline.NewEvent(processInstanceId, activityName, timestamp.UTC(), nil), nil
 }
 
-func (p csvParser) Close() {
-	// do nothing
+func (cp *csvParser) Close() {
+	cp.Publisher.Close()
 }

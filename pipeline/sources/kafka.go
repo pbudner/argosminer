@@ -8,39 +8,35 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pbudner/argosminer/events"
-	"github.com/pbudner/argosminer/parsers"
-	"github.com/pbudner/argosminer/processors"
+	"github.com/pbudner/argosminer/pipeline"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/segmentio/kafka-go"
+	goKafka "github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl/scram"
 	"go.uber.org/zap"
 )
 
-type KafkaSourceConfig struct {
-	Brokers            string           `yaml:"brokers"`
-	Tls                bool             `yaml:"tls"`
-	GroupID            string           `yaml:"group-id"`
-	Topic              string           `yaml:"topic"`
-	MinBytes           int              `yaml:"min-bytes"`
-	MaxBytes           int              `yaml:"max-bytes"`
-	CommitInterval     time.Duration    `yaml:"commit-interval"`
-	Timeout            time.Duration    `yaml:"timeout"`
-	StartFromBeginning bool             `yaml:"start-from-beginning"`
-	SaslConfig         *KafkaSaslConfig `yaml:"sasl-config"`
+type KafkaConfig struct {
+	Brokers            string        `yaml:"brokers"`
+	Tls                bool          `yaml:"tls"`
+	GroupID            string        `yaml:"group-id"`
+	Topic              string        `yaml:"topic"`
+	MinBytes           int           `yaml:"min-bytes"`
+	MaxBytes           int           `yaml:"max-bytes"`
+	CommitInterval     time.Duration `yaml:"commit-interval"`
+	Timeout            time.Duration `yaml:"timeout"`
+	StartFromBeginning bool          `yaml:"start-from-beginning"`
+	SaslConfig         *struct {
+		Username string `yaml:"username"`
+		Password string `yaml:"password"`
+	} `yaml:"sasl-config"`
 }
 
-type KafkaSaslConfig struct {
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-}
-
-type kafkaSource struct {
-	Config    KafkaSourceConfig
-	Reader    *kafka.Reader
-	Parsers   []parsers.Parser
-	Receivers []processors.StreamingProcessor
-	log       *zap.SugaredLogger
+type kafka struct {
+	pipeline.Consumer
+	pipeline.Publisher
+	Config KafkaConfig
+	Reader *goKafka.Reader
+	log    *zap.SugaredLogger
 }
 
 var receivedKafkaEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -65,30 +61,26 @@ func init() {
 	prometheus.MustRegister(receivedKafkaEvents, receivedKafkaEventsWithError, lastReceivedKafkaEvent)
 }
 
-func NewKafkaSource(config KafkaSourceConfig, parsers []parsers.Parser) kafkaSource {
-	return kafkaSource{
-		Config:    config,
-		Parsers:   parsers,
-		Receivers: []processors.StreamingProcessor{},
-		log:       zap.L().Sugar().With("service", "kafka-source"),
+func NewKafka(config KafkaConfig) kafka {
+	return kafka{
+		Config: config,
+		log:    zap.L().Sugar().With("component", "sources.kafka"),
 	}
 }
 
-func (s *kafkaSource) AddReceiver(receiver processors.StreamingProcessor) {
-	s.Receivers = append(s.Receivers, receiver)
-}
-
-func (s *kafkaSource) Close() {
+func (s *kafka) Close() {
 	s.Reader.Close()
-	for _, parser := range s.Parsers {
-		parser.Close()
-	}
+	s.Publisher.Close()
 }
 
-func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
+func (s *kafka) Link(parent chan interface{}) {
+	panic("A source component must not be linked to a parent pipeline component")
+}
+
+func (s *kafka) Run(ctx context.Context, wg *sync.WaitGroup) {
 	s.log.Debug("Initializing kafka source..")
 	defer wg.Done()
-	dialer := &kafka.Dialer{
+	dialer := &goKafka.Dialer{
 		Timeout:   s.Config.Timeout,
 		DualStack: true,
 	}
@@ -106,7 +98,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		dialer.SASLMechanism = mechanism
 	}
 
-	r := kafka.NewReader(kafka.ReaderConfig{
+	r := goKafka.NewReader(goKafka.ReaderConfig{
 		Dialer:         dialer,
 		Brokers:        strings.Split(s.Config.Brokers, ","),
 		GroupID:        s.Config.GroupID,
@@ -133,7 +125,8 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 		receivedKafkaEvents.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 		lastReceivedKafkaEvent.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).SetToCurrentTime()
 
-		var event events.Event
+		s.Publish(m.Value, false) // we only want to send an input to one working parser
+		/*var event events.Event
 		var parseErr error
 		for _, parser := range s.Parsers {
 			event, parseErr = parser.Parse(m.Value)
@@ -156,7 +149,7 @@ func (s *kafkaSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 					receivedKafkaEventsWithError.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 				}
 			}
-		}
+		}*/
 
 		if err := r.CommitMessages(context.Background(), m); err != nil {
 			s.log.Error("Failed to commit messages:", err)

@@ -2,7 +2,7 @@ package processors
 
 import (
 	"github.com/google/uuid"
-	"github.com/pbudner/argosminer/events"
+	"github.com/pbudner/argosminer/pipeline"
 	"github.com/pbudner/argosminer/stores"
 	"go.uber.org/zap"
 )
@@ -24,7 +24,7 @@ func NewEventProcessor(eventStore *stores.EventStore) *eventProcessor {
 	return receiver
 }
 
-func (a *eventProcessor) Append(event events.Event) error {
+func (a *eventProcessor) Append(event pipeline.Event) error {
 	return a.EventStore.Append(event)
 }
 

@@ -2,7 +2,7 @@ package processors
 
 import (
 	"github.com/google/uuid"
-	"github.com/pbudner/argosminer/events"
+	"github.com/pbudner/argosminer/pipeline"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -46,7 +46,7 @@ func NewDfgStreamingAlgorithm(store *stores.SbarStore) *dfgStreamingAlgorithm {
 	return &algo
 }
 
-func (a *dfgStreamingAlgorithm) Append(event events.Event) error {
+func (a *dfgStreamingAlgorithm) Append(event pipeline.Event) error {
 	// update metrics
 	lastReceivedDfgEvent.WithLabelValues(a.Id.String()).SetToCurrentTime()
 	receivedDfgEventsCounter.WithLabelValues(a.Id.String()).Inc()
@@ -65,7 +65,7 @@ func (a *dfgStreamingAlgorithm) Append(event events.Event) error {
 		return err
 	}
 	if lastActivityForCase == "" {
-		// 1. we have not seen this case so far
+		// 1. we have not seen this case thus far
 		a.Store.RecordStartActivity(activityName)
 		err = a.Store.RecordDirectlyFollowsRelation("", activityName, timestamp)
 		if err != nil {

@@ -1,10 +1,10 @@
-package parsers
+package transforms
 
 import (
 	"fmt"
+	"sync"
 
-	"github.com/pbudner/argosminer/events"
-	"github.com/pbudner/argosminer/parsers/utils"
+	"github.com/pbudner/argosminer/pipeline"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
@@ -25,10 +25,11 @@ type JsonParserConfig struct {
 }
 
 type jsonParser struct {
-	Parser
+	pipeline.Publisher
+	pipeline.Consumer
 	config          JsonParserConfig
 	conditions      []jsonConditionLiteral
-	timestampParser *utils.TimestampParser
+	timestampParser *TimestampParser
 	log             *zap.SugaredLogger
 }
 
@@ -46,7 +47,7 @@ func init() {
 	prometheus.MustRegister(jsonSkippedEvents)
 }
 
-func NewJsonParser(config JsonParserConfig) jsonParser {
+func NewJsonParser(config JsonParserConfig) *jsonParser {
 	conditionFuncs := make([]jsonConditionLiteral, len(config.IgnoreWhen))
 	for i, ignoreWhen := range config.IgnoreWhen {
 		conditionFuncs[i] = func(json gjson.Result) (bool, error) {
@@ -59,18 +60,33 @@ func NewJsonParser(config JsonParserConfig) jsonParser {
 			return val != ignoreWhen.Value, nil
 		}
 	}
-	return jsonParser{
+	return &jsonParser{
 		log:             zap.L().Sugar().With("service", "json-parser"),
 		config:          config,
 		conditions:      conditionFuncs,
-		timestampParser: utils.NewTimestampParser(config.TimestampFormat, config.TimestampTzIanakey),
+		timestampParser: NewTimestampParser(config.TimestampFormat, config.TimestampTzIanakey),
 	}
 }
 
-func (p jsonParser) Parse(input []byte) (nilEvent events.Event, err error) {
+func (jp *jsonParser) Run(wg *sync.WaitGroup) {
+	jp.log.Info("Starting pipeline.transforms.JsonParser")
+	defer wg.Done()
+	for input := range jp.Consumes {
+		evt, err := jp.parse(input.([]byte))
+		if err == nil {
+			jp.Consumes <- true
+			jp.Publish(evt, true)
+		} else {
+			jp.Consumes <- false
+		}
+	}
+	jp.log.Info("Shutting down pipeline.transforms.JsonParser")
+}
+
+func (jp *jsonParser) parse(input []byte) (nilEvent pipeline.Event, err error) {
 	// JSON in JSON
-	if p.config.JsonPath != "" {
-		result := gjson.GetBytes(input, p.config.JsonPath)
+	if jp.config.JsonPath != "" {
+		result := gjson.GetBytes(input, jp.config.JsonPath)
 		input = []byte(result.Str)
 	}
 
@@ -78,7 +94,7 @@ func (p jsonParser) Parse(input []byte) (nilEvent events.Event, err error) {
 
 	var lineShouldBeIgnored bool
 
-	for _, condition := range p.conditions {
+	for _, condition := range jp.conditions {
 		lineShouldBeIgnored, err = condition(parsedJson)
 		if err != nil {
 			return
@@ -86,15 +102,15 @@ func (p jsonParser) Parse(input []byte) (nilEvent events.Event, err error) {
 
 		if lineShouldBeIgnored {
 			jsonSkippedEvents.Inc()
-			p.log.Debug("skipping a line as an ignore condition is fulfilled")
+			jp.log.Debug("skipping a line as an ignore condition is fulfilled")
 			return
 		}
 	}
 
-	caseId := parsedJson.Get(p.config.CaseIdPath).String()
-	activity := parsedJson.Get(p.config.ActivityPath).String()
-	rawTimestamp := parsedJson.Get(p.config.TimestampPath).String()
-	timestamp, err := p.timestampParser.Parse(rawTimestamp)
+	caseId := parsedJson.Get(jp.config.CaseIdPath).String()
+	activity := parsedJson.Get(jp.config.ActivityPath).String()
+	rawTimestamp := parsedJson.Get(jp.config.TimestampPath).String()
+	timestamp, err := jp.timestampParser.Parse(rawTimestamp)
 	if err != nil {
 		return
 	}
@@ -109,9 +125,9 @@ func (p jsonParser) Parse(input []byte) (nilEvent events.Event, err error) {
 		return true
 	})
 
-	return events.NewEvent(caseId, activity, timestamp, additionalFields), nil
+	return pipeline.NewEvent(caseId, activity, timestamp, additionalFields), nil
 }
 
-func (p jsonParser) Close() {
-	// nothing to do here
+func (jp *jsonParser) Close() {
+	jp.Publisher.Close()
 }
