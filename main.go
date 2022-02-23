@@ -193,7 +193,6 @@ func main() {
 	p.Use(e)
 
 	baseUrlPath := strings.TrimRight(baseURL.RequestURI(), "/")
-	log.Infof("base url for webserver is '%s'", baseUrlPath)
 	baseGroup := e.Group(baseUrlPath)
 
 	handleIndexFunc := func(c echo.Context) error {
