@@ -116,6 +116,9 @@ func main() {
 		sinks.NewEventProcessor(eventStore),
 		sinks.NewDfgStreamingAlgorithm(sbarStore),
 	}
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+
 	for _, source := range cfg.Sources {
 		if !source.Enabled {
 			continue
@@ -149,8 +152,7 @@ func main() {
 				for _, receiver := range receiverList {
 					receiver.Link(parser.Subscribe())
 				}
-				wg.Add(1)
-				go parser.Run(wg)
+				go parser.Run(wg, ctx)
 			}
 			for _, config := range source.JsonParsers {
 				parser := transforms.NewJsonParser(*config)
@@ -160,17 +162,14 @@ func main() {
 				for _, receiver := range receiverList {
 					receiver.Link(parser.Subscribe())
 				}
-				wg.Add(1)
-				go parser.Run(wg)
+				go parser.Run(wg, ctx)
 			}
 
 			for _, receiver := range receiverList {
-				wg.Add(1)
-				go receiver.Run(wg)
+				go receiver.Run(wg, ctx)
 			}
 
-			wg.Add(1)
-			go kafkaSource.Run(wg)
+			go kafkaSource.Run(wg, ctx)
 		}
 	}
 
@@ -270,12 +269,13 @@ func main() {
 	log.Info("SIGTERM received. Shutdown initiated")
 
 	log.Info("Shutting down echo..")
-	ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
+	ctxTimeout, cancelFunc2 := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
 	if err := e.Shutdown(ctxTimeout); err != nil {
 		log.Error(err)
 	}
 
 	cancelFunc()
+	cancelFunc2()
 
 	// block here until are workers are done
 	wg.Wait()

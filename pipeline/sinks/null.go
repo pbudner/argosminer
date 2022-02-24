@@ -1,6 +1,7 @@
 package sinks
 
 import (
+	"context"
 	"sync"
 
 	"github.com/google/uuid"
@@ -52,13 +53,19 @@ func (dp *devNullProcessor) Subscribe(parent chan interface{}) {
 	panic("A sink component must not be subscribed to")
 }
 
-func (dp *devNullProcessor) Run(wg *sync.WaitGroup) {
+func (dp *devNullProcessor) Run(wg *sync.WaitGroup, ctx context.Context) {
+	wg.Add(1)
 	defer wg.Done()
-	for input := range dp.Consumes {
-		lastReceivedNullEvent.WithLabelValues(dp.Id.String()).SetToCurrentTime()
-		receivedNullEventsCounter.WithLabelValues(dp.Id.String()).Inc()
-		lastReceviedNullEventTime.WithLabelValues(dp.Id.String()).Set(float64((input.(pipeline.Event)).Timestamp.Unix()))
-		dp.Consumes <- true
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case input := <-dp.Consumes:
+			lastReceivedNullEvent.WithLabelValues(dp.Id.String()).SetToCurrentTime()
+			receivedNullEventsCounter.WithLabelValues(dp.Id.String()).Inc()
+			lastReceviedNullEventTime.WithLabelValues(dp.Id.String()).Set(float64((input.(pipeline.Event)).Timestamp.Unix()))
+			dp.Consumes <- true
+		}
 	}
 }
 

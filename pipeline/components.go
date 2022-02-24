@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"sync"
 )
 
@@ -9,7 +10,7 @@ const (
 )
 
 type Component interface {
-	Run(*sync.WaitGroup)
+	Run(*sync.WaitGroup, context.Context)
 	Link(parent chan interface{})
 	Subscribe() chan interface{}
 	Close()

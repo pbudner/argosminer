@@ -1,6 +1,7 @@
 package transforms
 
 import (
+	"context"
 	"sync"
 
 	"github.com/pbudner/argosminer/pipeline"
@@ -30,11 +31,17 @@ func NewRawParser() rawParser {
 	}
 }
 
-func (rp *rawParser) Run(wg *sync.WaitGroup) {
+func (rp *rawParser) Run(wg *sync.WaitGroup, ctx context.Context) {
+	wg.Add(1)
 	defer wg.Done()
-	for input := range rp.Consumes {
-		rp.Consumes <- true
-		rp.Publish(input, true)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case input := <-rp.Consumes:
+			rp.Consumes <- true
+			rp.Publish(input, true)
+		}
 	}
 }
 

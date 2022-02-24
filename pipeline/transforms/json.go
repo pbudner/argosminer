@@ -1,6 +1,7 @@
 package transforms
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -68,19 +69,25 @@ func NewJsonParser(config JsonParserConfig) *jsonParser {
 	}
 }
 
-func (jp *jsonParser) Run(wg *sync.WaitGroup) {
+func (jp *jsonParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 	jp.log.Info("Starting pipeline.transforms.JsonParser")
+	wg.Add(1)
 	defer wg.Done()
-	for input := range jp.Consumes {
-		evt, err := jp.parse(input.([]byte))
-		if err == nil {
-			jp.Consumes <- true
-			jp.Publish(evt, true)
-		} else {
-			jp.Consumes <- false
+	for {
+		select {
+		case <-ctx.Done():
+			jp.log.Info("Shutting down pipeline.transforms.JsonParser")
+			return
+		case input := <-jp.Consumes:
+			evt, err := jp.parse(input.([]byte))
+			if err == nil {
+				jp.Consumes <- true
+				jp.Publish(evt, true)
+			} else {
+				jp.Consumes <- false
+			}
 		}
 	}
-	jp.log.Info("Shutting down pipeline.transforms.JsonParser")
 }
 
 func (jp *jsonParser) parse(input []byte) (nilEvent pipeline.Event, err error) {

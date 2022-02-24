@@ -1,6 +1,7 @@
 package sinks
 
 import (
+	"context"
 	"sync"
 
 	"github.com/google/uuid"
@@ -53,18 +54,25 @@ func (a *dfgStreamingAlgorithm) Subscribe() chan interface{} {
 	panic("A sink component must not be subscribed to")
 }
 
-func (a *dfgStreamingAlgorithm) Run(wg *sync.WaitGroup) {
+func (a *dfgStreamingAlgorithm) Run(wg *sync.WaitGroup, ctx context.Context) {
 	a.log.Info("Starting pipeline.sinks.DFG")
+	wg.Add(1)
 	defer wg.Done()
-	for input := range a.Consumes {
-		err := a.append(input.(pipeline.Event))
-		if err == nil {
-			a.Consumes <- true
-		} else {
-			a.Consumes <- false
+	for {
+		select {
+		case <-ctx.Done():
+			a.log.Info("Shutting down pipeline.sinks.DFG")
+			return
+		case input := <-a.Consumes:
+			err := a.append(input.(pipeline.Event))
+			if err == nil {
+				a.Consumes <- true
+			} else {
+				a.Consumes <- false
+			}
 		}
 	}
-	a.log.Info("Shutting down pipeline.sinks.DFG")
+
 }
 
 func (a *dfgStreamingAlgorithm) append(event pipeline.Event) error {

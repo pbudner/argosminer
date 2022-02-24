@@ -1,6 +1,7 @@
 package sinks
 
 import (
+	"context"
 	"sync"
 
 	"github.com/google/uuid"
@@ -32,18 +33,24 @@ func (ep *eventProcessor) Subscribe() chan interface{} {
 	panic("A sink component must not be subscribed to")
 }
 
-func (ep *eventProcessor) Run(wg *sync.WaitGroup) {
+func (ep *eventProcessor) Run(wg *sync.WaitGroup, ctx context.Context) {
 	ep.log.Info("Starting pipeline.sinks.DFG")
+	wg.Add(1)
 	defer wg.Done()
-	for input := range ep.Consumes {
-		err := ep.EventStore.Append(input.(pipeline.Event))
-		if err == nil {
-			ep.Consumes <- true
-		} else {
-			ep.Consumes <- false
+	for {
+		select {
+		case <-ctx.Done():
+			ep.log.Info("Shutting down pipeline.sinks.DFG")
+			return
+		case input := <-ep.Consumes:
+			err := ep.EventStore.Append(input.(pipeline.Event))
+			if err == nil {
+				ep.Consumes <- true
+			} else {
+				ep.Consumes <- false
+			}
 		}
 	}
-	ep.log.Info("Shutting down pipeline.sinks.DFG")
 }
 
 func (ep *eventProcessor) Close() {

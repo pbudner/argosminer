@@ -1,6 +1,7 @@
 package transforms
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -72,17 +73,24 @@ func NewCsvParser(config CsvParserConfig) *csvParser {
 	}
 }
 
-func (cp *csvParser) Run(wg *sync.WaitGroup) {
+func (cp *csvParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 	cp.log.Info("Starting pipeline.transforms.CsvParser")
+	wg.Add(1)
 	defer wg.Done()
-	for input := range cp.Consumes {
-		evt, err := cp.parse(input.([]byte))
-		if err != nil {
-			cp.Consumes <- true
-			cp.Publish(evt, true)
+	for {
+		select {
+		case <-ctx.Done():
+			cp.log.Info("Shutting down pipeline.transforms.CsvParser")
+			return
+		case input := <-cp.Consumes:
+			evt, err := cp.parse(input.([]byte))
+			if err != nil {
+				cp.Consumes <- true
+				cp.Publish(evt, true)
+			}
 		}
+
 	}
-	cp.log.Info("Shutting down pipeline.transforms.CsvParser")
 }
 
 func (p *csvParser) parse(input []byte) (pipeline.Event, error) {

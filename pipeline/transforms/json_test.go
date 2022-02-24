@@ -1,6 +1,7 @@
 package transforms
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 
 func TestJsoninJsonParser(t *testing.T) {
 	wg := &sync.WaitGroup{}
+	ctx := context.Background()
 
 	parser := NewJsonParser(JsonParserConfig{
 		JsonPath:           "my_json",
@@ -22,7 +24,7 @@ func TestJsoninJsonParser(t *testing.T) {
 	parse := make(chan interface{})
 	parser.Link(parse)
 	receiver := parser.Subscribe()
-	go parser.Run(wg)
+	go parser.Run(wg, ctx)
 
 	// JSON in JSON
 	parse <- []byte("{\"my_json\": \"{\\\"activity\\\": \\\"my_activity\\\", \\\"case_id\\\": \\\"my_instance\\\", \\\"@timestamp\\\": \\\"2021-11-22T12:13:14.000\\\", \\\"inner_attribute\\\": \\\"foo\\\"}\", \"outer_attribute\": \"bar\"}")

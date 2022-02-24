@@ -34,11 +34,9 @@ type KafkaConfig struct {
 type kafka struct {
 	pipeline.Consumer
 	pipeline.Publisher
-	Config     KafkaConfig
-	Reader     *goKafka.Reader
-	log        *zap.SugaredLogger
-	ctx        context.Context
-	cancelFunc context.CancelFunc
+	Config KafkaConfig
+	Reader *goKafka.Reader
+	log    *zap.SugaredLogger
 }
 
 var receivedKafkaEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -64,17 +62,13 @@ func init() {
 }
 
 func NewKafka(config *KafkaConfig) *kafka {
-	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &kafka{
-		Config:     *config,
-		log:        zap.L().Sugar().With("component", "sources.kafka"),
-		ctx:        ctx,
-		cancelFunc: cancelFunc,
+		Config: *config,
+		log:    zap.L().Sugar().With("component", "sources.kafka"),
 	}
 }
 
 func (s *kafka) Close() {
-	s.cancelFunc()
 	s.Reader.Close()
 	s.Publisher.Close()
 }
@@ -83,8 +77,9 @@ func (s *kafka) Link(parent chan interface{}) {
 	panic("A source component must not be linked to a parent pipeline component")
 }
 
-func (s *kafka) Run(wg *sync.WaitGroup) {
+func (s *kafka) Run(wg *sync.WaitGroup, ctx context.Context) {
 	s.log.Debug("Initializing kafka source..")
+	wg.Add(1)
 	defer wg.Done()
 
 	dialer := &goKafka.Dialer{
@@ -118,7 +113,7 @@ func (s *kafka) Run(wg *sync.WaitGroup) {
 	brokerList := s.Config.Brokers
 
 	for {
-		m, err := r.ReadMessage(s.ctx)
+		m, err := r.ReadMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				s.log.Info("Shutting down kafka source..")
