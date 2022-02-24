@@ -1,8 +1,8 @@
 package sources
 
-/*
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -11,9 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pbudner/argosminer/events"
-	"github.com/pbudner/argosminer/parsers"
-	"github.com/pbudner/argosminer/processors"
+	"github.com/pbudner/argosminer/pipeline"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,11 +25,11 @@ type FileSourceConfig struct {
 }
 
 type fileSource struct {
+	pipeline.Consumer
+	pipeline.Publisher
 	Path             string
 	ReadFrom         string
 	Watcher          *watcher.Watcher
-	Parsers          []parsers.Parser
-	Receivers        []processors.StreamingProcessor
 	lastFilePosition int64
 	log              *zap.SugaredLogger
 	kvStore          *stores.KvStore
@@ -59,12 +57,10 @@ func init() {
 	prometheus.MustRegister(receivedFileEvents, receivedFileEventsWithError, lastReceivedFileEvent)
 }
 
-func NewFileSource(path, readFrom string, parsers []parsers.Parser, receivers []processors.StreamingProcessor, kvStore *stores.KvStore) fileSource {
+func NewFileSource(path, readFrom string, kvStore *stores.KvStore) *fileSource {
 	fs := fileSource{
 		Path:             path,
 		ReadFrom:         strings.ToLower(readFrom),
-		Parsers:          parsers,
-		Receivers:        receivers,
 		lastFilePosition: 0,
 		log:              zap.L().Sugar().With("service", "file-source"),
 		kvStore:          kvStore,
@@ -76,15 +72,16 @@ func NewFileSource(path, readFrom string, parsers []parsers.Parser, receivers []
 		fs.log.Infow("continuing reading file source", "position", fs.lastFilePosition)
 	}
 
-	return fs
+	return &fs
+}
+
+func (fs *fileSource) Link(parent chan interface{}) {
+	panic("A source component must not be linked to a parent pipeline component")
 }
 
 func (fs *fileSource) Close() {
 	fs.kvStore.Set([]byte(fmt.Sprintf("file-source-position-%s", fs.Path)), storage.Uint64ToBytes(uint64(fs.lastFilePosition)))
 	fs.Watcher.Close()
-	for _, parser := range fs.Parsers {
-		parser.Close()
-	}
 }
 
 func (fs *fileSource) Run(ctx context.Context, wg *sync.WaitGroup) {
@@ -164,34 +161,9 @@ func (fs *fileSource) readFile(ctx context.Context) {
 		default:
 			lastReceivedFileEvent.WithLabelValues(fs.Path).SetToCurrentTime()
 			receivedFileEvents.WithLabelValues(fs.Path).Inc()
-			line := scanner.Text()
-			line = strings.ReplaceAll(line, "\"", "")
-
-			var event events.Event
-			var parseErr error
-			// event, parseErr = fs.Parser.Parse([]byte(line))
-			for _, parser := range fs.Parsers {
-				event, parseErr = parser.Parse([]byte(line))
-				if parseErr == nil && event.ActivityName != "" {
-					break
-				}
-			}
-
-			if parseErr != nil {
-				fs.log.Error(err)
-				receivedFileEventsWithError.WithLabelValues(fs.Path).Inc()
-				continue
-			}
-
-			if event.IsParsed {
-				for _, receiver := range fs.Receivers {
-					err := receiver.Append(event)
-					if err != nil {
-						fs.log.Error(err)
-						receivedFileEventsWithError.WithLabelValues(fs.Path).Inc()
-					}
-				}
-			}
+			line := scanner.Bytes()
+			line = bytes.ReplaceAll(line, []byte("\""), []byte(""))
+			fs.Publish(line, false) // we only want to send an input to one working parser
 		}
 	}
 
@@ -202,4 +174,3 @@ func (fs *fileSource) readFile(ctx context.Context) {
 
 	fs.lastFilePosition = newPosition
 }
-*/
