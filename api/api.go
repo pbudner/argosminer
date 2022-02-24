@@ -22,7 +22,7 @@ import (
 	"gonum.org/v1/gonum/graph/topo"
 )
 
-func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit string, sbarStore *stores.SbarStore, eventStore *stores.EventStore, eventSampler *utils.EventSampler) {
+func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit string) {
 	log := zap.L().Sugar()
 	v1 := g.Group("/v1")
 
@@ -56,6 +56,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 			}
 		}
 
+		eventStore := stores.GetEventStore()
 		events, err := eventStore.GetLast(counter)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, JSON{
@@ -70,6 +71,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 	})
 
 	v1.GET("/events/frequency", func(c echo.Context) error {
+		eventStore := stores.GetEventStore()
 		counter, err := eventStore.GetBinCount()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, JSON{
@@ -94,6 +96,8 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 	})
 
 	v1.GET("/statistics", func(c echo.Context) error {
+		eventStore := stores.GetEventStore()
+		sbarStore := stores.GetSbarStore()
 		counter := eventStore.GetCount()
 		activityCount := sbarStore.CountActivities()
 		dfRelationCount := sbarStore.CountDfRelations()
@@ -101,12 +105,12 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 			"event_count":       counter,
 			"activity_count":    activityCount,
 			"df_relation_count": dfRelationCount,
-			"events_per_second": eventSampler.GetSample(),
+			"events_per_second": utils.GetEventSampler().GetSample(),
 		})
 	})
 
 	v1.GET("/events/activities", func(c echo.Context) error {
-		v := sbarStore.GetActivities()
+		v := stores.GetSbarStore().GetActivities()
 		return c.JSON(http.StatusOK, JSON{
 			"activities": v,
 			"count":      len(v),
@@ -114,7 +118,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 	})
 
 	v1.GET("/dfrelations", func(c echo.Context) error {
-		v := sbarStore.GetDfRelations()
+		v := stores.GetSbarStore().GetDfRelations()
 		return c.JSON(200, JSON{
 			"dfrelations": v,
 			"count":       len(v),
@@ -151,7 +155,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 			activities[i] = vDec
 		}
 
-		result, err := sbarStore.DailyCountOfActivities(activities)
+		result, err := stores.GetSbarStore().DailyCountOfActivities(activities)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, JSON{
 				"error": err.Error(),
@@ -204,7 +208,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 			}
 			relations = append(relations, []string{from, to})
 		}
-		edges, err := sbarStore.GetDfRelationsWithinTimewindow(relations, start, end)
+		edges, err := stores.GetSbarStore().GetDfRelationsWithinTimewindow(relations, start, end)
 		if err != nil {
 			log.Error(err)
 			return c.JSON(http.StatusInternalServerError, JSON{
@@ -249,7 +253,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 		actionDegreeMap := make(map[int64]uint64)
 		g := multi.NewWeightedUndirectedGraph()
 		dg := multi.NewWeightedDirectedGraph()
-		relations := sbarStore.GetDfRelations()
+		relations := stores.GetSbarStore().GetDfRelations()
 		for _, relation := range relations {
 			ignoreFromActivity := false
 			removeFromActivity := false

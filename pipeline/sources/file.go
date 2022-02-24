@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/pbudner/argosminer/pipeline"
+	_ "github.com/pbudner/argosminer/pipeline/transforms"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/prometheus/client_golang/prometheus"
@@ -32,7 +33,6 @@ type file struct {
 	Watcher          *watcher.Watcher
 	lastFilePosition int64
 	log              *zap.SugaredLogger
-	kvStore          *stores.KvStore
 }
 
 var receivedFileEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -63,7 +63,7 @@ func NewFile(cfg FileConfig) *file {
 		// TODO: kvStore:          kvStore,
 	}
 
-	lastFilePositionBytes, err := fs.kvStore.Get([]byte(fmt.Sprintf("file-source-position-%s", fs.Path)))
+	lastFilePositionBytes, err := stores.GetKvStore().Get([]byte(fmt.Sprintf("file-source-position-%s", fs.Path)))
 	if err == nil {
 		fs.lastFilePosition = int64(storage.BytesToUint64(lastFilePositionBytes))
 		fs.log.Infow("continuing reading file source", "position", fs.lastFilePosition)

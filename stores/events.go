@@ -33,7 +33,7 @@ type EventStore struct {
 	log        *zap.SugaredLogger
 }
 
-func NewEventStore() *EventStore {
+func GetEventStore() *EventStore {
 	eventStoreSingletonOnce.Do(func() {
 		eventStoreSingleton = &EventStore{
 			log: zap.L().Sugar().With("service", "event-store"),

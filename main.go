@@ -22,10 +22,12 @@ import (
 	prom "github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
 	"github.com/pbudner/argosminer/api"
 	"github.com/pbudner/argosminer/config"
-	"github.com/pbudner/argosminer/pipeline/sources"
-	"github.com/pbudner/argosminer/pipeline/transforms"
+	"github.com/pbudner/argosminer/pipeline"
+	_ "github.com/pbudner/argosminer/pipeline/sinks"
+	_ "github.com/pbudner/argosminer/pipeline/sources"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -36,8 +38,10 @@ import (
 var embededFiles embed.FS
 
 var (
-	GitCommit string = "dev"
-	Version   string = "-live"
+	GitCommit       = "dev"
+	Version         = "-live"
+	wg              = &sync.WaitGroup{}
+	ctx, cancelFunc = context.WithCancel(context.Background())
 )
 
 var (
@@ -82,8 +86,6 @@ func main() {
 	defer undo()
 
 	log.Infow("Starting ArgosMiner", "version", Version, "commit", GitCommit)
-	wg := &sync.WaitGroup{}
-	ctx, cancelFunc := context.WithCancel(context.Background())
 
 	// ensure data path exists
 	err = os.MkdirAll(cfg.Database.Path, os.ModePerm)
@@ -99,78 +101,83 @@ func main() {
 	// open default storage
 	storage.DefaultStorage = storage.NewDiskStorage(cfg.Database)
 
-	for _, source := range cfg.Sources {
-		if !source.Enabled {
-			continue
+	// instantiate all configured pipeline components
+	instantiateComponents(nil, cfg.Pipeline)
+
+	/*
+		for _, source := range cfg.Sources {
+			if !source.Enabled {
+				continue
+			}
+
+			// file Source
+			if source.FileConfig != nil {
+				log.Debug("Starting fiile source")
+				fileSource := sources.NewFile(source.FileConfig.Path, source.FileConfig.ReadFrom, kvStore)
+				for _, config := range source.CsvParsers {
+					parser := transforms.NewCsvParser(*config)
+					parser.Link(fileSource.Subscribe())
+					for _, receiver := range sinkList {
+						receiver.Link(parser.Subscribe())
+					}
+					wg.Add(1)
+					go parser.Run(wg, ctx)
+				}
+
+				for _, config := range source.JsonParsers {
+					parser := transforms.NewJsonParser(*config)
+					defer parser.Close()
+					parser.Link(fileSource.Subscribe())
+					for _, receiver := range sinkList {
+						receiver.Link(parser.Subscribe())
+					}
+					wg.Add(1)
+					go parser.Run(wg, ctx)
+				}
+
+				for _, receiver := range sinkList {
+					wg.Add(1)
+					go receiver.Run(wg, ctx)
+				}
+
+				wg.Add(1)
+				go fileSource.Run(wg, ctx)
+			}
+
+			// kafka Source
+			if source.KafkaConfig != nil {
+				log.Debug("Starting kafka source")
+				kafkaSource := sources.NewKafka(source.KafkaConfig)
+				for _, config := range source.CsvParsers {
+					parser := transforms.NewCsvParser(*config)
+					parser.Link(kafkaSource.Subscribe())
+					for _, receiver := range sinkList {
+						receiver.Link(parser.Subscribe())
+					}
+					wg.Add(1)
+					go parser.Run(wg, ctx)
+				}
+				for _, config := range source.JsonParsers {
+					parser := transforms.NewJsonParser(*config)
+					defer parser.Close()
+					parser.Link(kafkaSource.Subscribe())
+					for _, receiver := range sinkList {
+						receiver.Link(parser.Subscribe())
+					}
+					wg.Add(1)
+					go parser.Run(wg, ctx)
+				}
+
+				for _, receiver := range sinkList {
+					wg.Add(1)
+					go receiver.Run(wg, ctx)
+				}
+
+				wg.Add(1)
+				go kafkaSource.Run(wg, ctx)
+			}
 		}
-
-		// file Source
-		if source.FileConfig != nil {
-			log.Debug("Starting fiile source")
-			fileSource := sources.NewFile(source.FileConfig.Path, source.FileConfig.ReadFrom, kvStore)
-			for _, config := range source.CsvParsers {
-				parser := transforms.NewCsvParser(*config)
-				parser.Link(fileSource.Subscribe())
-				for _, receiver := range sinkList {
-					receiver.Link(parser.Subscribe())
-				}
-				wg.Add(1)
-				go parser.Run(wg, ctx)
-			}
-
-			for _, config := range source.JsonParsers {
-				parser := transforms.NewJsonParser(*config)
-				defer parser.Close()
-				parser.Link(fileSource.Subscribe())
-				for _, receiver := range sinkList {
-					receiver.Link(parser.Subscribe())
-				}
-				wg.Add(1)
-				go parser.Run(wg, ctx)
-			}
-
-			for _, receiver := range sinkList {
-				wg.Add(1)
-				go receiver.Run(wg, ctx)
-			}
-
-			wg.Add(1)
-			go fileSource.Run(wg, ctx)
-		}
-
-		// kafka Source
-		if source.KafkaConfig != nil {
-			log.Debug("Starting kafka source")
-			kafkaSource := sources.NewKafka(source.KafkaConfig)
-			for _, config := range source.CsvParsers {
-				parser := transforms.NewCsvParser(*config)
-				parser.Link(kafkaSource.Subscribe())
-				for _, receiver := range sinkList {
-					receiver.Link(parser.Subscribe())
-				}
-				wg.Add(1)
-				go parser.Run(wg, ctx)
-			}
-			for _, config := range source.JsonParsers {
-				parser := transforms.NewJsonParser(*config)
-				defer parser.Close()
-				parser.Link(kafkaSource.Subscribe())
-				for _, receiver := range sinkList {
-					receiver.Link(parser.Subscribe())
-				}
-				wg.Add(1)
-				go parser.Run(wg, ctx)
-			}
-
-			for _, receiver := range sinkList {
-				wg.Add(1)
-				go receiver.Run(wg, ctx)
-			}
-
-			wg.Add(1)
-			go kafkaSource.Run(wg, ctx)
-		}
-	}
+	*/
 
 	e := echo.New()
 	e.Use(
@@ -281,6 +288,26 @@ func main() {
 
 	// TODO: close all stores
 	log.Info("all workers finished, shutting down now")
+}
+
+func instantiateComponents(parent pipeline.Component, components []config.Component) {
+	for _, component := range components {
+		if component.Disabled {
+			log.Infof("Ignoring component %s as it is disabled in the config", component.Name)
+			continue
+		}
+		instantiation, err := pipeline.InstantiateComponent(component.Name, component.Config)
+		if err != nil {
+			log.Errorf("An unexpected error occured during instantiating component '%s': %s", component.Name, err)
+			return
+		}
+		if parent != nil {
+			instantiation.Link(parent.Subscribe())
+		}
+		instantiateComponents(instantiation, component.Connects)
+		wg.Add(1)
+		go instantiation.Run(wg, ctx)
+	}
 }
 
 func parseTemplate(templateFileName string, data interface{}) (string, error) {

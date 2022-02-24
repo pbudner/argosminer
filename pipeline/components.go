@@ -41,8 +41,18 @@ func InstantiateComponent(name string, args map[string]interface{}) (Component, 
 		return nil, errors.New("pipeline component not defined")
 	}
 
-	err := mapstructure.Decode(args, &comp.Config)
+	dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		TagName:          "yaml",
+		DecodeHook:       mapstructure.StringToTimeDurationHookFunc(),
+		WeaklyTypedInput: true,
+		Result:           &comp.Config,
+	})
+
 	if err != nil {
+		return nil, err
+	}
+
+	if err = dec.Decode(args); err != nil {
 		return nil, err
 	}
 

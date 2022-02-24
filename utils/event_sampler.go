@@ -1,31 +1,37 @@
 package utils
 
 import (
+	"sync"
 	"time"
 
 	"github.com/pbudner/argosminer/stores"
 )
 
+var (
+	eventSamplerSingletonOnce sync.Once
+	eventSamplerSingleton     *EventSampler
+)
+
 type EventSampler struct {
 	ticker          *time.Ticker
 	doneChannel     chan bool
-	store           *stores.EventStore
 	lastValue       uint64
 	lastTimestamp   time.Time
 	eventsPerSecond int
 }
 
-func NewEventSampler(es *stores.EventStore) *EventSampler {
-	result := &EventSampler{
-		ticker:          time.NewTicker(1000 * time.Millisecond),
-		store:           es,
-		lastValue:       0,
-		eventsPerSecond: 0,
-		doneChannel:     make(chan bool),
-	}
+func GetEventSampler() *EventSampler {
+	eventSamplerSingletonOnce.Do(func() {
+		eventSamplerSingleton := &EventSampler{
+			ticker:          time.NewTicker(1000 * time.Millisecond),
+			lastValue:       0,
+			eventsPerSecond: 0,
+			doneChannel:     make(chan bool),
+		}
 
-	go result.tick()
-	return result
+		go eventSamplerSingleton.tick()
+	})
+	return eventSamplerSingleton
 }
 
 func (es *EventSampler) GetSample() int {
@@ -44,7 +50,7 @@ func (es *EventSampler) tick() {
 			return
 		case <-es.ticker.C:
 			timeNow := time.Now()
-			newValue := es.store.GetCount()
+			newValue := stores.GetEventStore().GetCount()
 			if es.lastValue > 0 {
 				elapsedTime := timeNow.Sub(es.lastTimestamp)
 				es.eventsPerSecond = int(float64(newValue-es.lastValue) / elapsedTime.Seconds())

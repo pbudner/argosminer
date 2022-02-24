@@ -53,6 +53,7 @@ func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 	eb.log.Info("Starting pipeline.transforms.EventBuffer")
 	wg.Add(1)
 	defer wg.Done()
+	log.Info(eb.config.FlushInterval)
 	ticker := time.NewTicker(eb.config.FlushInterval)
 	heap.Init(&eb.buffer)
 	var counter uint64 = 0

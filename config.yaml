@@ -3,7 +3,8 @@ listener: localhost:4711
 logger:
   level: info
 database:
-  path: /Volumes/PascalsSSD/ArgosMiner/badgerv2_nopointer_nosync
+#  path: /Volumes/PascalsSSD/ArgosMiner/badgerv2_nopointer_nosync
+  path: ./data
 ignore-activities:
   - name: 'krankenAngeboteWiederherstellen::Start'
   - name: '.*::Start'
@@ -27,7 +28,7 @@ pipeline:
           - name: transforms.event_buffer
             max-events: 100000
             max-age: 1m
-            flush-interval: 1s
+            flush-interval: '1s'
             ignore-events-older-than: 5m
 
 # sources:

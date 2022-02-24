@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pbudner/argosminer/pipeline"
 	"github.com/pbudner/argosminer/stores"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -20,9 +19,8 @@ type eventProcessor struct {
 }
 
 func init() {
-	prometheus.MustRegister(receivedDfgEventsCounter, lastReceivedDfgEvent, lastReceviedDfgEventTime)
 	pipeline.RegisterComponent("sinks.event", nil, func(config interface{}) pipeline.Component {
-		return NewEventProcessor(stores.NewEventStore())
+		return NewEventProcessor(stores.GetEventStore())
 	})
 }
 

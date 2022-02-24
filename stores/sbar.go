@@ -71,7 +71,7 @@ func init() {
 	prometheus.MustRegister(activityBufferMetric, dfRelationBufferMetric)
 }
 
-func NewSbarStore() *SbarStore {
+func GetSbarStore() *SbarStore {
 	sbarStoreSingletonOnce.Do(func() {
 		sbarStoreSingleton = &SbarStore{
 			activityBuffer:   make([]storage.KeyValue, 0),

@@ -16,7 +16,7 @@ type KvStore struct {
 	sync.RWMutex
 }
 
-func NewKvStore() *KvStore {
+func GetKvStore() *KvStore {
 	kvStoreSingletonOnce.Do(func() {
 		kvStoreSingleton = &KvStore{}
 	})
