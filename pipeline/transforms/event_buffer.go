@@ -37,6 +37,9 @@ var (
 
 func init() {
 	prometheus.MustRegister(eventBufferCurrentItems)
+	pipeline.RegisterComponent("transforms.event_buffer", EventBufferConfig{}, func(config interface{}) pipeline.Component {
+		return NewEventBuffer(config.(EventBufferConfig))
+	})
 }
 
 func NewEventBuffer(config EventBufferConfig) *eventBuffer {

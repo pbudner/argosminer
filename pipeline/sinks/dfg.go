@@ -38,7 +38,9 @@ var lastReceviedDfgEventTime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 
 func init() {
 	prometheus.MustRegister(receivedDfgEventsCounter, lastReceivedDfgEvent, lastReceviedDfgEventTime)
-	log = zap.L().Sugar()
+	pipeline.RegisterComponent("sinks.dfg", nil, func(config interface{}) pipeline.Component {
+		return NewDfgStreamingAlgorithm()
+	})
 }
 
 func NewDfgStreamingAlgorithm(store *stores.SbarStore) *dfgStreamingAlgorithm {

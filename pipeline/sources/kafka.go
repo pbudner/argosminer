@@ -59,11 +59,14 @@ var lastReceivedKafkaEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 
 func init() {
 	prometheus.MustRegister(receivedKafkaEvents, receivedKafkaEventsWithError, lastReceivedKafkaEvent)
+	pipeline.RegisterComponent("sources.kafka", KafkaConfig{}, func(config interface{}) pipeline.Component {
+		return NewKafka(config.(KafkaConfig))
+	})
 }
 
-func NewKafka(config *KafkaConfig) *kafka {
+func NewKafka(config KafkaConfig) *kafka {
 	return &kafka{
-		Config: *config,
+		Config: config,
 		log:    zap.L().Sugar().With("component", "sources.kafka"),
 	}
 }

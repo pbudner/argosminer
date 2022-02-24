@@ -46,6 +46,9 @@ var (
 
 func init() {
 	prometheus.MustRegister(jsonSkippedEvents)
+	pipeline.RegisterComponent("transforms.json_parser", JsonParserConfig{}, func(config interface{}) pipeline.Component {
+		return NewJsonParser(config.(JsonParserConfig))
+	})
 }
 
 func NewJsonParser(config JsonParserConfig) *jsonParser {

@@ -49,15 +49,18 @@ var lastReceivedFileEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 
 func init() {
 	prometheus.MustRegister(receivedFileEvents, lastReceivedFileEvent)
+	pipeline.RegisterComponent("sources.file", FileConfig{}, func(config interface{}) pipeline.Component {
+		return NewFile(config.(FileConfig))
+	})
 }
 
-func NewFile(path, readFrom string, kvStore *stores.KvStore) *file {
+func NewFile(cfg FileConfig) *file {
 	fs := file{
-		Path:             path,
-		ReadFrom:         strings.ToLower(readFrom),
+		Path:             cfg.Path,
+		ReadFrom:         strings.ToLower(cfg.ReadFrom),
 		lastFilePosition: 0,
 		log:              zap.L().Sugar().With("service", "file-source"),
-		kvStore:          kvStore,
+		// TODO: kvStore:          kvStore,
 	}
 
 	lastFilePositionBytes, err := fs.kvStore.Get([]byte(fmt.Sprintf("file-source-position-%s", fs.Path)))
@@ -74,7 +77,7 @@ func (fs *file) Link(parent chan interface{}) {
 }
 
 func (fs *file) Close() {
-	fs.kvStore.Set([]byte(fmt.Sprintf("file-source-position-%s", fs.Path)), storage.Uint64ToBytes(uint64(fs.lastFilePosition)))
+	// TODO: fs.kvStore.Set([]byte(fmt.Sprintf("file-source-position-%s", fs.Path)), storage.Uint64ToBytes(uint64(fs.lastFilePosition)))
 	fs.Watcher.Close()
 }
 

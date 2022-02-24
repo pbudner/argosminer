@@ -12,7 +12,6 @@ import (
 type rawParser struct {
 	pipeline.Consumer
 	pipeline.Publisher
-	Event *pipeline.Event
 }
 
 var rawSkippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
@@ -23,12 +22,13 @@ var rawSkippedEvents = prometheus.NewCounter(prometheus.CounterOpts{
 
 func init() {
 	prometheus.MustRegister(rawSkippedEvents)
+	pipeline.RegisterComponent("transforms.raw_parser", nil, func(config interface{}) pipeline.Component {
+		return NewRawParser()
+	})
 }
 
-func NewRawParser() rawParser {
-	return rawParser{
-		Event: &pipeline.Event{},
-	}
+func NewRawParser() *rawParser {
+	return &rawParser{}
 }
 
 func (rp *rawParser) Run(wg *sync.WaitGroup, ctx context.Context) {

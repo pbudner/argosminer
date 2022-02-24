@@ -46,7 +46,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(csvSkippedEvents)
-	pipeline.RegisterComponent("csv.parser", csvParser{}, func(config interface{}) pipeline.Component {
+	pipeline.RegisterComponent("transforms.csv_parser", CsvParserConfig{}, func(config interface{}) pipeline.Component {
 		return NewCsvParser(config.(CsvParserConfig))
 	})
 }
