@@ -71,7 +71,6 @@ func NewJsonParser(config JsonParserConfig) *jsonParser {
 
 func (jp *jsonParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 	jp.log.Info("Starting pipeline.transforms.JsonParser")
-	wg.Add(1)
 	defer wg.Done()
 	for {
 		select {

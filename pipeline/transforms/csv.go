@@ -75,7 +75,6 @@ func NewCsvParser(config CsvParserConfig) *csvParser {
 
 func (cp *csvParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 	cp.log.Info("Starting pipeline.transforms.CsvParser")
-	wg.Add(1)
 	defer wg.Done()
 	for {
 		select {

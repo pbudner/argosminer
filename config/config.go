@@ -14,8 +14,8 @@ import (
 )
 
 type Source struct {
-	Enabled bool `yaml:"enabled"`
-	// FileConfig  *sources.FileSourceConfig   `yaml:"file-config,omitempty"`
+	Enabled     bool                           `yaml:"enabled"`
+	FileConfig  *sources.FileConfig            `yaml:"file-config,omitempty"`
 	KafkaConfig *sources.KafkaConfig           `yaml:"kafka-config,omitempty"`
 	CsvParsers  []*transforms.CsvParserConfig  `yaml:"csv-parsers,omitempty"`
 	JsonParsers []*transforms.JsonParserConfig `yaml:"json-parsers,omitempty"`

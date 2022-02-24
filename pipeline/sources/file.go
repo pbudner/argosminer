@@ -19,12 +19,12 @@ import (
 	"go.uber.org/zap"
 )
 
-type FileSourceConfig struct {
+type FileConfig struct {
 	Path     string `yaml:"path"`
 	ReadFrom string `yaml:"read-from"`
 }
 
-type fileSource struct {
+type file struct {
 	pipeline.Consumer
 	pipeline.Publisher
 	Path             string
@@ -41,12 +41,6 @@ var receivedFileEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Help:      "Total number of received events.",
 }, []string{"path"})
 
-var receivedFileEventsWithError = prometheus.NewCounterVec(prometheus.CounterOpts{
-	Subsystem: "argosminer_sources_file",
-	Name:      "received_events_error",
-	Help:      "Total number of received events that produced an error.",
-}, []string{"path"})
-
 var lastReceivedFileEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 	Subsystem: "argosminer_sources_file",
 	Name:      "last_received_event",
@@ -54,11 +48,11 @@ var lastReceivedFileEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 }, []string{"path"})
 
 func init() {
-	prometheus.MustRegister(receivedFileEvents, receivedFileEventsWithError, lastReceivedFileEvent)
+	prometheus.MustRegister(receivedFileEvents, lastReceivedFileEvent)
 }
 
-func NewFileSource(path, readFrom string, kvStore *stores.KvStore) *fileSource {
-	fs := fileSource{
+func NewFile(path, readFrom string, kvStore *stores.KvStore) *file {
+	fs := file{
 		Path:             path,
 		ReadFrom:         strings.ToLower(readFrom),
 		lastFilePosition: 0,
@@ -75,16 +69,16 @@ func NewFileSource(path, readFrom string, kvStore *stores.KvStore) *fileSource {
 	return &fs
 }
 
-func (fs *fileSource) Link(parent chan interface{}) {
+func (fs *file) Link(parent chan interface{}) {
 	panic("A source component must not be linked to a parent pipeline component")
 }
 
-func (fs *fileSource) Close() {
+func (fs *file) Close() {
 	fs.kvStore.Set([]byte(fmt.Sprintf("file-source-position-%s", fs.Path)), storage.Uint64ToBytes(uint64(fs.lastFilePosition)))
 	fs.Watcher.Close()
 }
 
-func (fs *fileSource) Run(ctx context.Context, wg *sync.WaitGroup) {
+func (fs *file) Run(wg *sync.WaitGroup, ctx context.Context) {
 	fs.log.Debug("Initializing file watcher..")
 	defer wg.Done()
 	fs.Watcher = watcher.New()
@@ -120,7 +114,7 @@ func (fs *fileSource) Run(ctx context.Context, wg *sync.WaitGroup) {
 	fs.log.Info("Closed file source")
 }
 
-func (fs *fileSource) readFile(ctx context.Context) {
+func (fs *file) readFile(ctx context.Context) {
 	f, err := os.Open(fs.Path)
 	if err != nil {
 		fs.log.Fatal(err)

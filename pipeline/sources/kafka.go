@@ -79,7 +79,6 @@ func (s *kafka) Link(parent chan interface{}) {
 
 func (s *kafka) Run(wg *sync.WaitGroup, ctx context.Context) {
 	s.log.Debug("Initializing kafka source..")
-	wg.Add(1)
 	defer wg.Done()
 
 	dialer := &goKafka.Dialer{

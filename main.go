@@ -125,23 +125,46 @@ func main() {
 		}
 
 		// file Source
-		/*if source.FileConfig != nil {
-			log.Debug("starting a file source...")
+		if source.FileConfig != nil {
+			log.Debug("Starting fiile source")
+			fileSource := sources.NewFile(source.FileConfig.Path, source.FileConfig.ReadFrom, kvStore)
+
+			components := make([]pipeline.Component, 0)
+			for _, config := range source.CsvParsers {
+				parser := transforms.NewCsvParser(*config)
+				parser.Link(fileSource.Subscribe())
+				components = append(components, parser)
+				for _, receiver := range receiverList {
+					receiver.Link(parser.Subscribe())
+				}
+				wg.Add(1)
+				go parser.Run(wg, ctx)
+			}
+
+			for _, config := range source.JsonParsers {
+				parser := transforms.NewJsonParser(*config)
+				defer parser.Close()
+				parser.Link(fileSource.Subscribe())
+				components = append(components, parser)
+				for _, receiver := range receiverList {
+					receiver.Link(parser.Subscribe())
+				}
+				wg.Add(1)
+				go parser.Run(wg, ctx)
+			}
+
+			for _, receiver := range receiverList {
+				wg.Add(1)
+				go receiver.Run(wg, ctx)
+			}
+
 			wg.Add(1)
-			parserSlice := make([]parsers.Parser, 0)
-			for _, parser := range source.CsvParsers {
-				parserSlice = append(parserSlice, parsers.NewCsvParser(*parser))
-			}
-			for _, parser := range source.JsonParsers {
-				parserSlice = append(parserSlice, parsers.NewJsonParser(*parser))
-			}
-			fs := sources.NewFileSource(source.FileConfig.Path, source.FileConfig.ReadFrom, parserSlice, receiverList, kvStore)
-			go fs.Run(ctx, wg)
-		}*/
+			go fileSource.Run(wg, ctx)
+		}
 
 		// kafka Source
 		if source.KafkaConfig != nil {
-			log.Debug("Starting kafka source...")
+			log.Debug("Starting kafka source")
 			kafkaSource := sources.NewKafka(source.KafkaConfig)
 
 			components := make([]pipeline.Component, 0)
@@ -152,6 +175,7 @@ func main() {
 				for _, receiver := range receiverList {
 					receiver.Link(parser.Subscribe())
 				}
+				wg.Add(1)
 				go parser.Run(wg, ctx)
 			}
 			for _, config := range source.JsonParsers {
@@ -162,13 +186,16 @@ func main() {
 				for _, receiver := range receiverList {
 					receiver.Link(parser.Subscribe())
 				}
+				wg.Add(1)
 				go parser.Run(wg, ctx)
 			}
 
 			for _, receiver := range receiverList {
+				wg.Add(1)
 				go receiver.Run(wg, ctx)
 			}
 
+			wg.Add(1)
 			go kafkaSource.Run(wg, ctx)
 		}
 	}
