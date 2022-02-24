@@ -13,11 +13,13 @@ import (
 )
 
 var (
-	eventPrefix     byte = 0x02
-	counterKey           = append([]byte{eventPrefix}, []byte("counter")...)
-	binCounterKey        = append([]byte{eventPrefix}, []byte("bin_counter")...)
-	eventKey             = append([]byte{eventPrefix}, []byte("event")...)
-	EventFlushCount      = 100000 // decreasing this reduces memory utilization, but also performance
+	eventStoreSingletonOnce sync.Once
+	eventStoreSingleton     *EventStore
+	eventPrefix             byte = 0x02
+	counterKey                   = append([]byte{eventPrefix}, []byte("counter")...)
+	binCounterKey                = append([]byte{eventPrefix}, []byte("bin_counter")...)
+	eventKey                     = append([]byte{eventPrefix}, []byte("event")...)
+	EventFlushCount              = 100000 // decreasing this reduces memory utilization, but also performance
 )
 
 func init() {
@@ -25,21 +27,21 @@ func init() {
 
 type EventStore struct {
 	sync.RWMutex
-	storage    storage.Storage
 	counter    uint64
 	buffer     []pipeline.Event
 	binCounter map[string]uint64 // stores a counter for each day (key = yyyymmdd)
 	log        *zap.SugaredLogger
 }
 
-func NewEventStore(storage storage.Storage) *EventStore {
-	eventStore := &EventStore{
-		storage: storage,
-		log:     zap.L().Sugar().With("service", "event-store"),
-	}
+func NewEventStore() *EventStore {
+	eventStoreSingletonOnce.Do(func() {
+		eventStoreSingleton = &EventStore{
+			log: zap.L().Sugar().With("service", "event-store"),
+		}
+		eventStoreSingleton.init()
+	})
 
-	eventStore.init()
-	return eventStore
+	return eventStoreSingleton
 }
 
 func (es *EventStore) init() {
@@ -47,7 +49,7 @@ func (es *EventStore) init() {
 	defer es.Unlock()
 
 	// load counter
-	v, err := es.storage.Get(counterKey)
+	v, err := storage.DefaultStorage.Get(counterKey)
 	if err != nil && err != storage.ErrKeyNotFound {
 		es.log.Error(err)
 	} else if err == storage.ErrKeyNotFound {
@@ -59,7 +61,7 @@ func (es *EventStore) init() {
 
 	// load bin counter
 	es.binCounter = make(map[string]uint64)
-	v2, err := es.storage.Get([]byte(binCounterKey))
+	v2, err := storage.DefaultStorage.Get([]byte(binCounterKey))
 	if err != nil && err != storage.ErrKeyNotFound {
 		es.log.Error(err)
 	} else if err == storage.ErrKeyNotFound {
@@ -114,7 +116,7 @@ func (es *EventStore) GetLast(count int) ([]pipeline.Event, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = es.storage.IterateReverse(prefix[:8], func(key []byte, getValue func() ([]byte, error)) (bool, error) {
+		err = storage.DefaultStorage.IterateReverse(prefix[:8], func(key []byte, getValue func() ([]byte, error)) (bool, error) {
 			if !bytes.Equal(key[:8], prefix[:8]) {
 				es.log.Warn("Prefix search included wrong items. Abort search.")
 				return false, nil
@@ -184,13 +186,13 @@ func (es *EventStore) flush() error {
 	if err != nil {
 		return err
 	}
-	err = es.storage.Set(prefix, buffer)
+	err = storage.DefaultStorage.Set(prefix, buffer)
 	if err != nil {
 		return err
 	}
 
 	// commit the event counter
-	if err = es.storage.Set(counterKey, storage.Uint64ToBytes(es.counter)); err != nil {
+	if err = storage.DefaultStorage.Set(counterKey, storage.Uint64ToBytes(es.counter)); err != nil {
 		return err
 	}
 
@@ -200,7 +202,7 @@ func (es *EventStore) flush() error {
 		return err
 	}
 
-	if err = es.storage.Set(binCounterKey, b); err != nil {
+	if err = storage.DefaultStorage.Set(binCounterKey, b); err != nil {
 		return err
 	}
 

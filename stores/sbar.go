@@ -18,15 +18,17 @@ import (
 const sbarPrefix = 0x03
 
 var (
-	metaCode             = []byte{sbarPrefix, 0x00}
-	caseCode             = []byte{sbarPrefix, 0x01}
-	activityCode         = []byte{sbarPrefix, 0x02}
-	dfRelationCode       = []byte{sbarPrefix, 0x03}
-	activityCounterKey   = append(metaCode, []byte("activity_counter")...)
-	dfRelationCounterKey = append(metaCode, []byte("dfRelation_counter")...)
-	startEventCounterKey = append(metaCode, []byte("startEvent_counter")...)
-	flushAfter           = 10000 * time.Millisecond
-	flushAfterEntries    = 100000
+	sbarStoreSingletonOnce sync.Once
+	sbarStoreSingleton     *SbarStore
+	metaCode               = []byte{sbarPrefix, 0x00}
+	caseCode               = []byte{sbarPrefix, 0x01}
+	activityCode           = []byte{sbarPrefix, 0x02}
+	dfRelationCode         = []byte{sbarPrefix, 0x03}
+	activityCounterKey     = append(metaCode, []byte("activity_counter")...)
+	dfRelationCounterKey   = append(metaCode, []byte("dfRelation_counter")...)
+	startEventCounterKey   = append(metaCode, []byte("startEvent_counter")...)
+	flushAfter             = 10000 * time.Millisecond
+	flushAfterEntries      = 100000
 )
 
 type DirectlyFollowsRelation struct {
@@ -42,7 +44,6 @@ type Activity struct {
 
 type SbarStore struct {
 	sync.RWMutex
-	storage                storage.Storage
 	activityCounterCache   map[string]uint64
 	dfRelationCounterCache map[string]uint64
 	startEventCounterCache map[string]uint64
@@ -70,19 +71,21 @@ func init() {
 	prometheus.MustRegister(activityBufferMetric, dfRelationBufferMetric)
 }
 
-func NewSbarStore(store storage.Storage) (*SbarStore, error) {
-	result := SbarStore{
-		storage:          store,
-		activityBuffer:   make([]storage.KeyValue, 0),
-		dfRelationBuffer: make([]storage.KeyValue, 0),
-		caseCache:        make(map[string]string),
-		doneChannel:      make(chan bool),
-		log:              zap.L().Sugar().With("service", "sbar-store"),
-	}
-	if err := result.init(); err != nil {
-		return nil, err
-	}
-	return &result, nil
+func NewSbarStore() *SbarStore {
+	sbarStoreSingletonOnce.Do(func() {
+		sbarStoreSingleton = &SbarStore{
+			activityBuffer:   make([]storage.KeyValue, 0),
+			dfRelationBuffer: make([]storage.KeyValue, 0),
+			caseCache:        make(map[string]string),
+			doneChannel:      make(chan bool),
+			log:              zap.L().Sugar().With("service", "sbar-store"),
+		}
+		if err := sbarStoreSingleton.init(); err != nil {
+			panic(err)
+		}
+	})
+
+	return sbarStoreSingleton
 }
 
 func (kv *SbarStore) init() error {
@@ -90,7 +93,7 @@ func (kv *SbarStore) init() error {
 	defer kv.Unlock()
 
 	// load activity counter key from disk
-	v, err := kv.storage.Get(activityCounterKey)
+	v, err := storage.DefaultStorage.Get(activityCounterKey)
 	if err != nil && err != storage.ErrKeyNotFound {
 		kv.log.Error(err)
 	} else if err == storage.ErrKeyNotFound {
@@ -104,7 +107,7 @@ func (kv *SbarStore) init() error {
 	}
 
 	// load dfRelation counter key from disk
-	v, err = kv.storage.Get(dfRelationCounterKey)
+	v, err = storage.DefaultStorage.Get(dfRelationCounterKey)
 	if err != nil && err != storage.ErrKeyNotFound {
 		kv.log.Error(err)
 	} else if err == storage.ErrKeyNotFound {
@@ -118,7 +121,7 @@ func (kv *SbarStore) init() error {
 	}
 
 	// load startEvent counter key from disk
-	v, err = kv.storage.Get(startEventCounterKey)
+	v, err = storage.DefaultStorage.Get(startEventCounterKey)
 	if err != nil && err != storage.ErrKeyNotFound {
 		kv.log.Error(err)
 	} else if err == storage.ErrKeyNotFound {
@@ -162,7 +165,7 @@ func (kv *SbarStore) GetLastActivityForCase(caseId string) (string, error) {
 		return v, nil
 	}
 	// otherwise, try to get from disk
-	b, err := kv.storage.Get(prefixString(caseCode, caseId))
+	b, err := storage.DefaultStorage.Get(prefixString(caseCode, caseId))
 	if err != nil && err != storage.ErrKeyNotFound {
 		return "", err
 	}
@@ -248,7 +251,7 @@ func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelations [][]string, star
 			}
 
 			kv.log.Debugf("%s: Seek for date %s", encodedRelation, timestamp.Format(time.RFC3339))
-			keyValue, err := kv.storage.Seek(k[:14]) // 8 for name name hash + 6 for timestamp
+			keyValue, err := storage.DefaultStorage.Seek(k[:14]) // 8 for name name hash + 6 for timestamp
 
 			if err == storage.ErrNoResults {
 				kv.log.Debugf("Could not find a directly-follows relation for %s", encodedRelation)
@@ -300,7 +303,7 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 		lastSeenFormattedTime := ""
 
 		// iterate over all events
-		err = kv.storage.Iterate(k[0:8], func(key []byte, retrieveValue func() ([]byte, error)) (bool, error) {
+		err = storage.DefaultStorage.Iterate(k[0:8], func(key []byte, retrieveValue func() ([]byte, error)) (bool, error) {
 			lastSeenKey = key
 			currentUlid.UnmarshalBinary(key[8:])
 			eventTime := time.UnixMilli(int64(currentUlid.Time()))
@@ -340,7 +343,7 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 		if len(lastSeenKey) > 8 {
 			currentUlid.UnmarshalBinary(lastSeenKey[8:])
 			lastEventTime := time.UnixMilli(int64(currentUlid.Time())).Format("2006/01/02")
-			lastValue, err := kv.storage.Get(lastSeenKey)
+			lastValue, err := storage.DefaultStorage.Get(lastSeenKey)
 			if err != nil {
 				kv.log.Error("An unexpected error occurred during iterating through storage:", err)
 			}
@@ -423,7 +426,7 @@ func (kv *SbarStore) flush() error {
 	if err != nil {
 		return err
 	}
-	err = kv.storage.Set(activityCounterKey, b)
+	err = storage.DefaultStorage.Set(activityCounterKey, b)
 	if err != nil {
 		return err
 	}
@@ -431,7 +434,7 @@ func (kv *SbarStore) flush() error {
 	if err != nil {
 		return err
 	}
-	err = kv.storage.Set(dfRelationCounterKey, b)
+	err = storage.DefaultStorage.Set(dfRelationCounterKey, b)
 	if err != nil {
 		return err
 	}
@@ -439,7 +442,7 @@ func (kv *SbarStore) flush() error {
 	if err != nil {
 		return err
 	}
-	err = kv.storage.Set(startEventCounterKey, b)
+	err = storage.DefaultStorage.Set(startEventCounterKey, b)
 	if err != nil {
 		return err
 	}
@@ -463,7 +466,7 @@ func (kv *SbarStore) flush() error {
 
 func (kv *SbarStore) flushBuffer(items *[]storage.KeyValue) int {
 	count := len(*items)
-	kv.storage.SetBatch(*items)
+	storage.DefaultStorage.SetBatch(*items)
 	*items = make([]storage.KeyValue, 0)
 	return count
 }

@@ -3,6 +3,7 @@ package storage
 import "errors"
 
 var (
+	DefaultStorage Storage
 
 	// ErrKeyNotFound is returned when key isn't found on a txn.Get.
 	ErrKeyNotFound = errors.New("key not found")
@@ -37,5 +38,3 @@ type Config struct {
 	Path       string `yaml:"path"`
 	SyncWrites bool   `yaml:"sync-writes"`
 }
-
-type StorageGenerator func(Config) Storage

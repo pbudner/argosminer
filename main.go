@@ -24,13 +24,9 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/pbudner/argosminer/api"
 	"github.com/pbudner/argosminer/config"
-	"github.com/pbudner/argosminer/pipeline"
-	"github.com/pbudner/argosminer/pipeline/sinks"
 	"github.com/pbudner/argosminer/pipeline/sources"
 	"github.com/pbudner/argosminer/pipeline/transforms"
 	"github.com/pbudner/argosminer/storage"
-	"github.com/pbudner/argosminer/stores"
-	"github.com/pbudner/argosminer/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"go.uber.org/zap"
@@ -74,7 +70,7 @@ func main() {
 	if configPath == "" {
 		cfg = config.DefaultConfig()
 	} else {
-		cfg, err = config.NewConfig(configPath)
+		cfg, err = config.NewConfigFromFile(configPath)
 		if err != nil {
 			log.Fatalw("unexpected error during unmarshalling provided log", "error", err, "path", configPath)
 		}
@@ -87,6 +83,7 @@ func main() {
 
 	log.Infow("Starting ArgosMiner", "version", Version, "commit", GitCommit)
 	wg := &sync.WaitGroup{}
+	ctx, cancelFunc := context.WithCancel(context.Background())
 
 	// ensure data path exists
 	err = os.MkdirAll(cfg.Database.Path, os.ModePerm)
@@ -99,25 +96,8 @@ func main() {
 		log.Panicw("Could not open database as data path does not exist", "path", cfg.Database.Path, "error", err)
 	}
 
-	// open storage
-	store := storage.NewDiskStorage(cfg.Database)
-
-	// initialize stores
-	eventStore := stores.NewEventStore(store)
-	kvStore := stores.NewKvStore(store)
-	sbarStore, err := stores.NewSbarStore(store)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	eventSampler := utils.NewEventSampler(eventStore)
-
-	sinkList := []pipeline.Component{
-		sinks.NewEventProcessor(eventStore),
-		sinks.NewDfgStreamingAlgorithm(sbarStore),
-	}
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
+	// open default storage
+	storage.DefaultStorage = storage.NewDiskStorage(cfg.Database)
 
 	for _, source := range cfg.Sources {
 		if !source.Enabled {
@@ -271,7 +251,7 @@ func main() {
 	baseGroup.GET("/", handleIndexFunc)
 
 	g := baseGroup.Group("/api")
-	api.RegisterApiHandlers(g, cfg, Version, GitCommit, sbarStore, eventStore, eventSampler)
+	api.RegisterApiHandlers(g, cfg, Version, GitCommit)
 
 	// start the server
 	go func() {
@@ -298,12 +278,9 @@ func main() {
 
 	// block here until are workers are done
 	wg.Wait()
-	eventSampler.Close()
-	sbarStore.Close()
-	eventStore.Close()
-	kvStore.Close()
-	store.Close()
-	log.Info("all workers finished.. Shutting down!")
+
+	// TODO: close all stores
+	log.Info("all workers finished, shutting down now")
 }
 
 func parseTemplate(templateFileName string, data interface{}) (string, error) {

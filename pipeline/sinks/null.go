@@ -39,6 +39,9 @@ var lastReceviedNullEventTime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 func init() {
 	log = zap.L().Sugar()
 	prometheus.MustRegister(receivedNullEventsCounter, lastReceivedNullEvent, lastReceviedNullEventTime)
+	pipeline.RegisterComponent("sinks.nil", nil, func(config interface{}) pipeline.Component {
+		return NewDevNullProcessor()
+	})
 }
 
 func NewDevNullProcessor() *devNullProcessor {
@@ -49,7 +52,7 @@ func NewDevNullProcessor() *devNullProcessor {
 	return &algo
 }
 
-func (dp *devNullProcessor) Subscribe(parent chan interface{}) {
+func (dp *devNullProcessor) Subscribe() chan interface{} {
 	panic("A sink component must not be subscribed to")
 }
 

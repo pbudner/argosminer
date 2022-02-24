@@ -7,39 +7,41 @@ import (
 )
 
 var (
-	kvPrefix = []byte{0x01}
+	kvStoreSingletonOnce sync.Once
+	kvStoreSingleton     *KvStore
+	kvPrefix             = []byte{0x01}
 )
 
 type KvStore struct {
 	sync.RWMutex
-	storage storage.Storage
 }
 
-func NewKvStore(storage storage.Storage) *KvStore {
-	return &KvStore{
-		storage: storage,
-	}
+func NewKvStore() *KvStore {
+	kvStoreSingletonOnce.Do(func() {
+		kvStoreSingleton = &KvStore{}
+	})
+	return kvStoreSingleton
 }
 
 func (kv *KvStore) Set(key []byte, value []byte) error {
 	kv.Lock()
 	defer kv.Unlock()
 	pKey := append(kvPrefix, key...)
-	return kv.storage.Set(pKey, value)
+	return storage.DefaultStorage.Set(pKey, value)
 }
 
 func (kv *KvStore) Get(key []byte) ([]byte, error) {
 	kv.RLock()
 	defer kv.RUnlock()
 	pKey := append(kvPrefix, key...)
-	return kv.storage.Get(pKey)
+	return storage.DefaultStorage.Get(pKey)
 }
 
 func (kv *KvStore) Increment(key []byte) (uint64, error) {
 	kv.Lock()
 	defer kv.Unlock()
 	pKey := append(kvPrefix, key...)
-	return kv.storage.Increment(pKey)
+	return storage.DefaultStorage.Increment(pKey)
 }
 
 func (kv *KvStore) Close() {

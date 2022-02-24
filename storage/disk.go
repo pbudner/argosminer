@@ -48,12 +48,6 @@ type diskStorage struct {
 	log              *zap.SugaredLogger
 }
 
-func NewDiskStorageGenerator() StorageGenerator {
-	return func(config Config) Storage {
-		return NewDiskStorage(config)
-	}
-}
-
 func NewDiskStorage(config Config) *diskStorage {
 	log := zap.L().Sugar()
 	opts := badger.DefaultOptions(config.Path)
