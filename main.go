@@ -112,7 +112,7 @@ func main() {
 
 	eventSampler := utils.NewEventSampler(eventStore)
 
-	receiverList := []pipeline.Component{
+	sinkList := []pipeline.Component{
 		sinks.NewEventProcessor(eventStore),
 		sinks.NewDfgStreamingAlgorithm(sbarStore),
 	}
@@ -128,13 +128,10 @@ func main() {
 		if source.FileConfig != nil {
 			log.Debug("Starting fiile source")
 			fileSource := sources.NewFile(source.FileConfig.Path, source.FileConfig.ReadFrom, kvStore)
-
-			components := make([]pipeline.Component, 0)
 			for _, config := range source.CsvParsers {
 				parser := transforms.NewCsvParser(*config)
 				parser.Link(fileSource.Subscribe())
-				components = append(components, parser)
-				for _, receiver := range receiverList {
+				for _, receiver := range sinkList {
 					receiver.Link(parser.Subscribe())
 				}
 				wg.Add(1)
@@ -145,15 +142,14 @@ func main() {
 				parser := transforms.NewJsonParser(*config)
 				defer parser.Close()
 				parser.Link(fileSource.Subscribe())
-				components = append(components, parser)
-				for _, receiver := range receiverList {
+				for _, receiver := range sinkList {
 					receiver.Link(parser.Subscribe())
 				}
 				wg.Add(1)
 				go parser.Run(wg, ctx)
 			}
 
-			for _, receiver := range receiverList {
+			for _, receiver := range sinkList {
 				wg.Add(1)
 				go receiver.Run(wg, ctx)
 			}
@@ -166,13 +162,10 @@ func main() {
 		if source.KafkaConfig != nil {
 			log.Debug("Starting kafka source")
 			kafkaSource := sources.NewKafka(source.KafkaConfig)
-
-			components := make([]pipeline.Component, 0)
 			for _, config := range source.CsvParsers {
 				parser := transforms.NewCsvParser(*config)
 				parser.Link(kafkaSource.Subscribe())
-				components = append(components, parser)
-				for _, receiver := range receiverList {
+				for _, receiver := range sinkList {
 					receiver.Link(parser.Subscribe())
 				}
 				wg.Add(1)
@@ -182,15 +175,14 @@ func main() {
 				parser := transforms.NewJsonParser(*config)
 				defer parser.Close()
 				parser.Link(kafkaSource.Subscribe())
-				components = append(components, parser)
-				for _, receiver := range receiverList {
+				for _, receiver := range sinkList {
 					receiver.Link(parser.Subscribe())
 				}
 				wg.Add(1)
 				go parser.Run(wg, ctx)
 			}
 
-			for _, receiver := range receiverList {
+			for _, receiver := range sinkList {
 				wg.Add(1)
 				go receiver.Run(wg, ctx)
 			}

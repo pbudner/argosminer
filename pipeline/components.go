@@ -2,18 +2,51 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"sync"
+
+	"github.com/mitchellh/mapstructure"
+)
+
+var (
+	registered_components = make(map[string]RegisteredComponent)
 )
 
 const (
 	CHANNEL_BUFFER_SIZE = 1
 )
 
+type RegisteredComponent struct {
+	Config          interface{}
+	InitializerFunc func(interface{}) Component
+}
+
 type Component interface {
 	Run(*sync.WaitGroup, context.Context)
 	Link(parent chan interface{})
 	Subscribe() chan interface{}
 	Close()
+}
+
+func RegisterComponent(name string, config interface{}, initializerFunc func(interface{}) Component) {
+	registered_components[name] = RegisteredComponent{
+		Config:          config,
+		InitializerFunc: initializerFunc,
+	}
+}
+
+func InstantiateComponent(name string, args map[string]interface{}) (Component, error) {
+	comp, found := registered_components[name]
+	if !found {
+		return nil, errors.New("pipeline component not defined")
+	}
+
+	err := mapstructure.Decode(args, &comp.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	return comp.InitializerFunc(comp.Config), nil
 }
 
 type Consumer struct {

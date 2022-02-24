@@ -1,4 +1,4 @@
-package config
+package old
 
 import (
 	"fmt"
@@ -6,24 +6,27 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pbudner/argosminer/pipeline/sources"
+	"github.com/pbudner/argosminer/pipeline/transforms"
 	"github.com/pbudner/argosminer/storage"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
-type Component struct {
-	Name     string                 `yaml:"name"`
-	Disabled bool                   `yaml:"disabled"`
-	Config   map[string]interface{} `yaml:",inline"`
-	Connects []Component            `yaml:"connects,omitempty"`
+type Source struct {
+	Enabled     bool                           `yaml:"enabled"`
+	FileConfig  *sources.FileConfig            `yaml:"file-config,omitempty"`
+	KafkaConfig *sources.KafkaConfig           `yaml:"kafka-config,omitempty"`
+	CsvParsers  []*transforms.CsvParserConfig  `yaml:"csv-parsers,omitempty"`
+	JsonParsers []*transforms.JsonParserConfig `yaml:"json-parsers,omitempty"`
 }
 
 type Config struct {
 	Listener         string           `yaml:"listener"`
 	BaseURL          string           `yaml:"base-url"`
 	Logger           zap.Config       `yaml:"logger"`
-	Database         storage.Config   `yaml:"database"`
-	Pipeline         []Component      `yaml:"pipeline"`
+	Database         storage.Config   `yaml:"db"`
+	Sources          []Source         `yaml:"sources"`
 	IgnoreActivities []IgnoreActivity `yaml:"ignore-activities"`
 }
 
@@ -48,29 +51,11 @@ func DefaultConfig() *Config {
 	return config
 }
 
-// NewConfigFromFile returns a new decoded Config struct from file
-func NewConfigFromStr(confContent []byte) (*Config, error) {
-	confContent = []byte(os.ExpandEnv(string(confContent))) // expand config with environment variables
-
+// NewConfig returns a new decoded Config struct
+func NewConfig(path string) (*Config, error) {
 	defaultConfig := DefaultConfig()
 	config := DefaultConfig()
 
-	// unmarshal yaml
-	err := yaml.Unmarshal(confContent, config)
-	if err != nil {
-		return nil, err
-	}
-
-	if config.BaseURL == "" {
-		config.BaseURL = defaultConfig.BaseURL
-	}
-
-	config.BaseURL = strings.TrimRight(config.BaseURL, "/") // remove tailing slashes
-	return config, nil
-}
-
-// NewConfigFromFile returns a new decoded Config struct from file
-func NewConfigFromFile(path string) (*Config, error) {
 	// check that config exists
 	err := validateConfigPath(path)
 	if err != nil {
@@ -83,7 +68,21 @@ func NewConfigFromFile(path string) (*Config, error) {
 		return nil, err
 	}
 
-	return NewConfigFromStr(confContent)
+	// expand config with environment variables
+	confContent = []byte(os.ExpandEnv(string(confContent)))
+
+	// unmarshal yaml
+	err = yaml.Unmarshal(confContent, config)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.BaseURL == "" {
+		config.BaseURL = defaultConfig.BaseURL
+	}
+
+	config.BaseURL = strings.TrimRight(config.BaseURL, "/") // remove tailing slashes
+	return config, nil
 }
 
 // validateConfigPath just makes sure, that the path provided is a file,
