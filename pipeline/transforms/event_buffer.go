@@ -71,8 +71,6 @@ func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 			eb.flush(false)
 		case input := <-eb.Consumes:
 			evt, ok := input.(pipeline.Event)
-			eb.log.Info("Received a message")
-
 			if !ok {
 				eb.log.Error("Received a non pipeline.Event message.")
 				eb.Consumes <- false

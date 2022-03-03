@@ -7,11 +7,13 @@ require (
 	github.com/dgraph-io/badger/v2 v2.2007.4
 	github.com/google/uuid v1.3.0
 	github.com/labstack/echo-contrib v0.12.0
-	github.com/labstack/echo/v4 v4.6.3
+	github.com/labstack/echo/v4 v4.7.0
+	github.com/labstack/gommon v0.3.1
+	github.com/mitchellh/mapstructure v1.4.3
 	github.com/oklog/ulid/v2 v2.0.2
 	github.com/prometheus/client_golang v1.12.1
 	github.com/radovskyb/watcher v1.0.7
-	github.com/segmentio/kafka-go v0.4.28
+	github.com/segmentio/kafka-go v0.4.29
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/gjson v1.14.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
@@ -37,17 +39,16 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/flatbuffers v2.0.5+incompatible // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
-	github.com/klauspost/compress v1.14.2 // indirect
+	github.com/klauspost/compress v1.14.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.11 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/labstack/gommon v0.3.1 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/minio/simdjson-go v0.4.0 // indirect
-	github.com/mitchellh/mapstructure v1.4.3 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
+	github.com/pierrec/lz4/v4 v4.1.14 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
@@ -64,12 +65,12 @@ require (
 	github.com/xdg/stringprep v1.0.3 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/multierr v1.7.0 // indirect
+	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292 // indirect
 	golang.org/x/exp v0.0.0-20220212023102-3e31098684e2 // indirect
-	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
-	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
+	golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
+	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )

@@ -48,7 +48,6 @@ func (ep *eventProcessor) Run(wg *sync.WaitGroup, ctx context.Context) {
 			ep.log.Info("Shutting down pipeline.sinks.DFG")
 			return
 		case input := <-ep.Consumes:
-			ep.log.Info("Received a message")
 			err := ep.EventStore.Append(input.(pipeline.Event))
 			if err == nil {
 				ep.Consumes <- true
