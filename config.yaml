@@ -30,6 +30,9 @@ pipeline:
             max-age: 1m
             flush-interval: 1s
             ignore-events-older-than: 24h
+            connects:
+              - name: sinks.dfg
+              - name: sinks.event
 
 # sources:
 #   - enabled: false

@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/labstack/gommon/log"
 	"github.com/pbudner/argosminer/pipeline"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -33,10 +32,16 @@ var (
 		Name:      "current_events",
 		Help:      "Number of current events in buffer.",
 	})
+
+	eventBufferIgnoredItems = prometheus.NewCounter(prometheus.CounterOpts{
+		Subsystem: "argosminer_event_buffer",
+		Name:      "ignored_items_count",
+		Help:      "Total count of of outaged events.",
+	})
 )
 
 func init() {
-	prometheus.MustRegister(eventBufferCurrentItems)
+	prometheus.MustRegister(eventBufferCurrentItems, eventBufferIgnoredItems)
 	pipeline.RegisterComponent("transforms.event_buffer", EventBufferConfig{}, func(config interface{}) pipeline.Component {
 		return NewEventBuffer(config.(EventBufferConfig))
 	})
@@ -65,15 +70,26 @@ func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 		case <-ticker.C:
 			eb.flush(false)
 		case input := <-eb.Consumes:
-			evt := input.(pipeline.Event)
+			evt, ok := input.(pipeline.Event)
+			eb.log.Info("Received a message")
+
+			if !ok {
+				eb.log.Error("Received a non pipeline.Event message.")
+				eb.Consumes <- false
+				continue
+			}
+
 			if -time.Until(evt.Timestamp) > eb.config.IgnoreEventsOlderThan {
+				eventBufferIgnoredItems.Inc()
+				eb.log.Info("Ignored an incoming event, since it is too old")
 				eb.Consumes <- false
 				continue
 			}
 			heap.Push(&eb.buffer, &eventBufferItem{
-				value:   evt,
-				time:    evt.Timestamp.UnixNano(),
-				counter: counter,
+				value:        evt,
+				time:         evt.Timestamp.UnixNano(),
+				receivedTime: time.Now(),
+				counter:      counter,
 			})
 			counter++
 			eventBufferCurrentItems.Inc()
@@ -83,10 +99,10 @@ func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 	}
 }
 
-func (eb *eventBuffer) flush(all bool) {
+func (eb *eventBuffer) flush(force bool) {
 	// flush aged items or the oldest items if we have too many
-	for (all && eb.buffer.Len() > 0) || (eb.buffer.Len() > eb.config.MaxEvents || (eb.buffer.Len() > 0 && -time.Until(eb.buffer[0].value.Timestamp) > eb.config.MaxAge)) {
-		log.Info("Found an outaged item, flushing it now")
+	for (force && eb.buffer.Len() > 0) || (eb.buffer.Len() > eb.config.MaxEvents || (eb.buffer.Len() > 0 && -time.Until(eb.buffer[0].receivedTime) > eb.config.MaxAge)) {
+		eb.log.Info("Found an outaged item, flushing it now")
 		evt := heap.Pop(&eb.buffer).(*eventBufferItem).value
 		eventBufferCurrentItems.Dec()
 		eb.Publish(evt, true)
@@ -94,10 +110,11 @@ func (eb *eventBuffer) flush(all bool) {
 }
 
 type eventBufferItem struct {
-	value   pipeline.Event
-	time    int64
-	index   int
-	counter uint64
+	value        pipeline.Event
+	time         int64
+	receivedTime time.Time
+	index        int
+	counter      uint64
 }
 
 type timeOrderedEventBuffer []*eventBufferItem

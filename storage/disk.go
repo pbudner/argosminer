@@ -406,7 +406,7 @@ func (s *diskStorage) maintenance() {
 					return
 				default:
 					s.log.Debug("Calling RunValueLogGC()")
-					s.store.RunValueLogGC(valueLogGCDiscardRatio)
+					err = s.store.RunValueLogGC(valueLogGCDiscardRatio)
 				}
 			}
 

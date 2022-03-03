@@ -14,10 +14,6 @@ var (
 	registered_components = make(map[string]RegisteredComponent)
 )
 
-const (
-	CHANNEL_BUFFER_SIZE = 1
-)
-
 type RegisteredComponent struct {
 	Config          interface{}
 	InitializerFunc func(interface{}) Component
@@ -83,7 +79,7 @@ func (c *Publisher) Subscribe() chan interface{} {
 		return nil
 	}
 
-	ch := make(chan interface{}, CHANNEL_BUFFER_SIZE)
+	ch := make(chan interface{})
 	c.subs = append(c.subs, ch)
 	return ch
 }
@@ -98,16 +94,21 @@ func (c *Publisher) Publish(msg interface{}, sendToAll bool) {
 
 	for _, ch := range c.subs {
 		ch <- msg
-		if !sendToAll { // if we are only sending to the first accepting consumer
-			select {
-			case ok := <-ch: // wait for channel answer
-				if ok.(bool) {
+		select {
+		case rOk := <-ch: // wait for channel answer
+			if !sendToAll { // if we are only sending to the first accepting consumer
+				ok, parsed := rOk.(bool)
+				if !parsed {
+					zap.L().Sugar().With("service", "publisher").Error("Expected bool, but received something different")
+					continue
+				}
+				if ok {
 					return
 				}
-			case <-time.After(1 * time.Second): // timeout
-				zap.L().Sugar().With("service", "publisher").Info("Subscribed component did not answer timely")
-				continue
 			}
+		case <-time.After(1 * time.Second): // timeout
+			zap.L().Sugar().With("service", "publisher").Info("Subscribed component did not answer timely")
+			continue
 		}
 	}
 }

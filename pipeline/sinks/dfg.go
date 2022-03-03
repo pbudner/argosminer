@@ -65,12 +65,15 @@ func (a *dfgStreamingAlgorithm) Run(wg *sync.WaitGroup, ctx context.Context) {
 			a.log.Info("Shutting down pipeline.sinks.DFG")
 			return
 		case input := <-a.Consumes:
-			err := a.append(input.(pipeline.Event))
-			if err == nil {
-				a.Consumes <- true
-			} else {
+			a.log.Info("Received a message")
+			evt, ok := input.(pipeline.Event)
+			if !ok {
 				a.Consumes <- false
+				a.log.Error("Did not receive a pipeline.Event")
+				continue
 			}
+			err := a.append(evt)
+			a.Consumes <- err == nil
 		}
 	}
 
