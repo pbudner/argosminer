@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/mitchellh/mapstructure"
+	"go.uber.org/zap"
 )
 
 var (
@@ -97,9 +99,14 @@ func (c *Publisher) Publish(msg interface{}, sendToAll bool) {
 	for _, ch := range c.subs {
 		ch <- msg
 		if !sendToAll { // if we are only sending to the first accepting consumer
-			ok := <-ch // wait for channel answer
-			if ok.(bool) {
-				return
+			select {
+			case ok := <-ch: // wait for channel answer
+				if ok.(bool) {
+					return
+				}
+			case <-time.After(1 * time.Second): // timeout
+				zap.L().Sugar().With("service", "publisher").Info("Subscribed component did not answer timely")
+				continue
 			}
 		}
 	}

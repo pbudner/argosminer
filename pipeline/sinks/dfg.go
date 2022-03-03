@@ -58,7 +58,6 @@ func (a *dfgStreamingAlgorithm) Subscribe() chan interface{} {
 
 func (a *dfgStreamingAlgorithm) Run(wg *sync.WaitGroup, ctx context.Context) {
 	a.log.Info("Starting pipeline.sinks.DFG")
-	wg.Add(1)
 	defer wg.Done()
 	for {
 		select {

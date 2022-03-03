@@ -79,10 +79,10 @@ func NewCsvParser(config CsvParserConfig) *csvParser {
 func (cp *csvParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 	cp.log.Info("Starting pipeline.transforms.CsvParser")
 	defer wg.Done()
+	defer cp.log.Info("Shutting down pipeline.transforms.CsvParser")
 	for {
 		select {
 		case <-ctx.Done():
-			cp.log.Info("Shutting down pipeline.transforms.CsvParser")
 			return
 		case input := <-cp.Consumes:
 			evt, err := cp.parse(input.([]byte))
@@ -91,7 +91,6 @@ func (cp *csvParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 				cp.Publish(evt, true)
 			}
 		}
-
 	}
 }
 

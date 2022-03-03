@@ -60,7 +60,6 @@ func NewFile(cfg FileConfig) *file {
 		ReadFrom:         strings.ToLower(cfg.ReadFrom),
 		lastFilePosition: 0,
 		log:              zap.L().Sugar().With("service", "file-source"),
-		// TODO: kvStore:          kvStore,
 	}
 
 	lastFilePositionBytes, err := stores.GetKvStore().Get([]byte(fmt.Sprintf("file-source-position-%s", fs.Path)))
@@ -82,8 +81,10 @@ func (fs *file) Close() {
 }
 
 func (fs *file) Run(wg *sync.WaitGroup, ctx context.Context) {
-	fs.log.Debug("Initializing file watcher..")
+	fs.log.Info("Starting pipeline.sources.file")
 	defer wg.Done()
+	defer fs.log.Info("Shutting down pipeline.sources.file")
+	time.Sleep(1 * time.Second)
 	fs.Watcher = watcher.New()
 	fs.Watcher.FilterOps(watcher.Write, watcher.Rename, watcher.Create)
 
@@ -113,14 +114,13 @@ func (fs *file) Run(wg *sync.WaitGroup, ctx context.Context) {
 	if err := fs.Watcher.Start(time.Millisecond * 1000); err != nil {
 		fs.log.Error(err)
 	}
-
-	fs.log.Info("Closed file source")
 }
 
 func (fs *file) readFile(ctx context.Context) {
 	f, err := os.Open(fs.Path)
 	if err != nil {
-		fs.log.Fatal(err)
+		fs.log.Error(err)
+		return
 	}
 
 	if fs.lastFilePosition == 0 {
@@ -129,7 +129,7 @@ func (fs *file) readFile(ctx context.Context) {
 		} else {
 			pos, err := f.Seek(0, 2)
 			if err != nil {
-				fs.log.Fatal(err)
+				fs.log.Error(err)
 			}
 
 			fs.lastFilePosition = pos

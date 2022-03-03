@@ -41,7 +41,6 @@ func (ep *eventProcessor) Subscribe() chan interface{} {
 
 func (ep *eventProcessor) Run(wg *sync.WaitGroup, ctx context.Context) {
 	ep.log.Info("Starting pipeline.sinks.DFG")
-	wg.Add(1)
 	defer wg.Done()
 	for {
 		select {

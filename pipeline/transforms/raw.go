@@ -32,7 +32,6 @@ func NewRawParser() *rawParser {
 }
 
 func (rp *rawParser) Run(wg *sync.WaitGroup, ctx context.Context) {
-	wg.Add(1)
 	defer wg.Done()
 	for {
 		select {

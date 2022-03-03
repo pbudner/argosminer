@@ -29,6 +29,8 @@ import (
 	_ "github.com/pbudner/argosminer/pipeline/sinks"
 	_ "github.com/pbudner/argosminer/pipeline/sources"
 	"github.com/pbudner/argosminer/storage"
+	"github.com/pbudner/argosminer/stores"
+	"github.com/pbudner/argosminer/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"go.uber.org/zap"
@@ -104,81 +106,7 @@ func main() {
 	// instantiate all configured pipeline components
 	instantiateComponents(nil, cfg.Pipeline)
 
-	/*
-		for _, source := range cfg.Sources {
-			if !source.Enabled {
-				continue
-			}
-
-			// file Source
-			if source.FileConfig != nil {
-				log.Debug("Starting fiile source")
-				fileSource := sources.NewFile(source.FileConfig.Path, source.FileConfig.ReadFrom, kvStore)
-				for _, config := range source.CsvParsers {
-					parser := transforms.NewCsvParser(*config)
-					parser.Link(fileSource.Subscribe())
-					for _, receiver := range sinkList {
-						receiver.Link(parser.Subscribe())
-					}
-					wg.Add(1)
-					go parser.Run(wg, ctx)
-				}
-
-				for _, config := range source.JsonParsers {
-					parser := transforms.NewJsonParser(*config)
-					defer parser.Close()
-					parser.Link(fileSource.Subscribe())
-					for _, receiver := range sinkList {
-						receiver.Link(parser.Subscribe())
-					}
-					wg.Add(1)
-					go parser.Run(wg, ctx)
-				}
-
-				for _, receiver := range sinkList {
-					wg.Add(1)
-					go receiver.Run(wg, ctx)
-				}
-
-				wg.Add(1)
-				go fileSource.Run(wg, ctx)
-			}
-
-			// kafka Source
-			if source.KafkaConfig != nil {
-				log.Debug("Starting kafka source")
-				kafkaSource := sources.NewKafka(source.KafkaConfig)
-				for _, config := range source.CsvParsers {
-					parser := transforms.NewCsvParser(*config)
-					parser.Link(kafkaSource.Subscribe())
-					for _, receiver := range sinkList {
-						receiver.Link(parser.Subscribe())
-					}
-					wg.Add(1)
-					go parser.Run(wg, ctx)
-				}
-				for _, config := range source.JsonParsers {
-					parser := transforms.NewJsonParser(*config)
-					defer parser.Close()
-					parser.Link(kafkaSource.Subscribe())
-					for _, receiver := range sinkList {
-						receiver.Link(parser.Subscribe())
-					}
-					wg.Add(1)
-					go parser.Run(wg, ctx)
-				}
-
-				for _, receiver := range sinkList {
-					wg.Add(1)
-					go receiver.Run(wg, ctx)
-				}
-
-				wg.Add(1)
-				go kafkaSource.Run(wg, ctx)
-			}
-		}
-	*/
-
+	// now, configure webserver
 	e := echo.New()
 	e.Use(
 		middleware.Recover(),   // Recover from all panics to always have your server up
@@ -280,13 +208,20 @@ func main() {
 		log.Error(err)
 	}
 
-	cancelFunc()
+	cancelFunc() // here we close all pipeline components
 	cancelFunc2()
+
+	log.Info("Wait for WG")
 
 	// block here until are workers are done
 	wg.Wait()
 
-	// TODO: close all stores
+	log.Info("Close stores")
+	utils.GetEventSampler().Close()
+	stores.GetSbarStore().Close()
+	stores.GetEventStore().Close()
+	stores.GetKvStore().Close()
+	storage.DefaultStorage.Close()
 	log.Info("all workers finished, shutting down now")
 }
 

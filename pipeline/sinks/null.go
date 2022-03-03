@@ -57,7 +57,6 @@ func (dp *devNullProcessor) Subscribe() chan interface{} {
 }
 
 func (dp *devNullProcessor) Run(wg *sync.WaitGroup, ctx context.Context) {
-	wg.Add(1)
 	defer wg.Done()
 	for {
 		select {

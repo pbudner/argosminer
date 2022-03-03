@@ -28,8 +28,8 @@ pipeline:
           - name: transforms.event_buffer
             max-events: 100000
             max-age: 1m
-            flush-interval: '1s'
-            ignore-events-older-than: 5m
+            flush-interval: 1s
+            ignore-events-older-than: 24h
 
 # sources:
 #   - enabled: false

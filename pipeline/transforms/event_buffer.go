@@ -51,9 +51,8 @@ func NewEventBuffer(config EventBufferConfig) *eventBuffer {
 
 func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 	eb.log.Info("Starting pipeline.transforms.EventBuffer")
-	wg.Add(1)
 	defer wg.Done()
-	log.Info(eb.config.FlushInterval)
+	defer eb.log.Info("Shutting down pipeline.transforms.EventBuffer")
 	ticker := time.NewTicker(eb.config.FlushInterval)
 	heap.Init(&eb.buffer)
 	var counter uint64 = 0
@@ -61,7 +60,6 @@ func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			ticker.Stop()
-			eb.log.Info("Shutting down pipeline.transforms.EventBuffer")
 			eb.flush(true)
 			return
 		case <-ticker.C:
@@ -87,7 +85,7 @@ func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 
 func (eb *eventBuffer) flush(all bool) {
 	// flush aged items or the oldest items if we have too many
-	for all || (eb.buffer.Len() > eb.config.MaxEvents || (eb.buffer.Len() > 0 && -time.Until(eb.buffer[0].value.Timestamp) > eb.config.MaxAge)) {
+	for (all && eb.buffer.Len() > 0) || (eb.buffer.Len() > eb.config.MaxEvents || (eb.buffer.Len() > 0 && -time.Until(eb.buffer[0].value.Timestamp) > eb.config.MaxAge)) {
 		log.Info("Found an outaged item, flushing it now")
 		evt := heap.Pop(&eb.buffer).(*eventBufferItem).value
 		eventBufferCurrentItems.Dec()

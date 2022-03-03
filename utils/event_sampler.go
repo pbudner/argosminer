@@ -22,7 +22,7 @@ type EventSampler struct {
 
 func GetEventSampler() *EventSampler {
 	eventSamplerSingletonOnce.Do(func() {
-		eventSamplerSingleton := &EventSampler{
+		eventSamplerSingleton = &EventSampler{
 			ticker:          time.NewTicker(1000 * time.Millisecond),
 			lastValue:       0,
 			eventsPerSecond: 0,
