@@ -83,35 +83,32 @@ func (a *dfgStreamingAlgorithm) append(event pipeline.Event) error {
 	lastReceivedDfgEvent.WithLabelValues(a.Id.String()).SetToCurrentTime()
 	receivedDfgEventsCounter.WithLabelValues(a.Id.String()).Inc()
 	lastReceviedDfgEventTime.WithLabelValues(a.Id.String()).Set(float64(event.Timestamp.Unix()))
-	activityName := event.ActivityName
-	caseInstance := event.ProcessInstanceId
-	timestamp := event.Timestamp
 	a.log.Debugf("received activity %s with timestamp %s", event.ActivityName, event.Timestamp)
 	// increment general activity counter
-	err := a.Store.RecordActivity(activityName, timestamp)
+	err := a.Store.RecordActivity(event.ActivityName, event.Timestamp)
 	if err != nil {
 		return err
 	}
-	lastActivityForCase, err := a.Store.GetLastActivityForCase(caseInstance)
+	lastActivityForCase, err := a.Store.GetLastActivityForCase(event.CaseId)
 	if err != nil {
 		return err
 	}
 	if lastActivityForCase == "" {
 		// 1. we have not seen this case thus far
-		a.Store.RecordStartActivity(activityName)
-		err = a.Store.RecordDirectlyFollowsRelation("", activityName, timestamp)
+		a.Store.RecordStartActivity(event.ActivityName)
+		err = a.Store.RecordDirectlyFollowsRelation("", event.ActivityName, event.Timestamp)
 		if err != nil {
 			return err
 		}
 	} else {
 		// 2. we have seen this case
-		err = a.Store.RecordDirectlyFollowsRelation(lastActivityForCase, activityName, timestamp)
+		err = a.Store.RecordDirectlyFollowsRelation(lastActivityForCase, event.ActivityName, event.Timestamp)
 		if err != nil {
 			return err
 		}
 	}
 	// always set the last seen activity for the current case to the current activity
-	err = a.Store.RecordActivityForCase(activityName, caseInstance, timestamp)
+	err = a.Store.RecordActivityForCase(event.ActivityName, event.CaseId, event.Timestamp)
 	return err
 }
 

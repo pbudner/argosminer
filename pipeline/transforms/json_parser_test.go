@@ -30,7 +30,7 @@ func TestJsoninJsonParser(t *testing.T) {
 	parse <- []byte("{\"my_json\": \"{\\\"activity\\\": \\\"my_activity\\\", \\\"case_id\\\": \\\"my_instance\\\", \\\"@timestamp\\\": \\\"2021-11-22T12:13:14.000\\\", \\\"inner_attribute\\\": \\\"foo\\\"}\", \"outer_attribute\": \"bar\"}")
 	require.EqualValues(t, true, <-parse)
 	evt := (<-receiver).(pipeline.Event)
-	require.EqualValues(t, "my_instance", evt.ProcessInstanceId)
+	require.EqualValues(t, "my_instance", evt.CaseId)
 	require.EqualValues(t, "my_activity", evt.ActivityName)
 	require.EqualValues(t, 2021, evt.Timestamp.Year())
 
@@ -38,7 +38,7 @@ func TestJsoninJsonParser(t *testing.T) {
 	parse <- []byte("{\"my_json\": \"{\\\"activity\\\": \\\"my_activity\\\", \\\"case_id\\\": \\\"my_instance\\\", \\\"@timestamp\\\": \\\"2021-11-22T12:13:14.000\\\", \\\"inner_attribute\\\": \\\"foo\\\"}\", \"outer_attribute\": \"bar\"}")
 	require.EqualValues(t, true, <-parse)
 	evt = (<-receiver).(pipeline.Event)
-	require.EqualValues(t, "my_instance", evt.ProcessInstanceId)
+	require.EqualValues(t, "my_instance", evt.CaseId)
 	require.EqualValues(t, "my_activity", evt.ActivityName)
 	require.EqualValues(t, 2021, evt.Timestamp.Year())
 	require.EqualValues(t, "foo", evt.AdditionalFields["inner_attribute"])
@@ -49,7 +49,7 @@ func TestJsoninJsonParser(t *testing.T) {
 	parse <- []byte("{\"activity\": \"my_activity\", \"case_id\": \"my_instance\", \"@timestamp\": \"2021-11-22T12:13:14.000\", \"inner_attribute\": \"foo\"}")
 	require.EqualValues(t, true, <-parse)
 	evt = (<-receiver).(pipeline.Event)
-	require.EqualValues(t, "my_instance", evt.ProcessInstanceId)
+	require.EqualValues(t, "my_instance", evt.CaseId)
 	require.EqualValues(t, "my_activity", evt.ActivityName)
 	require.EqualValues(t, 2021, evt.Timestamp.Year())
 

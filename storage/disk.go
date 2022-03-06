@@ -411,9 +411,9 @@ func (s *diskStorage) maintenance() {
 			}
 
 			if err == badger.ErrNoRewrite {
-				s.log.Info("Successfully finished ValueLogGC")
+				s.log.Info("Successfully finished maintenance on database")
 			} else {
-				s.log.Error("Failed to run ValueLogGC:", err)
+				s.log.Error("Failed to run maintenance on database:", err)
 			}
 		}
 	}

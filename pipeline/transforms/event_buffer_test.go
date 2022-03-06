@@ -26,9 +26,9 @@ func TestBuffer(t *testing.T) {
 
 	start := time.Now()
 	evts <- pipeline.Event{
-		ActivityName:      "Activity A",
-		ProcessInstanceId: "ID-4711",
-		Timestamp:         time.Now(),
+		ActivityName: "Activity A",
+		CaseId:       "ID-4711",
+		Timestamp:    time.Now(),
 	}
 	require.EqualValues(t, true, <-evts)
 	evt := (<-receiver).(pipeline.Event)
@@ -37,51 +37,51 @@ func TestBuffer(t *testing.T) {
 
 	now := time.Now()
 	evts <- pipeline.Event{
-		ActivityName:      "Activity B",
-		ProcessInstanceId: "ID-4711",
-		Timestamp:         now,
+		ActivityName: "Activity B",
+		CaseId:       "ID-4711",
+		Timestamp:    now,
 	}
 	require.EqualValues(t, true, <-evts)
 
 	evts <- pipeline.Event{
-		ActivityName:      "Activity C",
-		ProcessInstanceId: "ID-4711",
-		Timestamp:         now.Add(-100 * time.Millisecond),
+		ActivityName: "Activity C",
+		CaseId:       "ID-4711",
+		Timestamp:    now.Add(-100 * time.Millisecond),
 	}
 	require.EqualValues(t, true, <-evts)
 
 	evts <- pipeline.Event{
-		ActivityName:      "Activity D",
-		ProcessInstanceId: "ID-4711",
-		Timestamp:         now.Add(100 * time.Millisecond),
+		ActivityName: "Activity D",
+		CaseId:       "ID-4711",
+		Timestamp:    now.Add(100 * time.Millisecond),
 	}
 	require.EqualValues(t, true, <-evts)
 
 	evts <- pipeline.Event{
-		ActivityName:      "Activity E",
-		ProcessInstanceId: "ID-4711",
-		Timestamp:         now.Add(-200 * time.Millisecond),
+		ActivityName: "Activity E",
+		CaseId:       "ID-4711",
+		Timestamp:    now.Add(-200 * time.Millisecond),
 	}
 	require.EqualValues(t, true, <-evts)
 
 	evts <- pipeline.Event{
-		ActivityName:      "Activity F",
-		ProcessInstanceId: "ID-4711",
-		Timestamp:         now.Add(200 * time.Millisecond),
+		ActivityName: "Activity F",
+		CaseId:       "ID-4711",
+		Timestamp:    now.Add(200 * time.Millisecond),
 	}
 	require.EqualValues(t, true, <-evts)
 
 	evts <- pipeline.Event{
-		ActivityName:      "Activity G",
-		ProcessInstanceId: "ID-4711",
-		Timestamp:         now.Add(200 * time.Millisecond),
+		ActivityName: "Activity G",
+		CaseId:       "ID-4711",
+		Timestamp:    now.Add(200 * time.Millisecond),
 	}
 	require.EqualValues(t, true, <-evts)
 
 	evts <- pipeline.Event{
-		ActivityName:      "Activity Invalid",
-		ProcessInstanceId: "ID-4711",
-		Timestamp:         now.Add(-2 * time.Minute),
+		ActivityName: "Activity Invalid",
+		CaseId:       "ID-4711",
+		Timestamp:    now.Add(-2 * time.Minute),
 	}
 	require.EqualValues(t, false, <-evts) // reject event
 

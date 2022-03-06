@@ -238,6 +238,11 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 		})
 	})
 
+	v1.GET("/processes/names", func(c echo.Context) error {
+		// TODO
+		return nil
+	})
+
 	v1.GET("/processes", func(c echo.Context) error {
 		ignoreActionReExprs := make([]*regexp.Regexp, 0)
 		removeActionReExprs := make([]*regexp.Regexp, 0)

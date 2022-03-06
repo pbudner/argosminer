@@ -118,7 +118,7 @@ func (es *EventStore) GetLast(count int) ([]pipeline.Event, error) {
 		}
 		err = storage.DefaultStorage.IterateReverse(prefix[:8], func(key []byte, getValue func() ([]byte, error)) (bool, error) {
 			if !bytes.Equal(key[:8], prefix[:8]) {
-				es.log.Warn("Prefix search included wrong items. Abort search.")
+				es.log.Warn("Prefix search included wrong items. Abort search. This should not happen.")
 				return false, nil
 			}
 			var evts []pipeline.Event

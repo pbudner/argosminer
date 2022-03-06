@@ -18,6 +18,7 @@ type CsvParserConfig struct {
 	TimestampColumn    uint   `yaml:"timestamp-column"`
 	TimestampFormat    string `yaml:"timestamp-format"`      // https://golang.org/src/time/format.go
 	TimestampTzIanakey string `yaml:"timestamp-tz-iana-key"` // https://golang.org/src/time/format.go
+	ActivityPrefix     string `yaml:"activity-prefix"`
 	IgnoreWhen         []struct {
 		Column    uint   `yaml:"column"`
 		Condition string `yaml:"condition"`
@@ -118,14 +119,20 @@ func (p *csvParser) parse(input []byte) (pipeline.Event, error) {
 		return event, fmt.Errorf("the event does not contain all neccessary columns to parse it")
 	}
 
-	processInstanceId := strings.Trim(eventColumns[p.config.CaseIdColumn], " ")
+	caseId := strings.Trim(eventColumns[p.config.CaseIdColumn], " ")
 	activityName := strings.Trim(eventColumns[p.config.ActivityColumn], " ")
+
+	// prefix activites if wanted
+	if p.config.ActivityPrefix != "" {
+		activityName = p.config.ActivityPrefix + activityName
+	}
+
 	timestamp, err := p.timestampParser.Parse(eventColumns[p.config.TimestampColumn])
 	if err != nil {
 		return event, err
 	}
 
-	return pipeline.NewEvent(processInstanceId, activityName, timestamp.UTC(), nil), nil
+	return pipeline.NewEvent(caseId, activityName, timestamp.UTC(), nil), nil
 }
 
 func (cp *csvParser) Close() {

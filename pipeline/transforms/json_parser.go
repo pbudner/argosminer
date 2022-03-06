@@ -18,6 +18,7 @@ type JsonParserConfig struct {
 	TimestampPath      string `yaml:"timestamp-path"`
 	TimestampFormat    string `yaml:"timestamp-format"`      // https://golang.org/src/time/format.go
 	TimestampTzIanakey string `yaml:"timestamp-tz-iana-key"` // https://golang.org/src/time/format.go
+	ActivityPrefix     string `yaml:"activity-prefix"`
 	IgnoreWhen         []struct {
 		Path      string `yaml:"path"`
 		Condition string `yaml:"condition"`
@@ -126,6 +127,11 @@ func (jp *jsonParser) parse(input []byte) (nilEvent pipeline.Event, err error) {
 
 	if caseId == "" || activity == "" {
 		return nilEvent, fmt.Errorf("could not create a new event as some required fields are empty: case_id=%s, activity=%s", caseId, activity)
+	}
+
+	// prefix activites if wanted
+	if jp.config.ActivityPrefix != "" {
+		activity = jp.config.ActivityPrefix + activity
 	}
 
 	additionalFields := make(map[string]string)

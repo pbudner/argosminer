@@ -8,20 +8,20 @@ import (
 )
 
 type Event struct {
-	IsParsed          bool              `json:"-"`
-	ProcessInstanceId string            `json:"process_instance_id"`
-	ActivityName      string            `json:"activity_name"`
-	Timestamp         time.Time         `json:"timestamp"`
-	AdditionalFields  map[string]string `json:"additional_fields"`
+	IsParsed         bool              `json:"-"`
+	CaseId           string            `json:"case_id"`
+	ActivityName     string            `json:"activity_name"`
+	Timestamp        time.Time         `json:"timestamp"`
+	AdditionalFields map[string]string `json:"additional_fields"`
 }
 
-func NewEvent(processInstanceId string, activityName string, timestamp time.Time, additionalFields map[string]string) Event {
+func NewEvent(caseId string, activityName string, timestamp time.Time, additionalFields map[string]string) Event {
 	return Event{
-		IsParsed:          true,
-		ProcessInstanceId: processInstanceId,
-		ActivityName:      activityName,
-		Timestamp:         timestamp,
-		AdditionalFields:  additionalFields,
+		IsParsed:         true,
+		CaseId:           caseId,
+		ActivityName:     activityName,
+		Timestamp:        timestamp,
+		AdditionalFields: additionalFields,
 	}
 }
 
