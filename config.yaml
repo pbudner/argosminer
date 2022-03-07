@@ -20,6 +20,7 @@ pipeline:
         activity-column: 2
         timestamp-column: 0
         timestamp-format: '02/01/2006 15:04:05.000000'
+        activity-prefix: thisisalongprefixbeecauseiwanttocutthem
         ignore-when:
           - column: 2
             condition: '=='

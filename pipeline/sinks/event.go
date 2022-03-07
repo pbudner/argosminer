@@ -10,6 +10,11 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	eventProcessorSingletonOnce sync.Once
+	eventProcessorSingleton     *eventProcessor
+)
+
 // this receiver is primarily used for performance testing as it does not cost significant performance
 type eventProcessor struct {
 	pipeline.Consumer
@@ -20,7 +25,10 @@ type eventProcessor struct {
 
 func init() {
 	pipeline.RegisterComponent("sinks.event", nil, func(config interface{}) pipeline.Component {
-		return NewEventProcessor(stores.GetEventStore())
+		eventProcessorSingletonOnce.Do(func() {
+			eventProcessorSingleton = NewEventProcessor(stores.GetEventStore())
+		})
+		return eventProcessorSingleton
 	})
 }
 
@@ -30,7 +38,6 @@ func NewEventProcessor(eventStore *stores.EventStore) *eventProcessor {
 		EventStore: eventStore,
 		log:        zap.L().Sugar().With("service", "event-processor"),
 	}
-
 	receiver.log.Infof("Initialized new EventStore receiver with ID %s", receiver.Id)
 	return receiver
 }

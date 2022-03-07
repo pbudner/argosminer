@@ -18,28 +18,35 @@ type dfgStreamingAlgorithm struct {
 	log   *zap.SugaredLogger
 }
 
-var receivedDfgEventsCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
-	Subsystem: "argosminer_receivers_dfg",
-	Name:      "events_total",
-	Help:      "Total number of received events.",
-}, []string{"guid"})
+var (
+	dfgSingletonOnce         sync.Once
+	dfgSingleton             *dfgStreamingAlgorithm
+	receivedDfgEventsCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Subsystem: "argosminer_receivers_dfg",
+		Name:      "events_total",
+		Help:      "Total number of received events.",
+	}, []string{"guid"})
 
-var lastReceivedDfgEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-	Subsystem: "argosminer_receivers_dfg",
-	Name:      "last_received_event",
-	Help:      "Last received event for this receiver.",
-}, []string{"guid"})
+	lastReceivedDfgEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Subsystem: "argosminer_receivers_dfg",
+		Name:      "last_received_event",
+		Help:      "Last received event for this receiver.",
+	}, []string{"guid"})
 
-var lastReceviedDfgEventTime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-	Subsystem: "argosminer_receivers_dfg",
-	Name:      "last_received_eventtime",
-	Help:      "Last received event time for this receiver.",
-}, []string{"guid"})
+	lastReceviedDfgEventTime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Subsystem: "argosminer_receivers_dfg",
+		Name:      "last_received_eventtime",
+		Help:      "Last received event time for this receiver.",
+	}, []string{"guid"})
+)
 
 func init() {
 	prometheus.MustRegister(receivedDfgEventsCounter, lastReceivedDfgEvent, lastReceviedDfgEventTime)
 	pipeline.RegisterComponent("sinks.dfg", nil, func(config interface{}) pipeline.Component {
-		return NewDfgStreamingAlgorithm(stores.GetSbarStore())
+		dfgSingletonOnce.Do(func() {
+			dfgSingleton = NewDfgStreamingAlgorithm(stores.GetSbarStore())
+		})
+		return dfgSingleton
 	})
 }
 

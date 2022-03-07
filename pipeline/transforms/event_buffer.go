@@ -27,7 +27,9 @@ type eventBuffer struct {
 }
 
 var (
-	eventBufferCurrentItems = prometheus.NewGauge(prometheus.GaugeOpts{
+	eventBufferSingletonOnce sync.Once
+	eventBufferSingleton     *eventBuffer
+	eventBufferCurrentItems  = prometheus.NewGauge(prometheus.GaugeOpts{
 		Subsystem: "argosminer_event_buffer",
 		Name:      "current_events",
 		Help:      "Number of current events in buffer.",
@@ -43,7 +45,11 @@ var (
 func init() {
 	prometheus.MustRegister(eventBufferCurrentItems, eventBufferIgnoredItems)
 	pipeline.RegisterComponent("transforms.event_buffer", EventBufferConfig{}, func(config interface{}) pipeline.Component {
-		return NewEventBuffer(config.(EventBufferConfig))
+		eventBufferSingletonOnce.Do(func() {
+			eventBufferSingleton = NewEventBuffer(config.(EventBufferConfig))
+		})
+
+		return eventBufferSingleton
 	})
 }
 
