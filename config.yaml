@@ -3,34 +3,48 @@ listener: localhost:4711
 logger:
   level: info
 database:
-#  path: /Volumes/PascalsSSD/ArgosMiner/badgerv2_nopointer_nosync
-  path: ./data
+  path: /Volumes/PascalsSSD/ArgosMiner/db
+#  path: ./data
 ignore-activities:
   - name: 'krankenAngeboteWiederherstellen::Start'
   - name: '.*::Start'
     remove: true
 pipeline:
-  - name: sources.file
-    path: 'data/eventlog.csv'
-    read-from: start
+#  - name: sources.file
+#    path: 'data/eventlog.csv'
+#    read-from: start
+  - name: sources.kafka  
+    brokers: 'localhost:9092'
+    group-id: consumer-group-4711-10007
+    timeout: 5s
+    commit-interval: 1s
+    topic: pmlogs
+    min-bytes: 10e3 # 10KB
+    max-bytes: 10e6 # 10MB 
     connects:
-      - name: transforms.csv_parser
-        delimiter: ';'
-        case-id-column: 1
-        activity-column: 2
-        timestamp-column: 0
-        timestamp-format: '02/01/2006 15:04:05.000000'
-        activity-prefix: thisisalongprefixbeecauseiwanttocutthem
-        ignore-when:
-          - column: 2
-            condition: '=='
-            value: 'IgnoreMe'
+      - name: transforms.json_parser
+        json-path: my_event
+        activity-path: activity
+        case-id-path: process_instance_id
+        timestamp-path: '@timestamp'
+        timestamp-format: '2006-01-02T15:04:05.000-0700'
+        timestamp-tz-iana-key: Europe/Berlin
+      # - name: transforms.csv_parser
+      #   delimiter: ';'
+      #   case-id-column: 1
+      #   activity-column: 2
+      #   timestamp-column: 0
+      #   timestamp-format: '02/01/2006 15:04:05.000000'
+      #   activity-prefix: thisisalongprefixbeecauseiwanttocutthem
+      #   ignore-when:
+      #     - column: 2
+      #       condition: '=='
+      #       value: 'IgnoreMe'
         connects:
           - name: transforms.event_buffer
             max-events: 100000
             max-age: 1m
             flush-interval: 1s
-            ignore-events-older-than: 24h
             connects:
               - name: sinks.dfg
               - name: sinks.event

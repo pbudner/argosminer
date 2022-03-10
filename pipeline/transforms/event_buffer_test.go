@@ -14,10 +14,10 @@ func TestBuffer(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	ctx := context.Background()
 	buffer := NewEventBuffer(EventBufferConfig{
-		MaxEvents:             5,
-		MaxAge:                500 * time.Millisecond,
-		FlushInterval:         100 * time.Millisecond,
-		IgnoreEventsOlderThan: 1 * time.Minute,
+		MaxEvents:     5,
+		MaxAge:        500 * time.Millisecond,
+		FlushInterval: 100 * time.Millisecond,
+		//IgnoreEventsOlderThan: *(1 * time.Minute),
 	})
 	evts := make(chan interface{})
 	buffer.Link(evts)
