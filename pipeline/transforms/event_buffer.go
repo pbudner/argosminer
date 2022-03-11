@@ -85,7 +85,7 @@ func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 
 			if eb.config.IgnoreEventsOlderThan != nil && -time.Until(evt.Timestamp) > *eb.config.IgnoreEventsOlderThan {
 				eventBufferIgnoredItems.Inc()
-				eb.log.Info("Ignored an incoming event, since it is too old")
+				eb.log.Debugw("Ignored an incoming event, since it is too old", "timestamp", evt.Timestamp)
 				eb.Consumes <- false
 				continue
 			}

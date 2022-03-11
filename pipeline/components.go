@@ -97,12 +97,12 @@ func (c *Publisher) Publish(msg interface{}, sendToAll bool) {
 		select {
 		case rOk := <-ch: // wait for channel answer
 			if !sendToAll { // if we are only sending to the first accepting consumer
-				ok, parsed := rOk.(bool)
-				if !parsed {
+				statusOk, ok := rOk.(bool)
+				if !ok {
 					zap.L().Sugar().With("service", "publisher").Error("Expected bool, but received something different")
 					continue
 				}
-				if ok {
+				if statusOk {
 					return
 				}
 			}

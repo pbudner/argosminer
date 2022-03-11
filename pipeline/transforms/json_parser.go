@@ -82,11 +82,18 @@ func (jp *jsonParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 			jp.log.Info("Shutting down pipeline.transforms.JsonParser")
 			return
 		case input := <-jp.Consumes:
-			evt, err := jp.parse(input.([]byte))
+			b, ok := input.([]byte)
+			if !ok {
+				jp.log.Error("Expected []byte input, got something different")
+				return
+			}
+
+			evt, err := jp.parse(b)
 			if evt.IsParsed && err == nil {
 				jp.Consumes <- true
 				jp.Publish(evt, true)
 			} else {
+				jp.log.Debug(err)
 				jp.Consumes <- false
 			}
 		}
