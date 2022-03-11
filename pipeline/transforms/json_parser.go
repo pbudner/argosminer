@@ -84,8 +84,9 @@ func (jp *jsonParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 		case input := <-jp.Consumes:
 			b, ok := input.([]byte)
 			if !ok {
-				jp.log.Error("Expected []byte input, got something different")
-				return
+				jp.log.Errorw("Expected []byte input", "input", input)
+				jp.Consumes <- false
+				continue
 			}
 
 			evt, err := jp.parse(b)

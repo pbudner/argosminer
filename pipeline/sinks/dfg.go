@@ -74,10 +74,11 @@ func (a *dfgStreamingAlgorithm) Run(wg *sync.WaitGroup, ctx context.Context) {
 		case input := <-a.Consumes:
 			evt, ok := input.(pipeline.Event)
 			if !ok {
+				a.log.Errorw("Did not receive a pipeline.Event", "input", input)
 				a.Consumes <- false
-				a.log.Error("Did not receive a pipeline.Event")
 				continue
 			}
+
 			err := a.append(evt)
 			a.Consumes <- err == nil
 		}

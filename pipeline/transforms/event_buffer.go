@@ -78,7 +78,7 @@ func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 		case input := <-eb.Consumes:
 			evt, ok := input.(pipeline.Event)
 			if !ok {
-				eb.log.Error("Received a non pipeline.Event message.")
+				eb.log.Errorw("Expected pipeline.Event input", "input", input)
 				eb.Consumes <- false
 				continue
 			}
@@ -89,6 +89,7 @@ func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 				eb.Consumes <- false
 				continue
 			}
+
 			heap.Push(&eb.buffer, &eventBufferItem{
 				value:        evt,
 				time:         evt.Timestamp.UnixNano(),

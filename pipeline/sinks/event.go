@@ -57,15 +57,16 @@ func (ep *eventProcessor) Run(wg *sync.WaitGroup, ctx context.Context) {
 		case input := <-ep.Consumes:
 			evt, ok := input.(pipeline.Event)
 			if !ok {
+				ep.log.Errorw("Did not receive a pipeline.Event", "input", input)
 				ep.Consumes <- false
-				return
+				continue
 			}
 
 			err := ep.EventStore.Append(evt)
 			if err != nil {
 				ep.log.Error(err)
 				ep.Consumes <- false
-				return
+				continue
 			}
 
 			ep.Consumes <- true

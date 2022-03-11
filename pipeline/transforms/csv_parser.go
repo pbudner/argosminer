@@ -88,9 +88,9 @@ func (cp *csvParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 		case input := <-cp.Consumes:
 			b, ok := input.([]byte)
 			if !ok {
-				cp.log.Error("Expected []byte array as input, got something different")
+				cp.log.Errorw("Expected []byte input", "input", input)
 				cp.Consumes <- false
-				return
+				continue
 			}
 
 			evt, err := cp.parse(b)
