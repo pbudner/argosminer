@@ -59,7 +59,7 @@ func NewDfgStreamingAlgorithm(store *stores.SbarStore) *dfgStreamingAlgorithm {
 	return &algo
 }
 
-func (a *dfgStreamingAlgorithm) Subscribe() chan interface{} {
+func (a *dfgStreamingAlgorithm) Subscribe() <-chan interface{} {
 	panic("A sink component must not be subscribed to")
 }
 
@@ -75,12 +75,12 @@ func (a *dfgStreamingAlgorithm) Run(wg *sync.WaitGroup, ctx context.Context) {
 			evt, ok := input.(pipeline.Event)
 			if !ok {
 				a.log.Errorw("Did not receive a pipeline.Event", "input", input)
-				a.Consumes <- false
 				continue
 			}
 
-			err := a.append(evt)
-			a.Consumes <- err == nil
+			if err := a.append(evt); err != nil {
+				a.log.Error(err)
+			}
 		}
 	}
 

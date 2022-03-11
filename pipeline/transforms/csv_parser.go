@@ -89,17 +89,14 @@ func (cp *csvParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 			b, ok := input.([]byte)
 			if !ok {
 				cp.log.Errorw("Expected []byte input", "input", input)
-				cp.Consumes <- false
 				continue
 			}
 
 			evt, err := cp.parse(b)
 			if evt.IsParsed && err == nil {
-				cp.Consumes <- true
-				cp.Publish(evt, true)
+				cp.Publish(evt)
 			} else {
 				cp.log.Debug(err)
-				cp.Consumes <- false
 			}
 		}
 	}

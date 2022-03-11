@@ -76,7 +76,7 @@ func (s *kafka) Close() {
 	s.Publisher.Close()
 }
 
-func (s *kafka) Link(parent chan interface{}) {
+func (s *kafka) Link(parent <-chan interface{}) {
 	panic("A source component must not be linked to a parent pipeline component")
 }
 
@@ -128,9 +128,7 @@ func (s *kafka) Run(wg *sync.WaitGroup, ctx context.Context) {
 
 		receivedKafkaEvents.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 		lastReceivedKafkaEvent.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).SetToCurrentTime()
-
-		s.Publish(m.Value, false) // we only want to send an input to one working parser
-
+		s.Publish(m.Value)
 		if err := r.CommitMessages(context.Background(), m); err != nil {
 			s.log.Error("Failed to commit messages:", err)
 		}

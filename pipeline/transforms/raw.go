@@ -38,8 +38,7 @@ func (rp *rawParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case input := <-rp.Consumes:
-			rp.Consumes <- true
-			rp.Publish(input, true)
+			rp.Publish(input)
 		}
 	}
 }

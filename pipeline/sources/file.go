@@ -71,7 +71,7 @@ func NewFile(cfg FileConfig) *file {
 	return &fs
 }
 
-func (fs *file) Link(parent chan interface{}) {
+func (fs *file) Link(parent <-chan interface{}) {
 	panic("A source component must not be linked to a parent pipeline component")
 }
 
@@ -160,7 +160,7 @@ func (fs *file) readFile(ctx context.Context) {
 			receivedFileEvents.WithLabelValues(fs.Path).Inc()
 			line := scanner.Bytes()
 			line = bytes.ReplaceAll(line, []byte("\""), []byte(""))
-			fs.Publish(line, false) // we only want to send an input to one working parser
+			fs.Publish(line)
 		}
 	}
 

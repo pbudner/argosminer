@@ -85,17 +85,14 @@ func (jp *jsonParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 			b, ok := input.([]byte)
 			if !ok {
 				jp.log.Errorw("Expected []byte input", "input", input)
-				jp.Consumes <- false
 				continue
 			}
 
 			evt, err := jp.parse(b)
 			if evt.IsParsed && err == nil {
-				jp.Consumes <- true
-				jp.Publish(evt, true)
+				jp.Publish(evt)
 			} else {
 				jp.log.Debug(err)
-				jp.Consumes <- false
 			}
 		}
 	}

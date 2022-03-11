@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"time"
 
 	"github.com/mitchellh/mapstructure"
-	"go.uber.org/zap"
 )
 
 var (
@@ -21,8 +19,8 @@ type RegisteredComponent struct {
 
 type Component interface {
 	Run(*sync.WaitGroup, context.Context)
-	Link(parent chan interface{})
-	Subscribe() chan interface{}
+	Link(parent <-chan interface{})
+	Subscribe() <-chan interface{}
 	Close()
 }
 
@@ -58,20 +56,20 @@ func InstantiateComponent(name string, args map[string]interface{}) (Component, 
 }
 
 type Consumer struct {
-	Consumes chan interface{}
+	Consumes <-chan interface{}
 }
 
-func (c *Consumer) Link(parent chan interface{}) {
+func (c *Consumer) Link(parent <-chan interface{}) {
 	c.Consumes = parent
 }
 
 type Publisher struct {
 	sync.RWMutex
-	subs   []chan interface{}
+	subs   []chan<- interface{}
 	closed bool
 }
 
-func (c *Publisher) Subscribe() chan interface{} {
+func (c *Publisher) Subscribe() <-chan interface{} {
 	c.Lock()
 	defer c.Unlock()
 
@@ -84,7 +82,7 @@ func (c *Publisher) Subscribe() chan interface{} {
 	return ch
 }
 
-func (c *Publisher) Publish(msg interface{}, sendToAll bool) {
+func (c *Publisher) Publish(msg interface{}) {
 	c.RLock()
 	defer c.RUnlock()
 
@@ -94,7 +92,7 @@ func (c *Publisher) Publish(msg interface{}, sendToAll bool) {
 
 	for _, ch := range c.subs {
 		ch <- msg
-		select {
+		/*select {
 		case rOk := <-ch: // wait for channel answer
 			if !sendToAll { // if we are only sending to the first accepting consumer
 				statusOk, ok := rOk.(bool)
@@ -103,13 +101,14 @@ func (c *Publisher) Publish(msg interface{}, sendToAll bool) {
 					continue
 				}
 				if statusOk {
+					// one connected component could handle the published message, hence we are done
 					return
 				}
 			}
 		case <-time.After(1 * time.Second): // timeout
 			zap.L().Sugar().With("service", "publisher").Info("Subscribed component did not answer timely")
 			continue
-		}
+		}*/
 	}
 }
 

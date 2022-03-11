@@ -79,14 +79,12 @@ func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 			evt, ok := input.(pipeline.Event)
 			if !ok {
 				eb.log.Errorw("Expected pipeline.Event input", "input", input)
-				eb.Consumes <- false
 				continue
 			}
 
 			if eb.config.IgnoreEventsOlderThan != nil && -time.Until(evt.Timestamp) > *eb.config.IgnoreEventsOlderThan {
 				eventBufferIgnoredItems.Inc()
 				eb.log.Debugw("Ignored an incoming event, since it is too old", "timestamp", evt.Timestamp)
-				eb.Consumes <- false
 				continue
 			}
 
@@ -98,7 +96,6 @@ func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 			})
 			counter++
 			eventBufferCurrentItems.Inc()
-			eb.Consumes <- true
 			eb.flush(false)
 		}
 	}
@@ -110,7 +107,7 @@ func (eb *eventBuffer) flush(force bool) {
 		evt := heap.Pop(&eb.buffer).(*eventBufferItem).value
 		eb.log.Debugw("Found an outaged item, flushing it now", "Case ID", evt.CaseId, "Timestamp", evt.Timestamp, "Activity", evt.ActivityName)
 		eventBufferCurrentItems.Dec()
-		eb.Publish(evt, true)
+		eb.Publish(evt)
 	}
 }
 

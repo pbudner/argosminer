@@ -42,7 +42,7 @@ func NewEventProcessor(eventStore *stores.EventStore) *eventProcessor {
 	return receiver
 }
 
-func (ep *eventProcessor) Subscribe() chan interface{} {
+func (ep *eventProcessor) Subscribe() <-chan interface{} {
 	panic("A sink component must not be subscribed to")
 }
 
@@ -58,18 +58,14 @@ func (ep *eventProcessor) Run(wg *sync.WaitGroup, ctx context.Context) {
 			evt, ok := input.(pipeline.Event)
 			if !ok {
 				ep.log.Errorw("Did not receive a pipeline.Event", "input", input)
-				ep.Consumes <- false
 				continue
 			}
 
 			err := ep.EventStore.Append(evt)
 			if err != nil {
 				ep.log.Error(err)
-				ep.Consumes <- false
 				continue
 			}
-
-			ep.Consumes <- true
 		}
 	}
 }

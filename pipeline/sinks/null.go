@@ -52,7 +52,7 @@ func NewDevNullProcessor() *devNullProcessor {
 	return &algo
 }
 
-func (dp *devNullProcessor) Subscribe() chan interface{} {
+func (dp *devNullProcessor) Subscribe() <-chan interface{} {
 	panic("A sink component must not be subscribed to")
 }
 
@@ -66,7 +66,6 @@ func (dp *devNullProcessor) Run(wg *sync.WaitGroup, ctx context.Context) {
 			lastReceivedNullEvent.WithLabelValues(dp.Id.String()).SetToCurrentTime()
 			receivedNullEventsCounter.WithLabelValues(dp.Id.String()).Inc()
 			lastReceviedNullEventTime.WithLabelValues(dp.Id.String()).Set(float64((input.(pipeline.Event)).Timestamp.Unix()))
-			dp.Consumes <- true
 		}
 	}
 }
