@@ -23,6 +23,12 @@ var (
 		Help:      "Count of maintenance runs.",
 	}, []string{"path"})
 
+	diskStorageFinishedMaintenanceCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Subsystem: "argosminer_storage_disk",
+		Name:      "maintenance_finished_total",
+		Help:      "Count of finished maintenance runs.",
+	}, []string{"path"})
+
 	lsmSizeGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Subsystem: "argosminer_storage_disk",
 		Name:      "lsm_size",
@@ -37,7 +43,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(diskStorageMaintenanceCounter)
+	prometheus.MustRegister(diskStorageMaintenanceCounter, diskStorageFinishedMaintenanceCounter, lsmSizeGauge, vlogSizeGauge)
 }
 
 type diskStorage struct {
@@ -398,7 +404,7 @@ func (s *diskStorage) maintenance() {
 			return
 		case <-maintenanceTicker.C:
 			var err error
-			s.log.Info("Performing maintenance on database")
+			s.log.Debug("Performing maintenance on database")
 			diskStorageMaintenanceCounter.WithLabelValues(s.path).Inc()
 			for err == nil {
 				select {
@@ -411,10 +417,14 @@ func (s *diskStorage) maintenance() {
 			}
 
 			if err == badger.ErrNoRewrite {
-				s.log.Info("Successfully finished maintenance on database")
+				diskStorageFinishedMaintenanceCounter.WithLabelValues(s.path).Inc()
+				s.log.Debug("Successfully finished maintenance on database")
 			} else {
 				s.log.Error("Failed to run maintenance on database:", err)
 			}
+
+			// we reset the timer, because sometimes the maintenance intervall takes too much time
+			maintenanceTicker.Reset(maintenanceIntervalInMinutes * time.Minute)
 		}
 	}
 }

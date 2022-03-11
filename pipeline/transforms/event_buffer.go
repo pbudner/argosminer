@@ -103,9 +103,8 @@ func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 
 func (eb *eventBuffer) flush(force bool) {
 	// flush aged items or the oldest items if we have too many
-	for (force && eb.buffer.Len() > 0) || (eb.buffer.Len() > eb.config.MaxEvents || (eb.buffer.Len() > 0 && -time.Until(eb.buffer[0].receivedTime) > eb.config.MaxAge)) {
+	for (force && eb.buffer.Len() > 0) || (eb.buffer.Len() >= eb.config.MaxEvents || (eb.buffer.Len() > 0 && -time.Until(eb.buffer[0].receivedTime) > eb.config.MaxAge)) {
 		evt := heap.Pop(&eb.buffer).(*eventBufferItem).value
-		eb.log.Debugw("Found an outaged item, flushing it now", "Case ID", evt.CaseId, "Timestamp", evt.Timestamp, "Activity", evt.ActivityName)
 		eventBufferCurrentItems.Dec()
 		eb.Publish(evt)
 	}

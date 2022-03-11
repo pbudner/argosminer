@@ -92,23 +92,6 @@ func (c *Publisher) Publish(msg interface{}) {
 
 	for _, ch := range c.subs {
 		ch <- msg
-		/*select {
-		case rOk := <-ch: // wait for channel answer
-			if !sendToAll { // if we are only sending to the first accepting consumer
-				statusOk, ok := rOk.(bool)
-				if !ok {
-					zap.L().Sugar().With("service", "publisher").Error("Expected bool, but received something different")
-					continue
-				}
-				if statusOk {
-					// one connected component could handle the published message, hence we are done
-					return
-				}
-			}
-		case <-time.After(1 * time.Second): // timeout
-			zap.L().Sugar().With("service", "publisher").Info("Subscribed component did not answer timely")
-			continue
-		}*/
 	}
 }
 
