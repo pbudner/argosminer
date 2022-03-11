@@ -87,7 +87,7 @@ func (cp *csvParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 			return
 		case input := <-cp.Consumes:
 			evt, err := cp.parse(input.([]byte))
-			if err == nil {
+			if evt.IsParsed && err == nil {
 				cp.Consumes <- true
 				cp.Publish(evt, true)
 			} else {
