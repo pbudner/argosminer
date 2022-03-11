@@ -135,14 +135,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Prometheus HTTP handler
-	p := prom.NewPrometheus("echo", nil)
-	p.MetricsPath = fmt.Sprintf("%s/metrics", baseURL.RequestURI())
-	p.Use(e)
-
 	baseUrlPath := strings.TrimRight(baseURL.RequestURI(), "/")
 	baseGroup := e.Group(baseUrlPath)
 
+	// Prometheus HTTP handler
+	p := prom.NewPrometheus("echo", nil)
+	if baseUrlPath == "/" {
+		p.MetricsPath = "/metrics"
+	} else {
+		p.MetricsPath = fmt.Sprintf("%s/metrics", baseUrlPath)
+	}
+	p.Use(e)
+
+	// hanlde index
 	handleIndexFunc := func(c echo.Context) error {
 		response, err := parseTemplate("ui/dist/index.html", cfg)
 		if err != nil {

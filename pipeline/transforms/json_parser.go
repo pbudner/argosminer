@@ -108,7 +108,7 @@ func (jp *jsonParsers) Run(wg *sync.WaitGroup, ctx context.Context) {
 
 			if !parsed {
 				if parseError != nil {
-					jp.log.Errorw("could not parse an event", "last_error", parseError)
+					jp.log.Errorw("could not parse an event", "last_error", parseError, "raw_event", string(b))
 				} else {
 					jp.log.Infow("could not parse an event (without error)", string(b))
 				}
@@ -174,7 +174,7 @@ func (jp *jsonParser) parse(input []byte) (nilEvent pipeline.Event, err error) {
 	rawTimestamp := parsedJson.Get(jp.config.TimestampPath).String()
 
 	if caseId == "" || activity == "" || rawTimestamp == "" {
-		return nilEvent, fmt.Errorf("could not parse all required fields: case_id=%s, activity=%s, timestmap=%s", caseId, activity, rawTimestamp)
+		return nilEvent, fmt.Errorf("could not parse all required fields: case_id=%s, activity=%s, timestamp=%s", caseId, activity, rawTimestamp)
 	}
 
 	timestamp, err := jp.timestampParser.Parse(rawTimestamp)

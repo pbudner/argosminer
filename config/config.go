@@ -65,7 +65,7 @@ func NewConfigFromStr(confContent []byte) (*Config, error) {
 		config.BaseURL = defaultConfig.BaseURL
 	}
 
-	config.BaseURL = strings.Trim(config.BaseURL, "/") // remove tailing slashes
+	config.BaseURL = strings.TrimRight(config.BaseURL, "/") // remove tailing slashes
 	return config, nil
 }
 
