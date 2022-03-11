@@ -67,9 +67,10 @@ func init() {
 
 func NewJsonParsers(config JsonParserConfigs) *jsonParsers {
 	parsers := make([]*jsonParser, len(config.Parsers))
-	for i := range config.Parsers {
-		parsers[i] = newJsonParser(config.Parsers[i])
+	for i, cfg := range config.Parsers {
+		parsers[i] = newJsonParser(cfg)
 	}
+
 	return &jsonParsers{
 		log:     zap.L().Sugar().With("service", "json-parser"),
 		config:  config,
@@ -95,14 +96,18 @@ func (jp *jsonParsers) Run(wg *sync.WaitGroup, ctx context.Context) {
 			parsed := false
 			var parseError error
 			for _, p := range jp.parsers {
-				evt, err := p.parse(b)
-				if evt.IsParsed && err == nil {
+				evt, skipped, err := p.parse(b)
+				if !skipped && err == nil {
 					parsed = true
 					jp.Publish(evt)
 					break
-				}
-				if err != nil {
-					parseError = err
+				} else {
+					if skipped {
+						parsed = true
+						break
+					} else {
+						parseError = err
+					}
 				}
 			}
 
@@ -142,27 +147,28 @@ func newJsonParser(config JsonParserConfig) *jsonParser {
 	}
 }
 
-func (jp *jsonParser) parse(input []byte) (nilEvent pipeline.Event, err error) {
+func (jp *jsonParser) parse(input []byte) (nilEvent pipeline.Event, skipped bool, err error) {
+	var json string
 	// JSON in JSON
 	if jp.config.JsonPath != "" {
 		result := gjson.GetBytes(input, jp.config.JsonPath)
-		input = []byte(result.Str)
-		if len(input) == 0 {
-			return nilEvent, errors.New("could not find JsonPath")
+		jsonInJson := result.Value()
+		if jsonInJson == nil {
+			return nilEvent, false, errors.New("could not find JsonPath")
 		}
+		json = jsonInJson.(string)
+	} else {
+		json = string(input)
 	}
 
-	parsedJson := gjson.ParseBytes(input)
-
-	var lineShouldBeIgnored bool
-
+	parsedJson := gjson.Parse(json)
 	for _, condition := range jp.conditions {
-		lineShouldBeIgnored, err = condition(parsedJson)
+		skipped, err = condition(parsedJson)
 		if err != nil {
 			return
 		}
 
-		if lineShouldBeIgnored {
+		if skipped {
 			jsonSkippedEvents.Inc()
 			jp.log.Debug("skipping a line as an ignore condition is fulfilled")
 			return
@@ -174,7 +180,7 @@ func (jp *jsonParser) parse(input []byte) (nilEvent pipeline.Event, err error) {
 	rawTimestamp := parsedJson.Get(jp.config.TimestampPath).String()
 
 	if caseId == "" || activity == "" || rawTimestamp == "" {
-		return nilEvent, fmt.Errorf("could not parse all required fields: case_id=%s, activity=%s, timestamp=%s", caseId, activity, rawTimestamp)
+		return nilEvent, false, fmt.Errorf("could not parse all required fields: case_id=%s, activity=%s, timestamp=%s", caseId, activity, rawTimestamp)
 	}
 
 	timestamp, err := jp.timestampParser.Parse(rawTimestamp)
@@ -193,5 +199,5 @@ func (jp *jsonParser) parse(input []byte) (nilEvent pipeline.Event, err error) {
 		return true
 	})
 
-	return pipeline.NewEvent(caseId, activity, timestamp, additionalFields), nil
+	return pipeline.NewEvent(caseId, activity, timestamp, additionalFields), false, nil
 }

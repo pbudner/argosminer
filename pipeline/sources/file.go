@@ -2,7 +2,6 @@ package sources
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -159,7 +158,7 @@ func (fs *file) readFile(ctx context.Context) {
 			lastReceivedFileEvent.WithLabelValues(fs.Path).SetToCurrentTime()
 			receivedFileEvents.WithLabelValues(fs.Path).Inc()
 			line := scanner.Bytes()
-			line = bytes.ReplaceAll(line, []byte("\""), []byte(""))
+			// line = bytes.ReplaceAll(line, []byte("\""), []byte(""))
 			fs.Publish(line)
 		}
 	}

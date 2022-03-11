@@ -92,9 +92,11 @@ func (cp *csvParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 				continue
 			}
 
-			evt, err := cp.parse(b)
-			if evt.IsParsed && err == nil {
-				cp.Publish(evt)
+			evt, skipped, err := cp.parse(b)
+			if err == nil {
+				if !skipped {
+					cp.Publish(evt)
+				}
 			} else {
 				cp.log.Debug(err)
 			}
@@ -102,25 +104,24 @@ func (cp *csvParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 	}
 }
 
-func (p *csvParser) parse(input []byte) (pipeline.Event, error) {
-	event := pipeline.Event{}
+func (p *csvParser) parse(input []byte) (nilEvent pipeline.Event, skipped bool, err error) {
 	eventColumns := strings.Split(string(input), p.config.Delimiter)
 	for _, condition := range p.conditions {
-		lineShouldBeIgnored, err := condition(eventColumns)
+		skipped, err = condition(eventColumns)
 		if err != nil {
-			return event, err
+			return
 		}
 
-		if lineShouldBeIgnored {
+		if skipped {
 			csvSkippedEvents.Inc()
 			p.log.Debug("skipping a line as an ignore condition is fulfilled")
-			return event, nil
+			return
 		}
 	}
 
 	numOfColumnsInEvent := len(eventColumns)
 	if p.config.CaseIdColumn >= uint(numOfColumnsInEvent) || p.config.ActivityColumn >= uint(numOfColumnsInEvent) || p.config.TimestampColumn >= uint(numOfColumnsInEvent) {
-		return event, fmt.Errorf("the event does not contain all neccessary columns to parse it")
+		return nilEvent, false, fmt.Errorf("the event does not contain all neccessary columns to parse it")
 	}
 
 	caseId := strings.Trim(eventColumns[p.config.CaseIdColumn], " ")
@@ -133,10 +134,10 @@ func (p *csvParser) parse(input []byte) (pipeline.Event, error) {
 
 	timestamp, err := p.timestampParser.Parse(eventColumns[p.config.TimestampColumn])
 	if err != nil {
-		return event, err
+		return nilEvent, false, err
 	}
 
-	return pipeline.NewEvent(caseId, activityName, timestamp.UTC(), nil), nil
+	return pipeline.NewEvent(caseId, activityName, timestamp.UTC(), nil), false, nil
 }
 
 func (cp *csvParser) Close() {
