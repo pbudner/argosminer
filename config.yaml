@@ -10,36 +10,49 @@ ignore-activities:
   - name: '.*::Start'
     remove: true
 pipeline:
-  - name: sources.file
-    path: 'data/eventlog.json'
-    read-from: start
+  - name: sources.xes
+    path: '/Users/pascalbudner/Desktop/BPI_Challenge_2019.xes'
+    case-id-key: concept:name
+    activity-key: concept:name
+    timestamp-key: time:timestamp
     connects:
-    - name: transforms.json_parser
-      parsers:
-        - activity-path: activity
-          case-id-path: process_instance_id
-          timestamp-path: '@timestamp'
-          timestamp-format: '2006-01-02T15:04:05.000-0700'
-          timestamp-tz-iana-key: Europe/Berlin
-        - json-path: message
-          activity-path: activity
-          case-id-path: process_instance_id
-          timestamp-path: '@timestamp'
-          timestamp-format: '2006-01-02T15:04:05.000'
-          timestamp-tz-iana-key: Europe/Berlin
-          ignore-when:
-            - path: '_eventtype'
-              condition: '=='
-              value: 'beendet'
-      connects:
-        - name: transforms.event_buffer
-          max-events: 50000
-          max-age: 1m
-          flush-interval: 20s
-          ignore-events-older-than: 24h
-          connects:
-            - name: sinks.dfg
-            - name: sinks.event
+      - name: transforms.event_buffer
+        max-events: 500000
+        max-age: 1m
+        flush-interval: 20s
+        connects:
+          - name: sinks.dfg
+          - name: sinks.event
+  # - name: sources.file
+  #   path: 'data/eventlog.json'
+  #   read-from: start
+  #   connects:
+  #   - name: transforms.json_parser
+  #     parsers:
+  #       - activity-path: activity
+  #         case-id-path: process_instance_id
+  #         timestamp-path: '@timestamp'
+  #         timestamp-format: '2006-01-02T15:04:05.000-0700'
+  #         timestamp-tz-iana-key: Europe/Berlin
+  #       - json-path: message
+  #         activity-path: activity
+  #         case-id-path: process_instance_id
+  #         timestamp-path: '@timestamp'
+  #         timestamp-format: '2006-01-02T15:04:05.000'
+  #         timestamp-tz-iana-key: Europe/Berlin
+  #         ignore-when:
+  #           - path: '_eventtype'
+  #             condition: '=='
+  #             value: 'beendet'
+  #     connects:
+  #       - name: transforms.event_buffer
+  #         max-events: 50000
+  #         max-age: 1m
+  #         flush-interval: 20s
+  #         ignore-events-older-than: 24h
+  #         connects:
+  #           - name: sinks.dfg
+  #           - name: sinks.event
   # - name: sources.kafka  
   #   brokers: 'localhost:9092'
   #   group-id: consumer-group-4711-10007

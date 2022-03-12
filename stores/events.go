@@ -17,7 +17,8 @@ var (
 	eventStoreSingleton     *EventStore
 	eventPrefix             byte = 0x02
 	counterKey                   = append([]byte{eventPrefix}, []byte("counter")...)
-	binCounterKey                = append([]byte{eventPrefix}, []byte("bin_counter")...)
+	binEventCounterKey           = append([]byte{eventPrefix}, []byte("bin_counter")...)
+	binProcessCounterKey         = append([]byte{eventPrefix}, []byte("bin_counter_process_instances")...)
 	eventKey                     = append([]byte{eventPrefix}, []byte("event")...)
 	EventFlushCount              = 100000 // decreasing this reduces memory utilization, but also performance
 )
@@ -27,10 +28,11 @@ func init() {
 
 type EventStore struct {
 	sync.RWMutex
-	counter    uint64
-	buffer     []pipeline.Event
-	binCounter map[string]uint64 // stores a counter for each day (key = yyyymmdd)
-	log        *zap.SugaredLogger
+	counter           uint64
+	buffer            []pipeline.Event
+	eventBinCounter   map[string]uint64 // stores a counter for each hour (key = yyyymmddHH)
+	processBinCounter map[string]uint64 // stores a counter for each hour (key = yyyymmddHH)
+	log               *zap.SugaredLogger
 }
 
 func GetEventStore() *EventStore {
@@ -59,15 +61,28 @@ func (es *EventStore) init() {
 		es.counter = storage.BytesToUint64(v)
 	}
 
-	// load bin counter
-	es.binCounter = make(map[string]uint64)
-	v2, err := storage.DefaultStorage.Get([]byte(binCounterKey))
+	// load event bin counter
+	es.eventBinCounter = make(map[string]uint64)
+	v2, err := storage.DefaultStorage.Get([]byte(binEventCounterKey))
 	if err != nil && err != storage.ErrKeyNotFound {
 		es.log.Error(err)
 	} else if err == storage.ErrKeyNotFound {
 		es.log.Info("Initialize event bin counters as 0")
 	} else {
-		if err := msgpack.Unmarshal(v2, &es.binCounter); err != nil {
+		if err := msgpack.Unmarshal(v2, &es.eventBinCounter); err != nil {
+			es.log.Error(err)
+		}
+	}
+
+	// load bin counter
+	es.processBinCounter = make(map[string]uint64)
+	v3, err := storage.DefaultStorage.Get([]byte(binProcessCounterKey))
+	if err != nil && err != storage.ErrKeyNotFound {
+		es.log.Error(err)
+	} else if err == storage.ErrKeyNotFound {
+		es.log.Info("Initialize process bin counters as 0")
+	} else {
+		if err := msgpack.Unmarshal(v3, &es.processBinCounter); err != nil {
 			es.log.Error(err)
 		}
 	}
@@ -81,11 +96,11 @@ func (es *EventStore) Append(event pipeline.Event) error {
 	es.counter++
 
 	binKey := event.Timestamp.Format("2006010215")
-	_, ok := es.binCounter[binKey]
+	_, ok := es.eventBinCounter[binKey]
 	if !ok {
-		es.binCounter[binKey] = 1
+		es.eventBinCounter[binKey] = 1
 	} else {
-		es.binCounter[binKey]++
+		es.eventBinCounter[binKey]++
 	}
 
 	es.buffer = append(es.buffer, event)
@@ -130,6 +145,7 @@ func (es *EventStore) GetLast(count int) ([]pipeline.Event, error) {
 			if err != nil {
 				return false, err
 			}
+			es.log.Info(evts)
 			idx := len(evts) - (count - len(event_arr))
 			if idx < 0 {
 				idx = 0
@@ -153,7 +169,7 @@ func (es *EventStore) GetBinCount() (map[string]uint64, error) {
 
 	// we need to copy the map as concurrent read and write operations are not allowed (and we unlock the mutex after returning)
 	copiedMap := make(map[string]uint64)
-	for key, value := range es.binCounter {
+	for key, value := range es.eventBinCounter {
 		copiedMap[key] = value
 	}
 
@@ -197,12 +213,12 @@ func (es *EventStore) flush() error {
 	}
 
 	// commit the bin counter
-	b, err := msgpack.Marshal(&es.binCounter)
+	b, err := msgpack.Marshal(&es.eventBinCounter)
 	if err != nil {
 		return err
 	}
 
-	if err = storage.DefaultStorage.Set(binCounterKey, b); err != nil {
+	if err = storage.DefaultStorage.Set(binEventCounterKey, b); err != nil {
 		return err
 	}
 

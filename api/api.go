@@ -79,19 +79,19 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 			})
 		}
 
-		dailyCounter := make(map[string]uint64)
+		hourlyCounter := make(map[string]uint64)
 		for k, v := range counter {
-			trimmedKey := fmt.Sprintf("%s/%s/%s", k[0:4], k[4:6], k[6:8])
-			_, ok := dailyCounter[trimmedKey]
+			trimmedKey := fmt.Sprintf("%s/%s/%s %s", k[0:4], k[4:6], k[6:8], k[8:10])
+			_, ok := hourlyCounter[trimmedKey]
 			if !ok {
-				dailyCounter[trimmedKey] = v
+				hourlyCounter[trimmedKey] = v
 			} else {
-				dailyCounter[trimmedKey] += v
+				hourlyCounter[trimmedKey] += v
 			}
 		}
 
 		return c.JSON(http.StatusOK, JSON{
-			"frequency": dailyCounter,
+			"frequency": hourlyCounter,
 		})
 	})
 

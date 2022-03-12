@@ -40,8 +40,8 @@ import (
 var embededFiles embed.FS
 
 var (
-	GitCommit       = "dev"
-	Version         = "-live"
+	GitCommit       = "live"
+	Version         = ""
 	wg              = &sync.WaitGroup{}
 	ctx, cancelFunc = context.WithCancel(context.Background())
 )
