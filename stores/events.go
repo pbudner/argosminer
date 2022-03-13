@@ -145,7 +145,6 @@ func (es *EventStore) GetLast(count int) ([]pipeline.Event, error) {
 			if err != nil {
 				return false, err
 			}
-			es.log.Info(evts)
 			idx := len(evts) - (count - len(event_arr))
 			if idx < 0 {
 				idx = 0
