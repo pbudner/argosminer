@@ -26,11 +26,11 @@ import (
 	"github.com/pbudner/argosminer/api"
 	"github.com/pbudner/argosminer/config"
 	"github.com/pbudner/argosminer/pipeline"
+	"github.com/pbudner/argosminer/pipeline/sinks"
 	_ "github.com/pbudner/argosminer/pipeline/sinks"
 	_ "github.com/pbudner/argosminer/pipeline/sources"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/stores"
-	"github.com/pbudner/argosminer/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"go.uber.org/zap"
@@ -205,24 +205,25 @@ func main() {
 	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-termChan // Blocks here until interrupted
-	log.Info("SIGTERM received. Shutdown initiated")
+	log.Info("SIGTERM received, initiating shutdown now")
 
-	log.Info("Shutting down echo..")
+	log.Info("shutting down echo..")
 	ctxTimeout, cancelFunc2 := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
 	if err := e.Shutdown(ctxTimeout); err != nil {
 		log.Error(err)
 	}
 
+	log.Info("closing all pipeline components")
+
 	cancelFunc() // here we close all pipeline components
 	cancelFunc2()
 
-	log.Info("Wait for WG")
+	log.Info("waiting for waitgroups to finish..")
 
 	// block here until are workers are done
 	wg.Wait()
-
-	log.Info("Close stores")
-	utils.GetEventSampler().Close()
+	log.Info("closing stores")
+	sinks.GetEventSampler().Close()
 	stores.GetSbarStore().Close()
 	stores.GetEventStore().Close()
 	stores.GetKvStore().Close()

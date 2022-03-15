@@ -1,18 +1,21 @@
-package utils
+package sinks
 
 import (
+	"context"
 	"sync"
 	"time"
 
+	"github.com/pbudner/argosminer/pipeline"
 	"github.com/pbudner/argosminer/stores"
 )
 
 var (
 	eventSamplerSingletonOnce sync.Once
-	eventSamplerSingleton     *EventSampler
+	eventSamplerSingleton     *eventSampler
 )
 
-type EventSampler struct {
+type eventSampler struct {
+	pipeline.Consumer
 	ticker          *time.Ticker
 	doneChannel     chan bool
 	lastValue       uint64
@@ -20,9 +23,15 @@ type EventSampler struct {
 	eventsPerSecond int
 }
 
-func GetEventSampler() *EventSampler {
+func init() {
+	pipeline.RegisterComponent("sinks.event_sampler", nil, func(config interface{}) pipeline.Component {
+		return GetEventSampler()
+	})
+}
+
+func GetEventSampler() *eventSampler {
 	eventSamplerSingletonOnce.Do(func() {
-		eventSamplerSingleton = &EventSampler{
+		eventSamplerSingleton = &eventSampler{
 			ticker:          time.NewTicker(1000 * time.Millisecond),
 			lastValue:       0,
 			eventsPerSecond: 0,
@@ -34,16 +43,24 @@ func GetEventSampler() *EventSampler {
 	return eventSamplerSingleton
 }
 
-func (es *EventSampler) GetSample() int {
+func (a *eventSampler) Subscribe() <-chan interface{} {
+	panic("A sink component must not be subscribed to")
+}
+
+func (jp *eventSampler) Run(wg *sync.WaitGroup, ctx context.Context) {
+	// nothing to do here
+}
+
+func (es *eventSampler) GetSample() int {
 	return es.eventsPerSecond
 }
 
-func (es *EventSampler) Close() {
+func (es *eventSampler) Close() {
 	close(es.doneChannel)
 	es.ticker.Stop()
 }
 
-func (es *EventSampler) tick() {
+func (es *eventSampler) tick() {
 	for {
 		select {
 		case <-es.doneChannel:

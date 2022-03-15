@@ -15,8 +15,8 @@ import (
 	"github.com/cespare/xxhash/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/pbudner/argosminer/config"
+	"github.com/pbudner/argosminer/pipeline/sinks"
 	"github.com/pbudner/argosminer/stores"
-	"github.com/pbudner/argosminer/utils"
 	"go.uber.org/zap"
 	"gonum.org/v1/gonum/graph/multi"
 	"gonum.org/v1/gonum/graph/topo"
@@ -105,7 +105,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 			"event_count":       counter,
 			"activity_count":    activityCount,
 			"df_relation_count": dfRelationCount,
-			"events_per_second": utils.GetEventSampler().GetSample(),
+			"events_per_second": sinks.GetEventSampler().GetSample(),
 		})
 	})
 
