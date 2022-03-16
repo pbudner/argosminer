@@ -13,6 +13,7 @@ import (
 	b64 "encoding/base64"
 
 	"github.com/cespare/xxhash/v2"
+	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/pbudner/argosminer/config"
 	"github.com/pbudner/argosminer/pipeline/sinks"
@@ -20,6 +21,10 @@ import (
 	"go.uber.org/zap"
 	"gonum.org/v1/gonum/graph/multi"
 	"gonum.org/v1/gonum/graph/topo"
+)
+
+var (
+	upgrader = websocket.Upgrader{}
 )
 
 func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit string) {
@@ -107,6 +112,38 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 			"df_relation_count": dfRelationCount,
 			"events_per_second": sinks.GetEventSampler().GetSample(),
 		})
+	})
+
+	v1.GET("/statistics_stream", func(c echo.Context) error {
+		upgrader.CheckOrigin = func(r *http.Request) bool { return true }
+		ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
+		if err != nil {
+			log.Errorw("an unexpected error occurred when upgrading to websocket.", "error", err)
+			return c.JSON(http.StatusInternalServerError, JSON{
+				"error": err.Error(),
+			})
+		}
+		defer ws.Close()
+
+		for {
+			eventStore := stores.GetEventStore()
+			sbarStore := stores.GetSbarStore()
+			counter := eventStore.GetCount()
+			activityCount := sbarStore.CountActivities()
+			dfRelationCount := sbarStore.CountDfRelations()
+			err := ws.WriteJSON(JSON{
+				"event_count":       counter,
+				"activity_count":    activityCount,
+				"df_relation_count": dfRelationCount,
+				"events_per_second": sinks.GetEventSampler().GetSample(),
+			})
+
+			if err != nil {
+				return nil
+			}
+
+			time.Sleep(1 * time.Second)
+		}
 	})
 
 	v1.GET("/events/activities", func(c echo.Context) error {
