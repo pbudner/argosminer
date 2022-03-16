@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bytes"
+	"path"
 	"time"
 
 	badger "github.com/dgraph-io/badger/v2"
@@ -56,7 +57,7 @@ type diskStorage struct {
 
 func NewDiskStorage(config Config) *diskStorage {
 	log := zap.L().Sugar()
-	opts := badger.DefaultOptions(config.Path)
+	opts := badger.DefaultOptions(path.Join(config.Path, config.Workspace))
 	opts = opts.WithSyncWrites(config.SyncWrites).WithLogger(defaultLogger(log.With("service", "badger-db"))).WithDetectConflicts(false)
 
 	// open the database

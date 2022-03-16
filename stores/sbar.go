@@ -282,7 +282,7 @@ func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelations [][]string, star
 	return result, nil
 }
 
-func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map[string]uint64, error) {
+func (kv *SbarStore) BinnedCountOfActivities(activities []string, binFormat string) (map[string]map[string]uint64, error) {
 	kv.RLock()
 	defer kv.RUnlock()
 
@@ -318,7 +318,7 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 			if largestDate.UnixMilli() < eventTime.UnixMilli() {
 				largestDate = eventTime
 			}
-			currentTime := eventTime.Format("2006/01/02")
+			currentTime := eventTime.Format(binFormat)
 			if lastSeenFormattedTime == "" {
 				lastSeenFormattedTime = currentTime
 			}
@@ -342,7 +342,7 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 
 		if len(lastSeenKey) > 8 {
 			currentUlid.UnmarshalBinary(lastSeenKey[8:])
-			lastEventTime := time.UnixMilli(int64(currentUlid.Time())).Format("2006/01/02")
+			lastEventTime := time.UnixMilli(int64(currentUlid.Time())).Format(binFormat)
 			lastValue, err := storage.DefaultStorage.Get(lastSeenKey)
 			if err != nil {
 				kv.log.Error("An unexpected error occurred during iterating through storage:", err)
@@ -376,11 +376,14 @@ func (kv *SbarStore) DailyCountOfActivities(activities []string) (map[string]map
 	// for all activities: insert a 0 if a date has no value
 	for activity := range result {
 		currentDate := smallestDate
+		largestTimeFormatted := largestDate.Add(24 * time.Hour).Format(binFormat)
 		for currentDate.UnixMilli() < largestDate.Add(24*time.Hour).UnixMilli() {
-			formattedTime := currentDate.Format("2006/01/02")
+			formattedTime := currentDate.Format(binFormat)
 			_, exists := result[activity][formattedTime]
 			if !exists {
-				result[activity][formattedTime] = 0
+				if formattedTime != largestTimeFormatted {
+					result[activity][formattedTime] = 0
+				}
 			}
 			currentDate = currentDate.Add(24 * time.Hour)
 		}

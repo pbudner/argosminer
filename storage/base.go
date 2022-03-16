@@ -36,5 +36,6 @@ type KeyValue struct {
 
 type Config struct {
 	Path       string `yaml:"path"`
+	Workspace  string `yaml:"workspace"`
 	SyncWrites bool   `yaml:"sync-writes"`
 }

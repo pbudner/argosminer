@@ -76,8 +76,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 	})
 
 	v1.GET("/events/frequency", func(c echo.Context) error {
-		eventStore := stores.GetEventStore()
-		counter, err := eventStore.GetBinCount()
+		counter, err := stores.GetEventStore().GetBinCount()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, JSON{
 				"error": err.Error(),
@@ -192,7 +191,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 			activities[i] = vDec
 		}
 
-		result, err := stores.GetSbarStore().DailyCountOfActivities(activities)
+		result, err := stores.GetSbarStore().BinnedCountOfActivities(activities, "2006/01/02 15")
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, JSON{
 				"error": err.Error(),

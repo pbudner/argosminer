@@ -98,7 +98,7 @@ func (cp *csvParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 					cp.Publish(evt)
 				}
 			} else {
-				cp.log.Debug(err)
+				cp.log.Errorw("could not parse an event", "last_error", err, "raw_event", string(b))
 			}
 		}
 	}
