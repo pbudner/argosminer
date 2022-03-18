@@ -67,7 +67,7 @@ func (es *eventSampler) tick() {
 			return
 		case <-es.ticker.C:
 			timeNow := time.Now()
-			newValue := stores.GetEventStore().GetCount()
+			newValue := stores.GetEventStore().GetEventCount()
 			if es.lastValue > 0 {
 				elapsedTime := timeNow.Sub(es.lastTimestamp)
 				es.eventsPerSecond = int(float64(newValue-es.lastValue) / elapsedTime.Seconds())

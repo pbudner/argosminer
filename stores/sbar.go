@@ -22,8 +22,8 @@ var (
 	sbarStoreSingleton     *SbarStore
 	metaCode               = []byte{sbarPrefix, 0x00}
 	caseCode               = []byte{sbarPrefix, 0x01}
-	activityCode           = []byte{sbarPrefix, 0x02}
-	dfRelationCode         = []byte{sbarPrefix, 0x03}
+	activityOverTimeCode   = []byte{sbarPrefix, 0x02}
+	dfRelationOverTimeCode = []byte{sbarPrefix, 0x03}
 	activityCounterKey     = append(metaCode, []byte("activity_counter")...)
 	dfRelationCounterKey   = append(metaCode, []byte("dfRelation_counter")...)
 	startEventCounterKey   = append(metaCode, []byte("startEvent_counter")...)
@@ -180,7 +180,7 @@ func (kv *SbarStore) RecordDirectlyFollowsRelation(from string, to string, times
 	defer kv.Unlock()
 	dfRelation := encodeDfRelation(from, to)
 	counter := kv.incr(kv.dfRelationCounterCache, dfRelation)
-	k, err := key.New(prefixString(dfRelationCode, dfRelation), timestamp)
+	k, err := key.New(prefixString(dfRelationOverTimeCode, dfRelation), timestamp)
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func (kv *SbarStore) RecordActivity(activity string, timestamp time.Time) error 
 	kv.Lock()
 	defer kv.Unlock()
 	counter := kv.incr(kv.activityCounterCache, activity)
-	k, err := key.New(prefixString(activityCode, activity), timestamp)
+	k, err := key.New(prefixString(activityOverTimeCode, activity), timestamp)
 	if err != nil {
 		return err
 	}
@@ -245,7 +245,7 @@ func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelations [][]string, star
 		encodedRelation := encodeDfRelation(relation[0], relation[1])
 
 		getCountForRelation := func(encodedRelation string, timestamp time.Time) (uint64, error) {
-			k, err := key.New(prefixString(dfRelationCode, encodedRelation), timestamp)
+			k, err := key.New(prefixString(dfRelationOverTimeCode, encodedRelation), timestamp)
 			if err != nil {
 				return 0, err
 			}
@@ -292,7 +292,7 @@ func (kv *SbarStore) BinnedCountOfActivities(activities []string, binFormat stri
 	var smallestDate, largestDate time.Time
 
 	for _, activity := range activities {
-		k, err := key.New(prefixString(activityCode, activity), time.Now())
+		k, err := key.New(prefixString(activityOverTimeCode, activity), time.Now())
 		if err != nil {
 			return nil, err
 		}

@@ -75,8 +75,32 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 		})
 	})
 
+	v1.GET("/cases/frequency", func(c echo.Context) error {
+		counter, err := stores.GetEventStore().GetCaseBinCount()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, JSON{
+				"error": err.Error(),
+			})
+		}
+
+		hourlyCounter := make(map[string]uint64)
+		for k, v := range counter {
+			trimmedKey := fmt.Sprintf("%s/%s/%s %s", k[0:4], k[4:6], k[6:8], k[8:10])
+			_, ok := hourlyCounter[trimmedKey]
+			if !ok {
+				hourlyCounter[trimmedKey] = v
+			} else {
+				hourlyCounter[trimmedKey] += v
+			}
+		}
+
+		return c.JSON(http.StatusOK, JSON{
+			"frequency": hourlyCounter,
+		})
+	})
+
 	v1.GET("/events/frequency", func(c echo.Context) error {
-		counter, err := stores.GetEventStore().GetBinCount()
+		counter, err := stores.GetEventStore().GetEventBinCount()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, JSON{
 				"error": err.Error(),
@@ -102,11 +126,13 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 	v1.GET("/statistics", func(c echo.Context) error {
 		eventStore := stores.GetEventStore()
 		sbarStore := stores.GetSbarStore()
-		counter := eventStore.GetCount()
+		eventCounter := eventStore.GetEventCount()
+		caseCounter := eventStore.GetCaseCount()
 		activityCount := sbarStore.CountActivities()
 		dfRelationCount := sbarStore.CountDfRelations()
 		return c.JSON(http.StatusOK, JSON{
-			"event_count":       counter,
+			"event_count":       eventCounter,
+			"case_count":        caseCounter,
 			"activity_count":    activityCount,
 			"df_relation_count": dfRelationCount,
 			"events_per_second": sinks.GetEventSampler().GetSample(),
@@ -127,11 +153,13 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 		for {
 			eventStore := stores.GetEventStore()
 			sbarStore := stores.GetSbarStore()
-			counter := eventStore.GetCount()
+			eventCounter := eventStore.GetEventCount()
+			caseCounter := eventStore.GetCaseCount()
 			activityCount := sbarStore.CountActivities()
 			dfRelationCount := sbarStore.CountDfRelations()
 			err := ws.WriteJSON(JSON{
-				"event_count":       counter,
+				"event_count":       eventCounter,
+				"case_count":        caseCounter,
 				"activity_count":    activityCount,
 				"df_relation_count": dfRelationCount,
 				"events_per_second": sinks.GetEventSampler().GetSample(),
