@@ -45,10 +45,10 @@ var receivedKafkaEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Help:      "Total number of received events.",
 }, []string{"broker", "topic", "group_id"})
 
-var receivedKafkaEventsWithError = prometheus.NewCounterVec(prometheus.CounterOpts{
+var kafkaErrorsOnReadMessage = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Subsystem: "argosminer_sources_kafka",
-	Name:      "errors_total",
-	Help:      "Total number of received events that produced an error.",
+	Name:      "readmessage_errors_total",
+	Help:      "Total number of errors that ReadMessage produced.",
 }, []string{"broker", "topic", "group_id"})
 
 var lastReceivedKafkaEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -58,7 +58,7 @@ var lastReceivedKafkaEvent = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 }, []string{"broker", "topic", "group_id"})
 
 func init() {
-	prometheus.MustRegister(receivedKafkaEvents, receivedKafkaEventsWithError, lastReceivedKafkaEvent)
+	prometheus.MustRegister(receivedKafkaEvents, kafkaErrorsOnReadMessage, lastReceivedKafkaEvent)
 	pipeline.RegisterComponent("sources.kafka", KafkaConfig{}, func(config interface{}) pipeline.Component {
 		return NewKafka(config.(KafkaConfig))
 	})
@@ -115,22 +115,28 @@ func (s *kafka) Run(wg *sync.WaitGroup, ctx context.Context) {
 	brokerList := s.Config.Brokers
 
 	for {
-		m, err := r.ReadMessage(ctx)
+		m, err := r.FetchMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				s.log.Info("Shutting down kafka source..")
+				break
 			} else {
-				s.log.Error("An unexpected error occurred during ReadMessage:", err)
+				kafkaErrorsOnReadMessage.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
+				if strings.HasSuffix(err.Error(), "connection refused") || strings.HasSuffix(err.Error(), "i/o timeout") {
+					s.log.Error("Lost connection to Kafka. Retrying in 15 seconds.")
+					time.Sleep(15 * time.Second)
+				} else {
+					s.log.Errorw("An unexpected error occurred during FetchMessage.", "error", err)
+				}
+				continue
 			}
-
-			break
 		}
 
 		receivedKafkaEvents.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 		lastReceivedKafkaEvent.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).SetToCurrentTime()
 		s.Publish(m.Value)
 		if err := r.CommitMessages(context.Background(), m); err != nil {
-			s.log.Error("Failed to commit messages:", err)
+			s.log.Errorw("Failed to commit message to Kafka.", "error", err)
 		}
 	}
 
