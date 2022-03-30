@@ -9,4 +9,12 @@ GOSRC=$(go env GOPATH)/src
 ARGOSMINER_ROOT=$GOSRC/github.com/pbudner/argosminer
 PROTO_PATH=$ARGOSMINER_ROOT/proto
 
-$PROTOC -I $PROTO_PATH --go_out=$GOSRC $PROTO
+gen_golang() {
+    $PROTOC -I $PROTO_PATH --go_out=$GOSRC \
+     --go-vtproto_out=$GOSRC \
+     --plugin protoc-gen-go-vtproto=$GOBIN/protoc-gen-go-vtproto \
+     --go-vtproto_opt=features=marshal+unmarshal+size \
+     $PROTO
+}
+
+gen_golang
