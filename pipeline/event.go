@@ -1,10 +1,7 @@
 package pipeline
 
 import (
-	"encoding/json"
 	"time"
-
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Event struct {
@@ -21,21 +18,4 @@ func NewEvent(caseId string, activityName string, timestamp time.Time, additiona
 		Timestamp:        timestamp,
 		AdditionalFields: additionalFields,
 	}
-}
-
-func (e *Event) String() (string, error) {
-	b, err := json.Marshal(&e)
-	if err != nil {
-		return "", err
-	}
-
-	return string(b), nil
-}
-
-func (e *Event) Marshal() ([]byte, error) {
-	return msgpack.Marshal(&e)
-}
-
-func (e *Event) Unmarshal(bytes []byte) error {
-	return msgpack.Unmarshal(bytes, &e)
 }

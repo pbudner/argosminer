@@ -31,10 +31,10 @@ func init() {
 }
 
 type Case struct {
-	ID      string
-	Started time.Time
-	Ended   time.Time
-	Events  []pipeline.Event
+	ID             string
+	FirstTimestamp time.Time
+	LastTimestamp  time.Time
+	Events         []pipeline.Event
 }
 
 type EventStore struct {
@@ -169,10 +169,10 @@ func (es *EventStore) addEventToCase(event pipeline.Event) Case {
 	caseInstantiation, ok := es.caseBuffer[event.CaseId]
 	if !ok {
 		caseInstantiation = Case{
-			ID:      event.CaseId,
-			Started: event.Timestamp,
-			Ended:   event.Timestamp,
-			Events:  []pipeline.Event{event},
+			ID:             event.CaseId,
+			FirstTimestamp: event.Timestamp,
+			LastTimestamp:  event.Timestamp,
+			Events:         []pipeline.Event{event},
 		}
 		es.caseBuffer[event.CaseId] = caseInstantiation
 	} else {
