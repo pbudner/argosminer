@@ -35,7 +35,7 @@ func (kv *ProcessStore) Set(name string, activities []string) error {
 		return err
 	}
 
-	b, err := msgpack.Marshal(&activities)
+	b, err := encoding.Gob.Marshal(&activities)
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func (kv *ProcessStore) Update(name string, activities []string) error {
 		return err
 	}
 
-	b, err := msgpack.Marshal(&activities)
+	b, err := encoding.Gob.Marshal(&activities)
 	if err != nil {
 		return err
 	}

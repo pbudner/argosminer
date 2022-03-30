@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pbudner/argosminer/encoding"
 	"github.com/pbudner/argosminer/pipeline"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/vmihailenco/msgpack/v5"
@@ -273,7 +274,7 @@ func (es *EventStore) Close() {
 // flush flushes the current event buffer as a block to the indexed database
 func (es *EventStore) flush(force bool) error {
 	// commit last events
-	lastEventsBuffer, err := msgpack.Marshal(&es.lastEventsBuffer)
+	lastEventsBuffer, err := encoding.Gob.Marshal(&es.lastEventsBuffer)
 	if err != nil {
 		return err
 	}
@@ -288,7 +289,7 @@ func (es *EventStore) flush(force bool) error {
 	}
 
 	// commit the binned event counter
-	b, err := msgpack.Marshal(&es.eventBinCounter)
+	b, err := encoding.Gob.Marshal(&es.eventBinCounter)
 	if err != nil {
 		return err
 	}
@@ -303,7 +304,7 @@ func (es *EventStore) flush(force bool) error {
 	}
 
 	// commit the bin counter
-	b2, err := msgpack.Marshal(&es.caseBinCounter)
+	b2, err := encoding.Gob.Marshal(&es.caseBinCounter)
 	if err != nil {
 		return err
 	}

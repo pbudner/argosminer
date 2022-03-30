@@ -8,6 +8,7 @@ import (
 	"time"
 
 	ulid "github.com/oklog/ulid/v2"
+	"github.com/pbudner/argosminer/encoding"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/storage/key"
 	"github.com/prometheus/client_golang/prometheus"
@@ -425,7 +426,7 @@ func (kv *SbarStore) Close() {
 }
 
 func (kv *SbarStore) flush() error {
-	b, err := msgpack.Marshal(&kv.activityCounterCache)
+	b, err := encoding.Gob.Marshal(&kv.activityCounterCache)
 	if err != nil {
 		return err
 	}
@@ -433,7 +434,7 @@ func (kv *SbarStore) flush() error {
 	if err != nil {
 		return err
 	}
-	b, err = msgpack.Marshal(&kv.dfRelationCounterCache)
+	b, err = encoding.Gob.Marshal(&kv.dfRelationCounterCache)
 	if err != nil {
 		return err
 	}
@@ -441,7 +442,7 @@ func (kv *SbarStore) flush() error {
 	if err != nil {
 		return err
 	}
-	b, err = msgpack.Marshal(&kv.startEventCounterCache)
+	b, err = encoding.Gob.Marshal(&kv.startEventCounterCache)
 	if err != nil {
 		return err
 	}
