@@ -205,14 +205,14 @@ func main() {
 	signal.Notify(termChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-termChan // Blocks here until interrupted
 	log.Info("SIGTERM received, initiating shutdown now")
-	log.Info("[1/3] Closing all pipeline components")
-	cancelFunc() // this closes the context for all pipeline components
-	wg.Wait()    // block here until are workers are done
-	log.Info("[2/3] Shutting down webserver..")
+	log.Info("[1/3] Shutting down webserver..")
 	ctxTimeout, cancelFunc2 := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
 	if err := e.Shutdown(ctxTimeout); err != nil {
 		log.Error(err)
 	}
+	log.Info("[2/3] Closing all pipeline components")
+	cancelFunc()  // this closes the context for all pipeline components
+	wg.Wait()     // block here until are workers are done
 	cancelFunc2() // this stops the server if the graceful shutdown was not successful
 	log.Info("[3/3] Finally, closing stores")
 	stores.GetEventSampler().Close()

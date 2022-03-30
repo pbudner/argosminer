@@ -268,13 +268,13 @@ func (es *EventStore) GetEventCount() uint64 {
 }
 
 func (es *EventStore) Close() {
-	es.log.Info("Closing EventStore..")
+	es.log.Info("Shutting down stores.EventStore")
+	defer es.log.Info("Closed stores.EventStore")
 	es.Lock()
 	defer es.Unlock()
 	if err := es.flush(true); err != nil {
 		es.log.Error(err)
 	}
-	es.log.Info("Done closing EventStore!")
 }
 
 // flush flushes the current event buffer as a block to the indexed database

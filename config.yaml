@@ -76,7 +76,7 @@ pipeline:
   #           - name: sinks.event
   - name: sources.kafka  
     brokers: 'localhost:9092'
-    group-id: consumer-group-4711-10011
+    group-id: consumer-group-4711-10012
     timeout: 5s
     commit-interval: 1s
     topic: pmlogs

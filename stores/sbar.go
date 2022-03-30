@@ -417,13 +417,13 @@ func (kv *SbarStore) RecordStartActivity(key string) {
 }
 
 func (kv *SbarStore) Close() {
-	kv.log.Info("Closing SbarStore..")
+	kv.log.Info("Shutting down stores.SbarStore")
+	defer kv.log.Info("Closed stores.SbarStore")
 	kv.Lock()
 	defer kv.Unlock()
 	close(kv.doneChannel)
 	kv.flushTicker.Stop()
 	kv.flush()
-	kv.log.Info("Done closing SbarStore!")
 }
 
 func (kv *SbarStore) flush() error {
