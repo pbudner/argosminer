@@ -1,6 +1,7 @@
 package key
 
 import (
+	"bytes"
 	"encoding/binary"
 	"time"
 
@@ -11,6 +12,14 @@ const size = 8 + 16
 
 // Key represents a lexicographically sortable key
 type Key []byte
+
+func (a Key) Compare(b Key) int {
+	return bytes.Compare(a, b)
+}
+
+func (a Key) Equal(b Key) bool {
+	return bytes.Equal(a, b)
+}
 
 // New generates a new lexicographically sortable key
 func New(name []byte, timestamp time.Time) (Key, error) {

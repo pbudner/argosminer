@@ -16,7 +16,7 @@ type Storage interface {
 	Set(key []byte, value []byte) error
 	Get(key []byte) ([]byte, error)
 	Increment(key []byte) (uint64, error)
-	SetBatch(batch []KeyValue) error
+	SetBatch(batch []KeyValue[[]byte, []byte]) error
 	Contains(key []byte) bool
 	GetFirst(count int) ([][]byte, error)
 	GetRange(from []byte, to []byte) ([][]byte, error)
@@ -24,14 +24,14 @@ type Storage interface {
 	CountRange(from []byte, to []byte) (uint64, error)
 	Iterate(prefix []byte, f func([]byte, func() ([]byte, error)) (bool, error)) error
 	IterateReverse(prefix []byte, f func([]byte, func() ([]byte, error)) (bool, error)) error
-	Seek(key []byte) (KeyValue, error)
+	Seek(key []byte) (KeyValue[[]byte, []byte], error)
 	CountPrefix(prefix []byte) (uint64, error)
 	Close()
 }
 
-type KeyValue struct {
-	Key   []byte
-	Value []byte
+type KeyValue[K any, V any] struct {
+	Key   K
+	Value V
 }
 
 type Config struct {

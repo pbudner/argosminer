@@ -85,7 +85,7 @@ func (s *diskStorage) Set(key []byte, value []byte) error {
 	})
 }
 
-func (s *diskStorage) SetBatch(batch []KeyValue) error {
+func (s *diskStorage) SetBatch(batch []KeyValue[[]byte, []byte]) error {
 	writeBatch := s.store.NewWriteBatch()
 	defer writeBatch.Cancel()
 	for _, kv := range batch {
@@ -366,8 +366,8 @@ func (s *diskStorage) CountRange(from []byte, to []byte) (uint64, error) {
 	return counter, err
 }
 
-func (s *diskStorage) Seek(key []byte) (KeyValue, error) {
-	var result KeyValue
+func (s *diskStorage) Seek(key []byte) (KeyValue[[]byte, []byte], error) {
+	var result KeyValue[[]byte, []byte]
 	err := s.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
@@ -386,7 +386,7 @@ func (s *diskStorage) Seek(key []byte) (KeyValue, error) {
 		if err != nil {
 			return err
 		}
-		result = KeyValue{
+		result = KeyValue[[]byte, []byte]{
 			Key:   itemKey,
 			Value: itemBytes,
 		}

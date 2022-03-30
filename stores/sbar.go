@@ -48,8 +48,8 @@ type SbarStore struct {
 	dfRelationCounterCache map[string]uint64
 	startEventCounterCache map[string]uint64
 	caseCache              map[string]string
-	activityBuffer         []storage.KeyValue
-	dfRelationBuffer       []storage.KeyValue
+	activityBuffer         []storage.KeyValue[[]byte, []byte]
+	dfRelationBuffer       []storage.KeyValue[[]byte, []byte]
 	flushTicker            *time.Ticker
 	doneChannel            chan bool
 	log                    *zap.SugaredLogger
@@ -74,8 +74,8 @@ func init() {
 func GetSbarStore() *SbarStore {
 	sbarStoreSingletonOnce.Do(func() {
 		sbarStoreSingleton = &SbarStore{
-			activityBuffer:   make([]storage.KeyValue, 0),
-			dfRelationBuffer: make([]storage.KeyValue, 0),
+			activityBuffer:   make([]storage.KeyValue[[]byte, []byte], 0),
+			dfRelationBuffer: make([]storage.KeyValue[[]byte, []byte], 0),
 			caseCache:        make(map[string]string),
 			doneChannel:      make(chan bool),
 			log:              zap.L().Sugar().With("service", "sbar-store"),
@@ -185,7 +185,7 @@ func (kv *SbarStore) RecordDirectlyFollowsRelation(from string, to string, times
 		return err
 	}
 
-	kv.dfRelationBuffer = append(kv.dfRelationBuffer, storage.KeyValue{Key: k, Value: storage.Uint64ToBytes(counter)})
+	kv.dfRelationBuffer = append(kv.dfRelationBuffer, storage.KeyValue[[]byte, []byte]{Key: k, Value: storage.Uint64ToBytes(counter)})
 	dfRelationBufferMetric.WithLabelValues().Inc()
 	return nil
 }
@@ -199,7 +199,7 @@ func (kv *SbarStore) RecordActivity(activity string, timestamp time.Time) error 
 		return err
 	}
 
-	kv.activityBuffer = append(kv.activityBuffer, storage.KeyValue{Key: k, Value: storage.Uint64ToBytes(counter)})
+	kv.activityBuffer = append(kv.activityBuffer, storage.KeyValue[[]byte, []byte]{Key: k, Value: storage.Uint64ToBytes(counter)})
 	activityBufferMetric.WithLabelValues().Inc()
 	if len(kv.activityBuffer) >= flushAfterEntries {
 		kv.flush()
@@ -449,10 +449,10 @@ func (kv *SbarStore) flush() error {
 	if err != nil {
 		return err
 	}
-	caseBuffer := make([]storage.KeyValue, len(kv.caseCache))
+	caseBuffer := make([]storage.KeyValue[[]byte, []byte], len(kv.caseCache))
 	i := 0
 	for k, v := range kv.caseCache {
-		caseBuffer[i] = storage.KeyValue{Key: prefixString(caseCode, k), Value: []byte(v)}
+		caseBuffer[i] = storage.KeyValue[[]byte, []byte]{Key: prefixString(caseCode, k), Value: []byte(v)}
 		i++
 	}
 	flushedItems := kv.flushBuffer(&caseBuffer)
@@ -467,10 +467,10 @@ func (kv *SbarStore) flush() error {
 	return nil
 }
 
-func (kv *SbarStore) flushBuffer(items *[]storage.KeyValue) int {
+func (kv *SbarStore) flushBuffer(items *[]storage.KeyValue[[]byte, []byte]) int {
 	count := len(*items)
 	storage.DefaultStorage.SetBatch(*items)
-	*items = make([]storage.KeyValue, 0)
+	*items = make([]storage.KeyValue[[]byte, []byte], 0)
 	return count
 }
 
