@@ -36,9 +36,9 @@ func NewEventProcessor(eventStore *stores.EventStore) *eventProcessor {
 	receiver := &eventProcessor{
 		Id:         uuid.New(),
 		EventStore: eventStore,
-		log:        zap.L().Sugar().With("service", "event-processor"),
+		log:        zap.L().Sugar().With("service", "sinks.event"),
 	}
-	receiver.log.Infof("Initialized new EventStore receiver with ID %s", receiver.Id)
+	receiver.log.Debugf("Initialized new EventStore receiver with ID %s", receiver.Id)
 	return receiver
 }
 
@@ -47,12 +47,12 @@ func (ep *eventProcessor) Subscribe() <-chan interface{} {
 }
 
 func (ep *eventProcessor) Run(wg *sync.WaitGroup, ctx context.Context) {
-	ep.log.Info("Starting pipeline.sinks.DFG")
+	ep.log.Info("Starting pipeline.sinks.Event")
 	defer wg.Done()
+	defer ep.log.Info("Closed pipeline.sinks.Event")
 	for {
 		select {
 		case <-ctx.Done():
-			ep.log.Info("Shutting down pipeline.sinks.DFG")
 			return
 		case input := <-ep.Consumes:
 			evt, ok := input.(pipeline.Event)
@@ -68,8 +68,4 @@ func (ep *eventProcessor) Run(wg *sync.WaitGroup, ctx context.Context) {
 			}
 		}
 	}
-}
-
-func (ep *eventProcessor) Close() {
-	// nothing to do here
 }

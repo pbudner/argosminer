@@ -55,7 +55,7 @@ func init() {
 
 func NewEventBuffer(config EventBufferConfig) *eventBuffer {
 	return &eventBuffer{
-		log:    zap.L().Sugar().With("service", "event-buffer"),
+		log:    zap.L().Sugar().With("service", "transforms.event-buffer"),
 		config: config,
 	}
 }
@@ -63,13 +63,14 @@ func NewEventBuffer(config EventBufferConfig) *eventBuffer {
 func (eb *eventBuffer) Run(wg *sync.WaitGroup, ctx context.Context) {
 	eb.log.Info("Starting pipeline.transforms.EventBuffer")
 	defer wg.Done()
-	defer eb.log.Info("Shutting down pipeline.transforms.EventBuffer")
+	defer eb.log.Info("Closed pipeline.transforms.EventBuffer")
 	ticker := time.NewTicker(eb.config.FlushInterval)
 	heap.Init(&eb.buffer)
 	var counter uint64 = 0
 	for {
 		select {
 		case <-ctx.Done():
+			eb.log.Info("Shutting down pipeline.transforms.EventBuffer")
 			ticker.Stop()
 			eb.flush(true)
 			return

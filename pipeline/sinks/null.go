@@ -69,7 +69,3 @@ func (dp *devNullProcessor) Run(wg *sync.WaitGroup, ctx context.Context) {
 		}
 	}
 }
-
-func (a *devNullProcessor) Close() {
-	// nothing to do here
-}

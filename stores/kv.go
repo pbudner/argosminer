@@ -45,6 +45,5 @@ func (kv *KvStore) Increment(key []byte) (uint64, error) {
 }
 
 func (kv *KvStore) Close() {
-	kv.Lock()
-	defer kv.Unlock()
+	// nothing to do here
 }

@@ -26,7 +26,6 @@ import (
 	"github.com/pbudner/argosminer/api"
 	"github.com/pbudner/argosminer/config"
 	"github.com/pbudner/argosminer/pipeline"
-	"github.com/pbudner/argosminer/pipeline/sinks"
 	_ "github.com/pbudner/argosminer/pipeline/sinks"
 	_ "github.com/pbudner/argosminer/pipeline/sources"
 	"github.com/pbudner/argosminer/storage"
@@ -206,29 +205,25 @@ func main() {
 	signal.Notify(termChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-termChan // Blocks here until interrupted
 	log.Info("SIGTERM received, initiating shutdown now")
-
-	log.Info("shutting down echo..")
+	log.Info("[1/3] Shutting down webserver..")
 	ctxTimeout, cancelFunc2 := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
 	if err := e.Shutdown(ctxTimeout); err != nil {
 		log.Error(err)
 	}
 
-	log.Info("closing all pipeline components")
-
-	cancelFunc() // here we close all pipeline components
-	cancelFunc2()
-
-	log.Info("waiting for waitgroups to finish..")
-
-	// block here until are workers are done
-	wg.Wait()
-	log.Info("closing stores")
-	sinks.GetEventSampler().Close()
+	log.Info("[2/3] Second, closing all pipeline components")
+	cancelFunc() // this closes the context for all pipeline components
+	log.Info("Waiting for waitgroups to finish..")
+	wg.Wait() // block here until are workers are done
+	e.Close()
+	cancelFunc2() // this stops the server if the graceful shutdown was not successful
+	log.Info("[3/3] Finally, closing stores")
+	stores.GetEventSampler().Close()
 	stores.GetSbarStore().Close()
 	stores.GetEventStore().Close()
 	stores.GetKvStore().Close()
 	storage.DefaultStorage.Close()
-	log.Info("all workers finished, shutting down now")
+	log.Info("Graceful shutdown completed")
 }
 
 func instantiateComponents(parent pipeline.Component, components []config.Component) {
@@ -247,7 +242,9 @@ func instantiateComponents(parent pipeline.Component, components []config.Compon
 		}
 		instantiateComponents(instantiation, component.Connects)
 		wg.Add(1)
-		go instantiation.Run(wg, ctx)
+		go func() {
+			instantiation.Run(wg, ctx)
+		}()
 	}
 }
 

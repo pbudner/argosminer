@@ -54,7 +54,7 @@ func NewDfgStreamingAlgorithm(store *stores.SbarStore) *dfgStreamingAlgorithm {
 	algo := dfgStreamingAlgorithm{
 		Id:    uuid.New(),
 		Store: store,
-		log:   zap.L().Sugar().With("service", "dfg-streaming-algorithm"),
+		log:   zap.L().Sugar().With("service", "sinks.dfg"),
 	}
 	return &algo
 }
@@ -66,10 +66,10 @@ func (a *dfgStreamingAlgorithm) Subscribe() <-chan interface{} {
 func (a *dfgStreamingAlgorithm) Run(wg *sync.WaitGroup, ctx context.Context) {
 	a.log.Info("Starting pipeline.sinks.DFG")
 	defer wg.Done()
+	defer a.log.Info("Closed pipeline.sinks.DFG")
 	for {
 		select {
 		case <-ctx.Done():
-			a.log.Info("Shutting down pipeline.sinks.DFG")
 			return
 		case input := <-a.Consumes:
 			evt, ok := input.(pipeline.Event)
@@ -118,8 +118,4 @@ func (a *dfgStreamingAlgorithm) append(event pipeline.Event) error {
 	// always set the last seen activity for the current case to the current activity
 	err = a.Store.RecordActivityForCase(event.ActivityName, event.CaseId, event.Timestamp)
 	return err
-}
-
-func (a *dfgStreamingAlgorithm) Close() {
-	a.Store.Close()
 }

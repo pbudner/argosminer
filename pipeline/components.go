@@ -21,7 +21,6 @@ type Component interface {
 	Run(*sync.WaitGroup, context.Context)
 	Link(parent <-chan interface{})
 	Subscribe() <-chan interface{}
-	Close()
 }
 
 func RegisterComponent(name string, config interface{}, initializerFunc func(interface{}) Component) {

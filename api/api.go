@@ -16,7 +16,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/pbudner/argosminer/config"
-	"github.com/pbudner/argosminer/pipeline/sinks"
 	"github.com/pbudner/argosminer/stores"
 	"go.uber.org/zap"
 	"gonum.org/v1/gonum/graph/multi"
@@ -135,7 +134,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 			"case_count":        caseCounter,
 			"activity_count":    activityCount,
 			"df_relation_count": dfRelationCount,
-			"events_per_second": sinks.GetEventSampler().GetSample(),
+			"events_per_second": stores.GetEventSampler().GetSample(),
 		})
 	})
 
@@ -162,7 +161,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 				"case_count":        caseCounter,
 				"activity_count":    activityCount,
 				"df_relation_count": dfRelationCount,
-				"events_per_second": sinks.GetEventSampler().GetSample(),
+				"events_per_second": stores.GetEventSampler().GetSample(),
 			})
 
 			if err != nil {

@@ -72,7 +72,7 @@ func NewJsonParsers(config JsonParserConfigs) *jsonParsers {
 	}
 
 	return &jsonParsers{
-		log:     zap.L().Sugar().With("service", "json-parser"),
+		log:     zap.L().Sugar().With("service", "transforms.json-parser"),
 		config:  config,
 		parsers: parsers,
 	}

@@ -77,37 +77,14 @@ func (fs *xes) Link(parent <-chan interface{}) {
 	panic("A source component must not be linked to a parent pipeline component")
 }
 
-func (fs *xes) Close() {
-	// TODO: fs.kvStore.Set([]byte(fmt.Sprintf("file-source-position-%s", fs.Path)), storage.Uint64ToBytes(uint64(fs.lastFilePosition)))
-	fs.Watcher.Close()
-}
-
 func (fs *xes) Run(wg *sync.WaitGroup, ctx context.Context) {
 	fs.log.Info("Starting pipeline.sources.file")
 	defer wg.Done()
-	defer fs.log.Info("Shutting down pipeline.sources.file")
+	defer fs.log.Info("Closed pipeline.sources.file")
 	time.Sleep(1 * time.Second)
 	fs.Watcher = watcher.New()
 	fs.Watcher.FilterOps(watcher.Write, watcher.Rename, watcher.Create)
-
-	go func() {
-		fs.readFile(ctx)
-		for {
-			select {
-			case <-ctx.Done():
-				fs.Close()
-				return
-			case event := <-fs.Watcher.Event:
-				if event.Path == fs.Config.Path {
-					fs.readFile(ctx)
-				}
-			case err := <-fs.Watcher.Error:
-				fs.log.Error(err)
-			case <-fs.Watcher.Closed:
-				return
-			}
-		}
-	}()
+	defer fs.Watcher.Close()
 
 	if err := fs.Watcher.Add(filepath.Dir(fs.Config.Path)); err != nil {
 		fs.log.Error(err)
@@ -115,6 +92,23 @@ func (fs *xes) Run(wg *sync.WaitGroup, ctx context.Context) {
 
 	if err := fs.Watcher.Start(time.Millisecond * 1000); err != nil {
 		fs.log.Error(err)
+	}
+
+	fs.readFile(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			fs.Close()
+			return
+		case event := <-fs.Watcher.Event:
+			if event.Path == fs.Config.Path {
+				fs.readFile(ctx)
+			}
+		case err := <-fs.Watcher.Error:
+			fs.log.Error(err)
+		case <-fs.Watcher.Closed:
+			return
+		}
 	}
 }
 

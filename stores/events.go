@@ -8,7 +8,6 @@ import (
 	"github.com/pbudner/argosminer/encoding"
 	"github.com/pbudner/argosminer/pipeline"
 	"github.com/pbudner/argosminer/storage"
-	"github.com/vmihailenco/msgpack/v5"
 	"go.uber.org/zap"
 )
 
@@ -84,7 +83,7 @@ func (es *EventStore) init() {
 	} else if err == storage.ErrKeyNotFound {
 		es.log.Info("Initialize event bin counters as 0")
 	} else {
-		if err := msgpack.Unmarshal(v2, &es.eventBinCounter); err != nil {
+		if err := encoding.Gob.Unmarshal(v2, &es.eventBinCounter); err != nil {
 			es.log.Error(err)
 		}
 	}
@@ -108,7 +107,7 @@ func (es *EventStore) init() {
 	} else if err == storage.ErrKeyNotFound {
 		es.log.Info("Initialize case bin counter as 0")
 	} else {
-		if err := msgpack.Unmarshal(v4, &es.caseBinCounter); err != nil {
+		if err := encoding.Gob.Unmarshal(v4, &es.caseBinCounter); err != nil {
 			es.log.Error(err)
 		}
 	}
@@ -121,7 +120,7 @@ func (es *EventStore) init() {
 	} else if err == storage.ErrKeyNotFound {
 		es.log.Info("Initialize without last events buffer")
 	} else {
-		if err := msgpack.Unmarshal(v5, &es.lastEventsBuffer); err != nil {
+		if err := encoding.Gob.Unmarshal(v5, &es.lastEventsBuffer); err != nil {
 			es.log.Error(err)
 		}
 	}
@@ -207,7 +206,7 @@ func (es *EventStore) GetLast(count int) ([]pipeline.Event, error) {
 				if err != nil {
 					return false, err
 				}
-				err = msgpack.Unmarshal(value, &evts)
+				err = encoding.Gob.Unmarshal(value, &evts)
 				if err != nil {
 					return false, err
 				}
@@ -264,11 +263,13 @@ func (es *EventStore) GetEventCount() uint64 {
 }
 
 func (es *EventStore) Close() {
+	es.log.Info("Closing EventStore..")
 	es.Lock()
 	defer es.Unlock()
 	if err := es.flush(true); err != nil {
 		es.log.Error(err)
 	}
+	es.log.Info("Done closing EventStore!")
 }
 
 // flush flushes the current event buffer as a block to the indexed database

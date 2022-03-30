@@ -12,7 +12,6 @@ import (
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/storage/key"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/vmihailenco/msgpack/v5"
 	"go.uber.org/zap"
 )
 
@@ -101,7 +100,7 @@ func (kv *SbarStore) init() error {
 		kv.log.Info("Initialize empty activity cache.")
 		kv.activityCounterCache = make(map[string]uint64)
 	} else {
-		err = msgpack.Unmarshal(v, &kv.activityCounterCache)
+		err = encoding.Gob.Unmarshal(v, &kv.activityCounterCache)
 		if err != nil {
 			return err
 		}
@@ -115,7 +114,7 @@ func (kv *SbarStore) init() error {
 		kv.log.Info("Initialize empty directly-follows relation cache.")
 		kv.dfRelationCounterCache = make(map[string]uint64)
 	} else {
-		err = msgpack.Unmarshal(v, &kv.dfRelationCounterCache)
+		err = encoding.Gob.Unmarshal(v, &kv.dfRelationCounterCache)
 		if err != nil {
 			return err
 		}
@@ -128,7 +127,7 @@ func (kv *SbarStore) init() error {
 	} else if err == storage.ErrKeyNotFound {
 		kv.startEventCounterCache = make(map[string]uint64)
 	} else {
-		err = msgpack.Unmarshal(v, &kv.startEventCounterCache)
+		err = encoding.Gob.Unmarshal(v, &kv.startEventCounterCache)
 		if err != nil {
 			return err
 		}
@@ -418,11 +417,13 @@ func (kv *SbarStore) RecordStartActivity(key string) {
 }
 
 func (kv *SbarStore) Close() {
+	kv.log.Info("Closing SbarStore..")
 	kv.Lock()
 	defer kv.Unlock()
 	close(kv.doneChannel)
 	kv.flushTicker.Stop()
 	kv.flush()
+	kv.log.Info("Done closing SbarStore!")
 }
 
 func (kv *SbarStore) flush() error {

@@ -35,7 +35,6 @@ type kafka struct {
 	pipeline.Consumer
 	pipeline.Publisher
 	Config KafkaConfig
-	Reader *goKafka.Reader
 	log    *zap.SugaredLogger
 }
 
@@ -71,18 +70,14 @@ func NewKafka(config KafkaConfig) *kafka {
 	}
 }
 
-func (s *kafka) Close() {
-	s.Reader.Close()
-	s.Publisher.Close()
-}
-
 func (s *kafka) Link(parent <-chan interface{}) {
 	panic("A source component must not be linked to a parent pipeline component")
 }
 
 func (s *kafka) Run(wg *sync.WaitGroup, ctx context.Context) {
-	s.log.Debug("Initializing kafka source..")
+	s.log.Info("Starting pipeline.sources.Kafka")
 	defer wg.Done()
+	defer s.log.Info("Closed pipeline.sources.Kafka")
 
 	dialer := &goKafka.Dialer{
 		Timeout:   s.Config.Timeout,
@@ -118,7 +113,6 @@ func (s *kafka) Run(wg *sync.WaitGroup, ctx context.Context) {
 		m, err := r.FetchMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
-				s.log.Info("Shutting down kafka source..")
 				break
 			} else {
 				kafkaErrorsOnReadMessage.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
@@ -143,6 +137,4 @@ func (s *kafka) Run(wg *sync.WaitGroup, ctx context.Context) {
 	if err := r.Close(); err != nil {
 		s.log.Error("Failed to close kafka source reader:", err)
 	}
-
-	s.log.Info("Closed Kafka source")
 }
