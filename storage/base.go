@@ -15,6 +15,7 @@ var (
 type Storage interface {
 	Set(key []byte, value []byte) error
 	Get(key []byte) ([]byte, error)
+	GetWithDefault(key []byte, defaultValue []byte) ([]byte, error)
 	Increment(key []byte) (uint64, error)
 	SetBatch(batch []KeyValue[[]byte, []byte]) error
 	Contains(key []byte) bool

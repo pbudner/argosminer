@@ -119,6 +119,15 @@ func (s *diskStorage) Get(key []byte) ([]byte, error) {
 	return value, err
 }
 
+func (s *diskStorage) GetWithDefault(key []byte, defaultValue []byte) ([]byte, error) {
+	v, err := s.Get(key)
+	if err != nil && err == badger.ErrKeyNotFound {
+		return defaultValue, nil
+	}
+
+	return v, err
+}
+
 func (s *diskStorage) Increment(key []byte) (uint64, error) {
 	var itemValue uint64
 	err := s.store.Update(func(txn *badger.Txn) error {

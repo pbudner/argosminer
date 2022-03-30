@@ -6,8 +6,20 @@ option go_package = "github.com/pbudner/argosminer/proto";
 import "google/protobuf/timestamp.proto";
 
 message Event {
-  string ProcessInstanceId = 1;
+  string CaseId = 1;
   string ActivityName = 2;
   google.protobuf.Timestamp Timestamp = 3;
   map<string, string> AdditionalFields = 4;
+}
+
+
+message Case {
+	string ID = 1;
+  google.protobuf.Timestamp FirstTimestamp = 2;
+  google.protobuf.Timestamp LastTimestamp = 3;
+  repeated Event Events = 4;
+}
+
+message EventBatch { 
+  repeated Event Events = 2;
 }

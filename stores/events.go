@@ -94,9 +94,9 @@ func (es *EventStore) init() {
 		es.log.Error(err)
 	} else if err == storage.ErrKeyNotFound {
 		es.log.Info("Initialize case counter as 0")
-		es.eventCounter = 0
+		es.caseCounter = 0
 	} else {
-		es.eventCounter = storage.BytesToUint64(v3)
+		es.caseCounter = storage.BytesToUint64(v3)
 	}
 
 	// load case bin counter
