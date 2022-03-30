@@ -81,10 +81,10 @@ func NewJsonParsers(config JsonParserConfigs) *jsonParsers {
 func (jp *jsonParsers) Run(wg *sync.WaitGroup, ctx context.Context) {
 	jp.log.Info("Starting pipeline.transforms.JsonParser")
 	defer wg.Done()
+	defer jp.log.Info("Closed pipeline.transforms.JsonParser")
 	for {
 		select {
 		case <-ctx.Done():
-			jp.log.Info("Shutting down pipeline.transforms.JsonParser")
 			return
 		case input := <-jp.Consumes:
 			b, ok := input.([]byte)

@@ -113,6 +113,7 @@ func (es *EventStore) init() {
 	}
 
 	// load last events
+	var lastEventsAsArray []pipeline.Event
 	es.lastEventsBuffer = list.New()
 	v5, err := storage.DefaultStorage.Get([]byte(lastEventsKey))
 	if err != nil && err != storage.ErrKeyNotFound {
@@ -120,8 +121,12 @@ func (es *EventStore) init() {
 	} else if err == storage.ErrKeyNotFound {
 		es.log.Info("Initialize without last events buffer")
 	} else {
-		if err := encoding.Gob.Unmarshal(v5, &es.lastEventsBuffer); err != nil {
+		if err := encoding.Gob.Unmarshal(v5, &lastEventsAsArray); err != nil {
 			es.log.Error(err)
+		} else {
+			for _, event := range lastEventsAsArray {
+				es.lastEventsBuffer.PushBack(event)
+			}
 		}
 	}
 }
@@ -275,7 +280,12 @@ func (es *EventStore) Close() {
 // flush flushes the current event buffer as a block to the indexed database
 func (es *EventStore) flush(force bool) error {
 	// commit last events
-	lastEventsBuffer, err := encoding.Gob.Marshal(&es.lastEventsBuffer)
+	lastEventsAsArray := make([]pipeline.Event, 0)
+	for e := es.lastEventsBuffer.Front(); e != nil; e = e.Next() {
+		lastEventsAsArray = append(lastEventsAsArray, e.Value.(pipeline.Event))
+	}
+
+	lastEventsBuffer, err := encoding.Gob.Marshal(lastEventsAsArray)
 	if err != nil {
 		return err
 	}

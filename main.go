@@ -39,10 +39,8 @@ import (
 var embededFiles embed.FS
 
 var (
-	GitCommit       = "live"
-	Version         = ""
-	wg              = &sync.WaitGroup{}
-	ctx, cancelFunc = context.WithCancel(context.Background())
+	GitCommit = "live"
+	Version   = ""
 )
 
 var (
@@ -68,8 +66,10 @@ func main() {
 	flag.Parse()
 
 	var (
-		cfg *config.Config
-		err error
+		cfg             *config.Config
+		err             error
+		wg              = &sync.WaitGroup{}
+		ctx, cancelFunc = context.WithCancel(context.Background())
 	)
 
 	if configPath == "" {
@@ -103,7 +103,7 @@ func main() {
 	storage.DefaultStorage = storage.NewDiskStorage(cfg.Database)
 
 	// instantiate all configured pipeline components
-	instantiateComponents(nil, cfg.Pipeline)
+	instantiateComponents(nil, cfg.Pipeline, wg, ctx)
 
 	// now, configure webserver
 	e := echo.New()
@@ -205,17 +205,14 @@ func main() {
 	signal.Notify(termChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-termChan // Blocks here until interrupted
 	log.Info("SIGTERM received, initiating shutdown now")
-	log.Info("[1/3] Shutting down webserver..")
+	log.Info("[1/3] Closing all pipeline components")
+	cancelFunc() // this closes the context for all pipeline components
+	wg.Wait()    // block here until are workers are done
+	log.Info("[2/3] Shutting down webserver..")
 	ctxTimeout, cancelFunc2 := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
 	if err := e.Shutdown(ctxTimeout); err != nil {
 		log.Error(err)
 	}
-
-	log.Info("[2/3] Second, closing all pipeline components")
-	cancelFunc() // this closes the context for all pipeline components
-	log.Info("Waiting for waitgroups to finish..")
-	wg.Wait() // block here until are workers are done
-	e.Close()
 	cancelFunc2() // this stops the server if the graceful shutdown was not successful
 	log.Info("[3/3] Finally, closing stores")
 	stores.GetEventSampler().Close()
@@ -226,7 +223,7 @@ func main() {
 	log.Info("Graceful shutdown completed")
 }
 
-func instantiateComponents(parent pipeline.Component, components []config.Component) {
+func instantiateComponents(parent pipeline.Component, components []config.Component, wg *sync.WaitGroup, ctx context.Context) {
 	for _, component := range components {
 		if component.Disabled {
 			log.Infof("Ignoring component %s as it is disabled in the config", component.Name)
@@ -240,10 +237,14 @@ func instantiateComponents(parent pipeline.Component, components []config.Compon
 		if parent != nil {
 			instantiation.Link(parent.Subscribe())
 		}
-		instantiateComponents(instantiation, component.Connects)
+
+		childContext, cancelChilds := context.WithCancel(context.Background())
+		instantiateComponents(instantiation, component.Connects, wg, childContext)
+
 		wg.Add(1)
 		go func() {
 			instantiation.Run(wg, ctx)
+			cancelChilds() // when parent finishes, close the child components
 		}()
 	}
 }
