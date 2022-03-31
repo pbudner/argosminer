@@ -142,7 +142,7 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 		upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 		ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 		if err != nil {
-			log.Errorw("an unexpected error occurred when upgrading to websocket.", "error", err)
+			log.Debugw("an unexpected error occurred when upgrading to websocket.", "error", err)
 			return c.JSON(http.StatusInternalServerError, JSON{
 				"error": err.Error(),
 			})
