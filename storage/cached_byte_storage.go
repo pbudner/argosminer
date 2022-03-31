@@ -8,7 +8,7 @@ import (
 	"github.com/jellydator/ttlcache/v3"
 )
 
-type cachedByteStorage struct {
+type CachedByteStorage struct {
 	config CachedByteStorageConfig
 	store  Storage
 	cache  *ttlcache.Cache[uint64, KeyValue[[]byte, []byte]]
@@ -20,7 +20,7 @@ type CachedByteStorageConfig struct {
 	MaxItems      uint64
 }
 
-func NewCachedByteStorage(storage Storage, config CachedByteStorageConfig) *cachedByteStorage {
+func NewCachedByteStorage(storage Storage, config CachedByteStorageConfig) *CachedByteStorage {
 	cache := ttlcache.New(
 		ttlcache.WithTTL[uint64, KeyValue[[]byte, []byte]](config.TTL),
 		ttlcache.WithCapacity[uint64, KeyValue[[]byte, []byte]](config.MaxItems),
@@ -33,14 +33,14 @@ func NewCachedByteStorage(storage Storage, config CachedByteStorageConfig) *cach
 
 	// start cleanup process to free up memory
 	go cache.Start()
-	return &cachedByteStorage{
+	return &CachedByteStorage{
 		config: config,
 		cache:  cache,
 		store:  storage,
 	}
 }
 
-func (c cachedByteStorage) Get(key []byte) ([]byte, bool) {
+func (c CachedByteStorage) Get(key []byte) ([]byte, bool) {
 	var result []byte
 	hashedKey := xxhash.Sum64(key)
 	item := c.cache.Get(hashedKey)
@@ -60,7 +60,7 @@ func (c cachedByteStorage) Get(key []byte) ([]byte, bool) {
 	return item.Value().Value, true
 }
 
-func (c cachedByteStorage) Set(key []byte, value []byte) {
+func (c CachedByteStorage) Set(key []byte, value []byte) {
 	hashedKey := xxhash.Sum64(key)
 	c.cache.Set(hashedKey, KeyValue[[]byte, []byte]{
 		Key:   key,
@@ -68,11 +68,7 @@ func (c cachedByteStorage) Set(key []byte, value []byte) {
 	}, ttlcache.DefaultTTL)
 }
 
-func (c cachedByteStorage) Contains(key []byte) bool {
-	return c.cache.Get(xxhash.Sum64(key)) != nil
-}
-
-func (c cachedByteStorage) Close() {
+func (c CachedByteStorage) Close() {
 	c.cache.Stop()
 
 	// iterate through all items and save them on disk

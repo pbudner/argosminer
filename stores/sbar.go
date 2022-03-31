@@ -47,7 +47,7 @@ type SbarStore struct {
 	activityCounterCache   map[string]uint64
 	dfRelationCounterCache map[string]uint64
 	startEventCounterCache map[string]uint64
-	caseCache              map[string]string
+	caseCache              storage.CachedByteStorage
 	activityBuffer         []storage.KeyValue[[]byte, []byte]
 	dfRelationBuffer       []storage.KeyValue[[]byte, []byte]
 	flushTicker            *time.Ticker
@@ -76,9 +76,13 @@ func GetSbarStore() *SbarStore {
 		sbarStoreSingleton = &SbarStore{
 			activityBuffer:   make([]storage.KeyValue[[]byte, []byte], 0),
 			dfRelationBuffer: make([]storage.KeyValue[[]byte, []byte], 0),
-			caseCache:        make(map[string]string),
-			doneChannel:      make(chan bool),
-			log:              zap.L().Sugar().With("service", "sbar-store"),
+			caseCache: *storage.NewCachedByteStorage(storage.DefaultStorage, storage.CachedByteStorageConfig{
+				StoragePrefix: caseCode,
+				TTL:           1 * time.Minute,
+				MaxItems:      1000,
+			}), //make(map[string]string),
+			doneChannel: make(chan bool),
+			log:         zap.L().Sugar().With("service", "sbar-store"),
 		}
 		if err := sbarStoreSingleton.init(); err != nil {
 			panic(err)
@@ -152,7 +156,7 @@ func (kv *SbarStore) init() error {
 func (kv *SbarStore) RecordActivityForCase(activity string, caseId string, timestamp time.Time) error {
 	kv.Lock()
 	defer kv.Unlock()
-	kv.caseCache[caseId] = activity
+	kv.caseCache.Set([]byte(caseId), []byte(activity))
 	return nil
 }
 
@@ -160,19 +164,22 @@ func (kv *SbarStore) GetLastActivityForCase(caseId string) (string, error) {
 	kv.RLock()
 	defer kv.RUnlock()
 	// first, try to get from cache
-	v, ok := kv.caseCache[caseId]
+	v, ok := kv.caseCache.Get([]byte(caseId))
 	if ok {
-		return v, nil
+		return string(v), nil
 	}
-	// otherwise, try to get from disk
-	b, err := storage.DefaultStorage.Get(prefixString(caseCode, caseId))
-	if err != nil && err != storage.ErrKeyNotFound {
-		return "", err
-	}
-	if err == storage.ErrKeyNotFound {
-		return "", nil
-	}
-	return string(b), nil
+
+	return "", nil
+	/*
+		// otherwise, try to get from disk
+		b, err := storage.DefaultStorage.Get(prefixString(caseCode, caseId))
+		if err != nil && err != storage.ErrKeyNotFound {
+			return "", err
+		}
+		if err == storage.ErrKeyNotFound {
+			return "", nil
+		}
+		return string(b), nil*/
 }
 
 func (kv *SbarStore) RecordDirectlyFollowsRelation(from string, to string, timestamp time.Time) error {
@@ -451,7 +458,7 @@ func (kv *SbarStore) flush() error {
 	if err != nil {
 		return err
 	}
-	caseBuffer := make([]storage.KeyValue[[]byte, []byte], len(kv.caseCache))
+	/*caseBuffer := make([]storage.KeyValue[[]byte, []byte], len(kv.caseCache))
 	i := 0
 	for k, v := range kv.caseCache {
 		caseBuffer[i] = storage.KeyValue[[]byte, []byte]{Key: prefixString(caseCode, k), Value: []byte(v)}
@@ -459,8 +466,8 @@ func (kv *SbarStore) flush() error {
 	}
 	flushedItems := kv.flushBuffer(&caseBuffer)
 	kv.log.Debugf("Flushed %d last activities for a case", flushedItems)
-	kv.caseCache = make(map[string]string)
-	flushedItems = kv.flushBuffer(&kv.activityBuffer)
+	kv.caseCache = make(map[string]string)*/
+	flushedItems := kv.flushBuffer(&kv.activityBuffer)
 	kv.log.Debugf("Flushed %d activties", flushedItems)
 	flushedItems = kv.flushBuffer(&kv.dfRelationBuffer)
 	kv.log.Debugf("Flushed %d directly-follows relations", flushedItems)

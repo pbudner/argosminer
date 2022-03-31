@@ -147,8 +147,8 @@ func (es *EventStore) Append(event pipeline.Event) error {
 		es.eventBinCounter[binKey]++
 	}
 
-	// add event to case
-	caseInstance := es.addEventToCase(event)
+	// ToDo: add event to case
+	/*caseInstance := es.addEventToCase(event)
 
 	// if the case is new, increase case counter
 	if len(caseInstance.Events) == 1 {
@@ -159,7 +159,7 @@ func (es *EventStore) Append(event pipeline.Event) error {
 		} else {
 			es.caseBinCounter[binKey]++
 		}
-	}
+	}*/
 
 	// add event to last events buffer
 	es.lastEventsBuffer.PushBack(event)
