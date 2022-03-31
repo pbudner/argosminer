@@ -115,7 +115,7 @@ func (jp *jsonParsers) Run(wg *sync.WaitGroup, ctx context.Context) {
 				if parseError != nil {
 					jp.log.Errorw("could not parse an event", "last_error", parseError, "raw_event", string(b))
 				} else {
-					jp.log.Infow("could not parse an event (without error)", string(b))
+					jp.log.Infow("could not parse an event (without error)", "raw_event", string(b))
 				}
 			}
 		}
