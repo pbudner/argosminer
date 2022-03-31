@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
+const MAX_LAST_ACTIVITIES_FOR_CASES_IN_MEMORY = 10000
 const sbarPrefix = 0x03
 
 var (
@@ -89,7 +90,7 @@ func GetSbarStore() *SbarStore {
 			caseCache: *storage.NewCachedByteStorage[MarshallableString](storage.DefaultStorage, storage.CachedByteStorageConfig{
 				StoragePrefix: caseCode,
 				TTL:           1 * time.Minute,
-				MaxItems:      1000,
+				MaxItems:      MAX_LAST_ACTIVITIES_FOR_CASES_IN_MEMORY,
 			}), //make(map[string]string),
 			doneChannel: make(chan bool),
 			log:         zap.L().Sugar().With("service", "sbar-store"),

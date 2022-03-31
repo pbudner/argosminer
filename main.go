@@ -210,7 +210,7 @@ func main() {
 	if err := e.Shutdown(ctxTimeout); err != nil {
 		log.Error(err)
 	}
-	log.Info("[2/3] Closing all pipeline components. This might take some seconds as we are flushing all buffers.")
+	log.Info("[2/3] Closing all pipeline components. This might take some time as we are flushing all buffers.")
 	cancelFunc()  // this closes the context for all pipeline components
 	wg.Wait()     // block here until are workers are done
 	cancelFunc2() // this stops the server if the graceful shutdown was not successful

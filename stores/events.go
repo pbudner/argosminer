@@ -12,6 +12,7 @@ import (
 )
 
 const MAX_EVENTS_IN_LAST_EVENTS_BUFFER = 50
+const MAX_CASES_IN_MEMORY = 10000
 
 var (
 	eventStoreSingletonOnce sync.Once
@@ -24,7 +25,6 @@ var (
 	casePrefix                   = append([]byte{eventStorePrefix}, []byte("case")...)
 	actionIndexPrefix            = append([]byte{eventStorePrefix}, []byte("action")...)
 	lastEventsKey                = append([]byte{eventStorePrefix}, []byte("last_events")...)
-	EventFlushCount              = 100000 // decreasing this reduces memory utilization, but also performance
 )
 
 func init() {
@@ -67,7 +67,7 @@ func GetEventStore() *EventStore {
 			caseBuffer: *storage.NewCachedByteStorage[Case](storage.DefaultStorage, storage.CachedByteStorageConfig{
 				StoragePrefix: casePrefix,
 				TTL:           1 * time.Minute,
-				MaxItems:      1000,
+				MaxItems:      MAX_CASES_IN_MEMORY,
 			}),
 		}
 		eventStoreSingleton.init()
