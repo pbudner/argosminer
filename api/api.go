@@ -180,6 +180,20 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 		})
 	})
 
+	v1.GET("/cases/:case_id/last_activity", func(c echo.Context) error {
+		caseId := c.Param("case_id")
+		v, err := stores.GetSbarStore().GetLastActivityForCase(caseId)
+		if err != nil {
+			return c.JSON(http.StatusNotFound, JSON{
+				"error": fmt.Sprintf("Case with ID %s could not be found.", caseId),
+			})
+		}
+		return c.JSON(http.StatusOK, JSON{
+			"case_id":       caseId,
+			"last_activity": v,
+		})
+	})
+
 	v1.GET("/dfrelations", func(c echo.Context) error {
 		v := stores.GetSbarStore().GetDfRelations()
 		return c.JSON(200, JSON{

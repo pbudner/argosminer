@@ -162,9 +162,9 @@ func (es *EventStore) Append(event pipeline.Event) error {
 	}*/
 
 	// add event to last events buffer
-	es.lastEventsBuffer.PushBack(event)
+	es.lastEventsBuffer.PushFront(event)
 	if es.lastEventsBuffer.Len() >= MAX_EVENTS_IN_LAST_EVENTS_BUFFER {
-		es.lastEventsBuffer.Remove(es.lastEventsBuffer.Front())
+		es.lastEventsBuffer.Remove(es.lastEventsBuffer.Back())
 	}
 
 	return nil

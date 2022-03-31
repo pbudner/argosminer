@@ -430,6 +430,7 @@ func (kv *SbarStore) Close() {
 	defer kv.Unlock()
 	close(kv.doneChannel)
 	kv.flushTicker.Stop()
+	kv.caseCache.Close()
 	kv.flush()
 }
 

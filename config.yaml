@@ -5,7 +5,7 @@ logger:
 database:
 #  path: /Volumes/PascalsSSD/ArgosMiner/db
 #  path: ./data
-  path: /Volumes/PascalsSSD/ArgosMiner/db5
+  path: /Volumes/PascalsSSD/ArgosMiner/db6
   workspace: pascal-1
 ignore-activities:
   - name: 'krankenAngeboteWiederherstellen::Start'
@@ -75,8 +75,8 @@ pipeline:
   #           - name: sinks.dfg
   #           - name: sinks.event
   - name: sources.kafka  
-    brokers: 'localhost:9092'
-    group-id: consumer-group-4711-10012
+    brokers: 'localhost:9093'
+    group-id: consumer-group-4711-10013
     timeout: 5s
     commit-interval: 1s
     topic: pmlogs
