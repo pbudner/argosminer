@@ -8,10 +8,15 @@ import (
 	"github.com/jellydator/ttlcache/v3"
 )
 
-type CachedByteStorage struct {
+type Serializable interface {
+	Marshal() []byte
+	Unmarshal([]byte) Serializable
+}
+
+type CachedByteStorage[T Serializable] struct {
 	config CachedByteStorageConfig
 	store  Storage
-	cache  *ttlcache.Cache[uint64, KeyValue[[]byte, []byte]]
+	cache  *ttlcache.Cache[uint64, KeyValue[[]byte, Serializable]]
 }
 
 type CachedByteStorageConfig struct {
@@ -20,28 +25,28 @@ type CachedByteStorageConfig struct {
 	MaxItems      uint64
 }
 
-func NewCachedByteStorage(storage Storage, config CachedByteStorageConfig) *CachedByteStorage {
+func NewCachedByteStorage[T Serializable](storage Storage, config CachedByteStorageConfig) *CachedByteStorage[T] {
 	cache := ttlcache.New(
-		ttlcache.WithTTL[uint64, KeyValue[[]byte, []byte]](config.TTL),
-		ttlcache.WithCapacity[uint64, KeyValue[[]byte, []byte]](config.MaxItems),
+		ttlcache.WithTTL[uint64, KeyValue[[]byte, Serializable]](config.TTL),
+		ttlcache.WithCapacity[uint64, KeyValue[[]byte, Serializable]](config.MaxItems),
 	)
 
-	cache.OnEviction(func(ctx context.Context, reason ttlcache.EvictionReason, item *ttlcache.Item[uint64, KeyValue[[]byte, []byte]]) {
+	cache.OnEviction(func(ctx context.Context, reason ttlcache.EvictionReason, item *ttlcache.Item[uint64, KeyValue[[]byte, Serializable]]) {
 		key := append(config.StoragePrefix, item.Value().Key...)
-		storage.Set(key, item.Value().Value)
+		storage.Set(key, item.Value().Value.Marshal())
 	})
 
 	// start cleanup process to free up memory
 	go cache.Start()
-	return &CachedByteStorage{
+	return &CachedByteStorage[T]{
 		config: config,
 		cache:  cache,
 		store:  storage,
 	}
 }
 
-func (c CachedByteStorage) Get(key []byte) ([]byte, bool) {
-	var result []byte
+func (c CachedByteStorage[T]) Get(key []byte) (Serializable, bool) {
+	var result T
 	hashedKey := xxhash.Sum64(key)
 	item := c.cache.Get(hashedKey)
 	if item == nil {
@@ -51,30 +56,28 @@ func (c CachedByteStorage) Get(key []byte) ([]byte, bool) {
 		if err != nil {
 			return result, false
 		}
-
-		// put item into cache again
-		c.Set(key, value)
-		return value, true
+		umarshalledValue := result.Unmarshal(value)
+		c.Set(key, umarshalledValue) // put item into cache again
+		return umarshalledValue, true
 	}
-
 	return item.Value().Value, true
 }
 
-func (c CachedByteStorage) Set(key []byte, value []byte) {
+func (c CachedByteStorage[T]) Set(key []byte, value Serializable) {
 	hashedKey := xxhash.Sum64(key)
-	c.cache.Set(hashedKey, KeyValue[[]byte, []byte]{
+	c.cache.Set(hashedKey, KeyValue[[]byte, Serializable]{
 		Key:   key,
 		Value: value,
 	}, ttlcache.DefaultTTL)
 }
 
-func (c CachedByteStorage) Close() {
+func (c CachedByteStorage[T]) Close() {
 	c.cache.Stop()
 
 	// iterate through all items and save them on disk
 	for _, kv := range c.cache.Items() {
 		key := append(c.config.StoragePrefix, kv.Value().Key...)
-		c.store.Set(key, kv.Value().Value)
+		c.store.Set(key, kv.Value().Value.Marshal())
 	}
 
 	c.cache = nil

@@ -42,12 +42,22 @@ type Activity struct {
 	Weight uint64 `json:"weight,omitempty"`
 }
 
+type MarshallableString string
+
+func (b MarshallableString) Marshal() []byte {
+	return []byte(b)
+}
+
+func (b MarshallableString) Unmarshal(a []byte) storage.Serializable {
+	return MarshallableString(a)
+}
+
 type SbarStore struct {
 	sync.RWMutex
 	activityCounterCache   map[string]uint64
 	dfRelationCounterCache map[string]uint64
 	startEventCounterCache map[string]uint64
-	caseCache              storage.CachedByteStorage
+	caseCache              storage.CachedByteStorage[MarshallableString]
 	activityBuffer         []storage.KeyValue[[]byte, []byte]
 	dfRelationBuffer       []storage.KeyValue[[]byte, []byte]
 	flushTicker            *time.Ticker
@@ -76,7 +86,7 @@ func GetSbarStore() *SbarStore {
 		sbarStoreSingleton = &SbarStore{
 			activityBuffer:   make([]storage.KeyValue[[]byte, []byte], 0),
 			dfRelationBuffer: make([]storage.KeyValue[[]byte, []byte], 0),
-			caseCache: *storage.NewCachedByteStorage(storage.DefaultStorage, storage.CachedByteStorageConfig{
+			caseCache: *storage.NewCachedByteStorage[MarshallableString](storage.DefaultStorage, storage.CachedByteStorageConfig{
 				StoragePrefix: caseCode,
 				TTL:           1 * time.Minute,
 				MaxItems:      1000,
@@ -156,7 +166,7 @@ func (kv *SbarStore) init() error {
 func (kv *SbarStore) RecordActivityForCase(activity string, caseId string, timestamp time.Time) error {
 	kv.Lock()
 	defer kv.Unlock()
-	kv.caseCache.Set([]byte(caseId), []byte(activity))
+	kv.caseCache.Set([]byte(caseId), MarshallableString(activity))
 	return nil
 }
 
@@ -166,7 +176,7 @@ func (kv *SbarStore) GetLastActivityForCase(caseId string) (string, error) {
 	// first, try to get from cache
 	v, ok := kv.caseCache.Get([]byte(caseId))
 	if ok {
-		return string(v), nil
+		return string(v.(MarshallableString)), nil
 	}
 
 	return "", nil

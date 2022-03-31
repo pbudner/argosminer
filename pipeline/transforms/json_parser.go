@@ -195,7 +195,10 @@ func (jp *jsonParser) parse(input []byte) (nilEvent pipeline.Event, skipped bool
 
 	additionalFields := make(map[string]string)
 	parsedJson.ForEach(func(key, value gjson.Result) bool {
-		additionalFields[key.String()] = value.String()
+		keyStr := key.String()
+		if keyStr != jp.config.CaseIdPath && keyStr != jp.config.ActivityPath && keyStr != jp.config.TimestampPath {
+			additionalFields[keyStr] = value.String()
+		}
 		return true
 	})
 

@@ -31,10 +31,22 @@ func init() {
 }
 
 type Case struct {
-	ID             string
-	FirstTimestamp time.Time
-	LastTimestamp  time.Time
-	Events         []pipeline.Event
+	ID     string
+	Events []pipeline.Event
+}
+
+func (c Case) Marshal() []byte {
+	bCaseInstantiation, err := encoding.Gob.Marshal(c)
+	if err != nil {
+		return nil
+	}
+	return bCaseInstantiation
+}
+
+func (_ Case) Unmarshal(b []byte) storage.Serializable {
+	var c Case
+	encoding.Gob.Unmarshal(b, &c) // this could fail
+	return c
 }
 
 type EventStore struct {
@@ -42,17 +54,21 @@ type EventStore struct {
 	lastEventsBuffer *list.List
 	eventCounter     uint64
 	caseCounter      uint64
-	caseBuffer       map[string]Case   // maps a case id to an instantiated case
-	eventBinCounter  map[string]uint64 // maps a date to an event counter used for binning
-	caseBinCounter   map[string]uint64 // maps a date to a case counter used for binning
+	caseBuffer       storage.CachedByteStorage[Case] // maps a case id to an instantiated case
+	eventBinCounter  map[string]uint64               // maps a date to an event counter used for binning
+	caseBinCounter   map[string]uint64               // maps a date to a case counter used for binning
 	log              *zap.SugaredLogger
 }
 
 func GetEventStore() *EventStore {
 	eventStoreSingletonOnce.Do(func() {
 		eventStoreSingleton = &EventStore{
-			log:        zap.L().Sugar().With("service", "event-store"),
-			caseBuffer: make(map[string]Case),
+			log: zap.L().Sugar().With("service", "event-store"),
+			caseBuffer: *storage.NewCachedByteStorage[Case](storage.DefaultStorage, storage.CachedByteStorageConfig{
+				StoragePrefix: casePrefix,
+				TTL:           1 * time.Minute,
+				MaxItems:      1000,
+			}),
 		}
 		eventStoreSingleton.init()
 	})
@@ -147,8 +163,11 @@ func (es *EventStore) Append(event pipeline.Event) error {
 		es.eventBinCounter[binKey]++
 	}
 
-	// ToDo: add event to case
-	/*caseInstance := es.addEventToCase(event)
+	// add event to case
+	caseInstance, err := es.addEventToCase(event)
+	if err != nil {
+		return err
+	}
 
 	// if the case is new, increase case counter
 	if len(caseInstance.Events) == 1 {
@@ -159,7 +178,7 @@ func (es *EventStore) Append(event pipeline.Event) error {
 		} else {
 			es.caseBinCounter[binKey]++
 		}
-	}*/
+	}
 
 	// add event to last events buffer
 	es.lastEventsBuffer.PushFront(event)
@@ -170,20 +189,27 @@ func (es *EventStore) Append(event pipeline.Event) error {
 	return nil
 }
 
-func (es *EventStore) addEventToCase(event pipeline.Event) Case {
-	caseInstantiation, ok := es.caseBuffer[event.CaseId]
+func (es *EventStore) addEventToCase(event pipeline.Event) (Case, error) {
+	caseInstantiation, ok := es.GetCase([]byte(event.CaseId))
 	if !ok {
 		caseInstantiation = Case{
-			ID:             event.CaseId,
-			FirstTimestamp: event.Timestamp,
-			LastTimestamp:  event.Timestamp,
-			Events:         []pipeline.Event{event},
+			ID:     event.CaseId,
+			Events: []pipeline.Event{event},
 		}
-		es.caseBuffer[event.CaseId] = caseInstantiation
 	} else {
 		caseInstantiation.Events = append(caseInstantiation.Events, event)
 	}
-	return caseInstantiation
+
+	es.caseBuffer.Set([]byte(event.CaseId), caseInstantiation)
+	return caseInstantiation, nil
+}
+
+func (es *EventStore) GetCase(caseId []byte) (Case, bool) {
+	v, ok := es.caseBuffer.Get(caseId)
+	if !ok {
+		return Case{}, false
+	}
+	return v.(Case), true
 }
 
 func (es *EventStore) GetLast(count int) ([]pipeline.Event, error) {
@@ -272,6 +298,7 @@ func (es *EventStore) Close() {
 	defer es.log.Info("Closed stores.EventStore")
 	es.Lock()
 	defer es.Unlock()
+	es.caseBuffer.Close()
 	if err := es.flush(true); err != nil {
 		es.log.Error(err)
 	}
