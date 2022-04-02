@@ -13,19 +13,19 @@ type Serializable interface {
 	Unmarshal([]byte) Serializable
 }
 
-type CachedByteStorage[T Serializable] struct {
-	config CachedByteStorageConfig
+type CachedStorage[T Serializable] struct {
+	config CachedStorageConfig
 	store  Storage
 	cache  *ttlcache.Cache[uint64, KeyValue[[]byte, Serializable]]
 }
 
-type CachedByteStorageConfig struct {
+type CachedStorageConfig struct {
 	StoragePrefix []byte
 	TTL           time.Duration
 	MaxItems      uint64
 }
 
-func NewCachedByteStorage[T Serializable](storage Storage, config CachedByteStorageConfig) *CachedByteStorage[T] {
+func NewCachedByteStorage[T Serializable](storage Storage, config CachedStorageConfig) *CachedStorage[T] {
 	cache := ttlcache.New(
 		ttlcache.WithTTL[uint64, KeyValue[[]byte, Serializable]](config.TTL),
 		ttlcache.WithCapacity[uint64, KeyValue[[]byte, Serializable]](config.MaxItems),
@@ -38,14 +38,14 @@ func NewCachedByteStorage[T Serializable](storage Storage, config CachedByteStor
 
 	// start cleanup process to free up memory
 	go cache.Start()
-	return &CachedByteStorage[T]{
+	return &CachedStorage[T]{
 		config: config,
 		cache:  cache,
 		store:  storage,
 	}
 }
 
-func (c CachedByteStorage[T]) Get(key []byte) (Serializable, bool) {
+func (c CachedStorage[T]) Get(key []byte) (Serializable, bool) {
 	var result T
 	hashedKey := xxhash.Sum64(key)
 	item := c.cache.Get(hashedKey)
@@ -63,7 +63,7 @@ func (c CachedByteStorage[T]) Get(key []byte) (Serializable, bool) {
 	return item.Value().Value, true
 }
 
-func (c CachedByteStorage[T]) Set(key []byte, value Serializable) {
+func (c CachedStorage[T]) Set(key []byte, value Serializable) {
 	hashedKey := xxhash.Sum64(key)
 	c.cache.Set(hashedKey, KeyValue[[]byte, Serializable]{
 		Key:   key,
@@ -71,7 +71,7 @@ func (c CachedByteStorage[T]) Set(key []byte, value Serializable) {
 	}, ttlcache.DefaultTTL)
 }
 
-func (c CachedByteStorage[T]) Close() {
+func (c CachedStorage[T]) Close() {
 	c.cache.Stop()
 
 	// iterate through all items and save them on disk

@@ -58,7 +58,7 @@ type SbarStore struct {
 	activityCounterCache   map[string]uint64
 	dfRelationCounterCache map[string]uint64
 	startEventCounterCache map[string]uint64
-	caseCache              storage.CachedByteStorage[MarshallableString]
+	caseCache              storage.CachedStorage[MarshallableString]
 	activityBuffer         []storage.KeyValue[[]byte, []byte]
 	dfRelationBuffer       []storage.KeyValue[[]byte, []byte]
 	flushTicker            *time.Ticker
@@ -87,7 +87,7 @@ func GetSbarStore() *SbarStore {
 		sbarStoreSingleton = &SbarStore{
 			activityBuffer:   make([]storage.KeyValue[[]byte, []byte], 0),
 			dfRelationBuffer: make([]storage.KeyValue[[]byte, []byte], 0),
-			caseCache: *storage.NewCachedByteStorage[MarshallableString](storage.DefaultStorage, storage.CachedByteStorageConfig{
+			caseCache: *storage.NewCachedByteStorage[MarshallableString](storage.DefaultStorage, storage.CachedStorageConfig{
 				StoragePrefix: caseCode,
 				TTL:           1 * time.Minute,
 				MaxItems:      MAX_LAST_ACTIVITIES_FOR_CASES_IN_MEMORY,

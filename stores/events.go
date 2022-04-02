@@ -8,11 +8,13 @@ import (
 	"github.com/pbudner/argosminer/encoding"
 	"github.com/pbudner/argosminer/pipeline"
 	"github.com/pbudner/argosminer/storage"
+	"github.com/pbudner/argosminer/storage/key"
 	"go.uber.org/zap"
 )
 
 const MAX_EVENTS_IN_LAST_EVENTS_BUFFER = 50
 const MAX_CASES_IN_MEMORY = 10000
+const MAX_EVENT_INDEX_BUFFERS = 10000
 
 var (
 	eventStoreSingletonOnce sync.Once
@@ -51,20 +53,26 @@ func (_ Case) Unmarshal(b []byte) storage.Serializable {
 
 type EventStore struct {
 	sync.RWMutex
-	lastEventsBuffer *list.List
-	eventCounter     uint64
-	caseCounter      uint64
-	caseBuffer       storage.CachedByteStorage[Case] // maps a case id to an instantiated case
-	eventBinCounter  map[string]uint64               // maps a date to an event counter used for binning
-	caseBinCounter   map[string]uint64               // maps a date to a case counter used for binning
-	log              *zap.SugaredLogger
+	lastEventsBuffer  *list.List
+	eventCounter      uint64
+	caseCounter       uint64
+	actionIndexBuffer storage.CachedStorage[MarshallableString]
+	caseBuffer        storage.CachedStorage[Case] // maps a case id to an instantiated case
+	eventBinCounter   map[string]uint64           // maps a date to an event counter used for binning
+	caseBinCounter    map[string]uint64           // maps a date to a case counter used for binning
+	log               *zap.SugaredLogger
 }
 
 func GetEventStore() *EventStore {
 	eventStoreSingletonOnce.Do(func() {
 		eventStoreSingleton = &EventStore{
 			log: zap.L().Sugar().With("service", "event-store"),
-			caseBuffer: *storage.NewCachedByteStorage[Case](storage.DefaultStorage, storage.CachedByteStorageConfig{
+			caseBuffer: *storage.NewCachedByteStorage[Case](storage.DefaultStorage, storage.CachedStorageConfig{
+				StoragePrefix: casePrefix,
+				TTL:           1 * time.Minute,
+				MaxItems:      MAX_CASES_IN_MEMORY,
+			}),
+			actionIndexBuffer: *storage.NewCachedByteStorage[MarshallableString](storage.DefaultStorage, storage.CachedStorageConfig{
 				StoragePrefix: casePrefix,
 				TTL:           1 * time.Minute,
 				MaxItems:      MAX_CASES_IN_MEMORY,
@@ -178,6 +186,8 @@ func (es *EventStore) Append(event pipeline.Event) error {
 		} else {
 			es.caseBinCounter[binKey]++
 		}
+
+		es.mapActionToCase(event) // index the start action to the case_id
 	}
 
 	// add event to last events buffer
@@ -202,6 +212,16 @@ func (es *EventStore) addEventToCase(event pipeline.Event) (Case, error) {
 
 	es.caseBuffer.Set([]byte(event.CaseId), caseInstantiation)
 	return caseInstantiation, nil
+}
+
+func (es *EventStore) mapActionToCase(event pipeline.Event) error {
+	k, err := key.New(append(actionIndexPrefix, event.ActivityName...), event.Timestamp)
+	if err != nil {
+		return err
+	}
+
+	es.actionIndexBuffer.Set(k, MarshallableString(event.CaseId))
+	return nil
 }
 
 func (es *EventStore) GetCase(caseId []byte) (Case, bool) {
@@ -304,7 +324,7 @@ func (es *EventStore) Close() {
 	}
 }
 
-// flush flushes the current event buffer as a block to the indexed database
+// flush flushes the current buffers
 func (es *EventStore) flush(force bool) error {
 	// commit last events
 	lastEventsAsArray := make([]pipeline.Event, 0)

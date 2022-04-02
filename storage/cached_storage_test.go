@@ -26,7 +26,7 @@ func TestTTLCache(t *testing.T) {
 	storage := NewDiskStorage(Config{Path: dir})
 	defer storage.Close()
 
-	cache := NewCachedByteStorage[MyByte](storage, CachedByteStorageConfig{
+	cache := NewCachedByteStorage[MyByte](storage, CachedStorageConfig{
 		StoragePrefix: []byte("test"),
 		TTL:           2 * time.Second,
 		MaxItems:      2,
@@ -48,7 +48,7 @@ func TestTTLCache(t *testing.T) {
 
 	// close cache, and open it again
 	cache.Close()
-	cache = NewCachedByteStorage[MyByte](storage, CachedByteStorageConfig{
+	cache = NewCachedByteStorage[MyByte](storage, CachedStorageConfig{
 		StoragePrefix: []byte("test"),
 		TTL:           2 * time.Second,
 		MaxItems:      2,
