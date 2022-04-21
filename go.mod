@@ -11,31 +11,27 @@ require (
 	github.com/labstack/echo-contrib v0.12.0
 	github.com/labstack/echo/v4 v4.7.2
 	github.com/labstack/gommon v0.3.1
-	github.com/mitchellh/mapstructure v1.4.3
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oklog/ulid/v2 v2.0.2
 	github.com/prometheus/client_golang v1.12.1
 	github.com/radovskyb/watcher v1.0.7
-	github.com/segmentio/kafka-go v0.4.30
+	github.com/segmentio/kafka-go v0.4.31
 	github.com/stretchr/testify v1.7.1
 	github.com/tamerh/xml-stream-parser v1.4.0
-	github.com/tidwall/gjson v1.14.0
-	github.com/vmihailenco/msgpack/v5 v5.3.5
+	github.com/tidwall/gjson v1.14.1
 	go.uber.org/zap v1.21.0
 	gonum.org/v1/gonum v0.11.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
 
 require (
-	github.com/RoaringBitmap/roaring v0.9.4 // indirect
 	github.com/antchfx/xpath v1.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bits-and-blooms/bitset v1.2.0 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/ef-ds/deque v1.0.4 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -45,7 +41,6 @@ require (
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
-	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.14 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -58,7 +53,6 @@ require (
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
-	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/xdg/scram v1.0.5 // indirect
 	github.com/xdg/stringprep v1.0.3 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
