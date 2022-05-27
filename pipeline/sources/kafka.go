@@ -108,6 +108,7 @@ func (s *kafka) Run(wg *sync.WaitGroup, ctx context.Context) {
 	})
 
 	brokerList := s.Config.Brokers
+	lostConnectionErrorOccurred := false
 
 	for {
 		m, err := r.FetchMessage(ctx)
@@ -117,7 +118,12 @@ func (s *kafka) Run(wg *sync.WaitGroup, ctx context.Context) {
 			} else {
 				kafkaErrorsOnReadMessage.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 				if strings.HasSuffix(err.Error(), "connection refused") || strings.HasSuffix(err.Error(), "i/o timeout") {
-					s.log.Error("Lost connection to Kafka. Retrying in 15 seconds.")
+					// log error message only once every second
+					if !lostConnectionErrorOccurred {
+						s.log.Error("Lost connection to Kafka. Retrying in 15 seconds.")
+						lostConnectionErrorOccurred = true
+					}
+
 					time.Sleep(15 * time.Second)
 				} else {
 					s.log.Errorw("An unexpected error occurred during FetchMessage.", "error", err)
@@ -126,6 +132,7 @@ func (s *kafka) Run(wg *sync.WaitGroup, ctx context.Context) {
 			}
 		}
 
+		lostConnectionErrorOccurred = false
 		receivedKafkaEvents.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).Inc()
 		lastReceivedKafkaEvent.WithLabelValues(brokerList, s.Config.Topic, s.Config.GroupID).SetToCurrentTime()
 		s.Publish(m.Value)

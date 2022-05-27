@@ -323,8 +323,8 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 		}
 
 		return c.JSON(200, JSON{
-			"nodes": uniqueNodes,
-			"edges": edges,
+			"actions": uniqueNodes,
+			"edges":   edges,
 		})
 	})
 

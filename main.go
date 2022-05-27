@@ -1,19 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"embed"
 	"flag"
 	"fmt"
-	"html/template"
-	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
-	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -30,13 +24,11 @@ import (
 	_ "github.com/pbudner/argosminer/pipeline/sources"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/stores"
+	"github.com/pbudner/argosminer/ui"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"go.uber.org/zap"
 )
-
-//go:embed ui/dist
-var embededFiles embed.FS
 
 var (
 	GitCommit = "live"
@@ -146,48 +138,9 @@ func main() {
 	}
 	p.Use(e)
 
-	// hanlde index
-	handleIndexFunc := func(c echo.Context) error {
-		response, err := parseTemplate("ui/dist/index.html", cfg)
-		if err != nil {
-			log.Error(err)
-			return c.JSON(http.StatusInternalServerError, api.JSON{
-				"message": "Could not parse index.html template.",
-			})
-		}
-		return c.HTML(http.StatusOK, response)
-	}
-
-	fsys, err := fs.Sub(embededFiles, "ui/dist")
-	if err != nil {
-		panic(err)
-	}
-
-	assetHandler := func(root http.FileSystem) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			fileServer := http.FileServer(root)
-			path := strings.TrimPrefix(path.Clean(c.Request().URL.Path), baseURL.RequestURI())
-			_, err := root.Open(path) // Do not allow path traversals.
-			if os.IsNotExist(err) {
-				return handleIndexFunc(c)
-			}
-
-			fsPath, err := url.Parse(path)
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, api.JSON{
-					"message": "Could not serve static asset.",
-				})
-			}
-
-			c.Request().URL = fsPath
-			fileServer.ServeHTTP(c.Response(), c.Request())
-			return nil
-		}
-	}
-
-	baseGroup.GET("/*", assetHandler(http.FS(fsys)))
-	baseGroup.GET("/index.html", handleIndexFunc)
-	baseGroup.GET("/", handleIndexFunc)
+	baseGroup.GET("/*", ui.GetStaticHandler(baseURL, cfg))
+	baseGroup.GET("/index.html", ui.GetIndexHandler(cfg))
+	baseGroup.GET("/", ui.GetIndexHandler(cfg))
 
 	g := baseGroup.Group("/api")
 	api.RegisterApiHandlers(g, cfg, Version, GitCommit)
@@ -210,7 +163,7 @@ func main() {
 	if err := e.Shutdown(ctxTimeout); err != nil {
 		log.Error(err)
 	}
-	log.Info("[2/3] Closing all pipeline components. This might take some time as we are flushing all buffers.")
+	log.Info("[2/3] Closing all pipeline components - this might take some time as we are straighten things up (i.e., flushing buffers, canceling jobs, ...)")
 	cancelFunc()  // this closes the context for all pipeline components
 	wg.Wait()     // block here until are workers are done
 	cancelFunc2() // this stops the server if the graceful shutdown was not successful
@@ -247,21 +200,4 @@ func instantiateComponents(parent pipeline.Component, components []config.Compon
 			cancelChilds() // when parent finishes, close the child components
 		}()
 	}
-}
-
-func parseTemplate(templateFileName string, data interface{}) (string, error) {
-	templateName := filepath.Base(templateFileName)
-	t, err := template.New(templateName).Funcs(template.FuncMap{
-		"replaceNewline": func(s string) template.HTML {
-			return template.HTML(strings.Replace(template.HTMLEscapeString(s), "\n", "<br>", -1))
-		},
-	}).ParseFS(embededFiles, templateFileName)
-	if err != nil {
-		return "", err
-	}
-	buf := new(bytes.Buffer)
-	if err = t.Execute(buf, data); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
 }
