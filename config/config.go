@@ -35,7 +35,7 @@ type IgnoreActivity struct {
 func DefaultConfig() *Config {
 	config := &Config{
 		Logger:   zap.NewDevelopmentConfig(),
-		BaseURL:  "/",
+		BaseURL:  "",
 		Listener: "localhost:4711",
 		Database: storage.Config{
 			Path:       "./data/",

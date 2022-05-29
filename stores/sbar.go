@@ -300,90 +300,114 @@ func (kv *SbarStore) GetDfRelationsWithinTimewindow(dfRelations [][]string, star
 	return result, nil
 }
 
-/*func (kv *SbarStore) GetDfRelationsOverTime(dfRelations [][]string) ([][]string, error) {
+func (kv *SbarStore) getCountsForRelation(encodedRelation string, binBy time.Duration) (map[time.Time]uint64, time.Time, time.Time, error) {
+	result := make(map[time.Time]uint64)
+	var (
+		minTime time.Time
+		maxTime time.Time
+	)
+	k, err := key.New(prefixString(dfRelationOverTimeCode, encodedRelation), time.Now())
+	if err != nil {
+		return nil, minTime, maxTime, err
+	}
+
+	var currentUlid ulid.ULID
+	var lastSeenTime time.Time
+	var lastSeenValue uint64
+	err = storage.DefaultStorage.Iterate(k[0:8], func(key []byte, retrieveValue func() ([]byte, error)) (bool, error) {
+		currentUlid.UnmarshalBinary(key[8:])
+		eventTime := time.UnixMilli(int64(currentUlid.Time())).Truncate(binBy)
+		if eventTime != lastSeenTime {
+			v, err := retrieveValue()
+			if err != nil {
+				return false, err
+			}
+			value := storage.BytesToUint64(v)
+			if !lastSeenTime.IsZero() {
+				result[lastSeenTime] = value - lastSeenValue
+
+				if minTime.IsZero() || minTime.After(lastSeenTime) {
+					minTime = lastSeenTime
+				}
+				if maxTime.IsZero() || maxTime.Before(lastSeenTime) {
+					maxTime = lastSeenTime
+				}
+			}
+
+			lastSeenTime = eventTime
+			lastSeenValue = value
+		}
+
+		return true, nil
+	})
+
+	if err != nil {
+		kv.log.Error("An unexpected error occurred during iterating through storage:", err)
+	}
+
+	if err == storage.ErrNoResults {
+		kv.log.Debugf("Could not find a directly-follows relation for %s", encodedRelation)
+		return nil, minTime, maxTime, err
+	}
+
+	if err != nil {
+		return nil, minTime, maxTime, err
+	}
+
+	return result, minTime, maxTime, nil
+}
+
+type DfRelationsOverTime struct {
+	From   string
+	To     string
+	Values map[time.Time]uint64
+}
+
+func (kv *SbarStore) GetDfRelationsOverTime(dfRelations [][]string, binBy time.Duration) ([]DfRelationsOverTime, error) {
 	kv.RLock()
 	defer kv.RUnlock()
 
-	result := make([][]string, len(dfRelations))
-	hours := make(map[string]struct{})
-	now := time.Now()
+	result := make([]DfRelationsOverTime, 0)
+	var (
+		minTime time.Time
+		maxTime time.Time
+	)
 
 	for _, relation := range dfRelations {
 		encodedRelation := encodeDfRelation(relation[0], relation[1])
-		row := make([]string)
+		counts, currentMinTime, currentMaxTime, err := kv.getCountsForRelation(encodedRelation, binBy)
 
-		getCountForRelation := func(encodedRelation string) (uint64, error) {
-			k, err := key.New(prefixString(dfRelationOverTimeCode, encodedRelation), now)
-			if err != nil {
-				return 0, err
-			}
-
-			// ToDo: Continue working here..
-			err = storage.DefaultStorage.Iterate(k[0:8], func(key []byte, retrieveValue func() ([]byte, error)) (bool, error) {
-				lastSeenKey = key
-				currentUlid.UnmarshalBinary(key[8:])
-				eventTime := time.UnixMilli(int64(currentUlid.Time()))
-				if !datesInitialized {
-					datesInitialized = true
-					smallestDate = eventTime
-					largestDate = eventTime
-				}
-				if smallestDate.UnixMilli() > eventTime.UnixMilli() {
-					smallestDate = eventTime
-				}
-				if largestDate.UnixMilli() < eventTime.UnixMilli() {
-					largestDate = eventTime
-				}
-				currentTime := eventTime.Format(binFormat)
-				if lastSeenFormattedTime == "" {
-					lastSeenFormattedTime = currentTime
-				}
-
-				if currentTime != lastSeenFormattedTime {
-					v, err := retrieveValue()
-					if err != nil {
-						return false, err
-					}
-					value := storage.BytesToUint64(v)
-					binCounter[lastSeenFormattedTime] = value - 1
-					lastSeenFormattedTime = currentTime
-				}
-
-				return true, nil
-			})
-
-			if err != nil {
-				kv.log.Error("An unexpected error occurred during iterating through storage:", err)
-			}
-
-			if err == storage.ErrNoResults {
-				kv.log.Debugf("Could not find a directly-follows relation for %s", encodedRelation)
-				return 0, nil
-			}
-
-			if err != nil {
-				return 0, err
-			}
-
-			return storage.BytesToUint64(keyValue.Value), nil
-		}
-
-		startValue, err := getCountForRelation(encodedRelation, start)
-		if err != nil {
-			return nil, err
-		}
-		endValue, err := getCountForRelation(encodedRelation, end)
 		if err != nil {
 			return nil, err
 		}
 
-		diffValue := endValue - startValue
-		if diffValue > 0 {
-			result = append(result, DirectlyFollowsRelation{From: relation[0], To: relation[1], Weight: diffValue})
+		if !currentMinTime.IsZero() && (minTime.IsZero() || currentMinTime.Before(minTime)) {
+			minTime = currentMinTime
+		}
+
+		if !currentMaxTime.IsZero() && (maxTime.IsZero() || currentMaxTime.After(maxTime)) {
+			maxTime = currentMaxTime
+		}
+
+		result = append(result, DfRelationsOverTime{
+			From:   relation[0],
+			To:     relation[1],
+			Values: counts,
+		})
+	}
+
+	for _, value := range result {
+		currentTime := minTime
+		for currentTime.Before(maxTime) {
+			if _, found := value.Values[currentTime]; !found {
+				value.Values[currentTime] = 0
+			}
+			currentTime = currentTime.Add(1 * binBy)
 		}
 	}
+
 	return result, nil
-}*/
+}
 
 func (kv *SbarStore) BinnedCountOfActivities(activities []string, binFormat string) (map[string]map[string]uint64, error) {
 	kv.RLock()

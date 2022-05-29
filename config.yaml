@@ -5,8 +5,8 @@ logger:
 database:
 #  path: /Volumes/PascalsSSD/ArgosMiner/db
 #  path: ./data
-#  path: /Volumes/PascalsSSD/ArgosMiner/db6
-  path: ./data
+  path: /Volumes/PascalsSSD/ArgosMiner/db6
+#  path: ./data
   workspace: pascal-1
 ignore-activities:
   - name: 'krankenAngeboteWiederherstellen::Start'

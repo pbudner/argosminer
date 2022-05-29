@@ -328,6 +328,46 @@ func RegisterApiHandlers(g *echo.Group, cfg *config.Config, version, gitCommit s
 		})
 	})
 
+	v1.GET("/dfrelations/export", func(c echo.Context) error {
+		urlValues := c.Request().URL.Query()
+		encodedFromRelations := urlValues["from"]
+		encodedToRelations := urlValues["to"]
+		if len(encodedFromRelations) != len(encodedToRelations) {
+			return c.JSON(http.StatusBadRequest, JSON{
+				"error": "Not the same amount of 'from' and 'to' pairs",
+			})
+		}
+		relations := make([][]string, 0)
+		for i, encodedFromRelation := range encodedFromRelations {
+			from, err := decodeString(encodedFromRelation)
+			if err != nil {
+				log.Error(err)
+				return c.JSON(http.StatusInternalServerError, JSON{
+					"error": err.Error(),
+				})
+			}
+			to, err := decodeString(encodedToRelations[i])
+			if err != nil {
+				log.Error(err)
+				return c.JSON(http.StatusInternalServerError, JSON{
+					"error": err.Error(),
+				})
+			}
+			relations = append(relations, []string{from, to})
+		}
+		matrix, err := stores.GetSbarStore().GetDfRelationsOverTime(relations, time.Hour)
+		if err != nil {
+			log.Error(err)
+			return c.JSON(http.StatusInternalServerError, JSON{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(200, JSON{
+			"matrix": matrix,
+		})
+	})
+
 	v1.GET("/processes/names", func(c echo.Context) error {
 		// TODO
 		return nil
