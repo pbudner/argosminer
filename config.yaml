@@ -3,15 +3,13 @@ listener: localhost:4711
 logger:
   level: info
 database:
-#  path: /Volumes/PascalsSSD/ArgosMiner/db
-#  path: ./data
-  path: /Volumes/PascalsSSD/ArgosMiner/db6
+  path: /Volumes/PascalsSSD/ArgosMiner/db
 #  path: ./data
   workspace: pascal-1
-ignore-activities:
-  - name: 'krankenAngeboteWiederherstellen::Start'
-  - name: '.*::Start'
-    remove: true
+#ignore-activities:
+#  - name: 'krankenAngeboteWiederherstellen::Start'
+#  - name: '.*::Blablup'
+#    remove: true
 pipeline:
   # - name: sources.file
   #   path: 'data/eventlog.csv'

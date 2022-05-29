@@ -311,31 +311,35 @@ func (kv *SbarStore) getCountsForRelation(encodedRelation string, binBy time.Dur
 		return nil, minTime, maxTime, err
 	}
 
-	var currentUlid ulid.ULID
-	var lastSeenTime time.Time
-	var lastSeenValue uint64
+	var (
+		currentUlid       ulid.ULID
+		lastReportedTime  time.Time
+		lastReportedValue uint64
+		lastSeenKey       key.Key
+	)
 	err = storage.DefaultStorage.Iterate(k[0:8], func(key []byte, retrieveValue func() ([]byte, error)) (bool, error) {
+		lastSeenKey = key
 		currentUlid.UnmarshalBinary(key[8:])
 		eventTime := time.UnixMilli(int64(currentUlid.Time())).Truncate(binBy)
-		if eventTime != lastSeenTime {
+		if eventTime != lastReportedTime {
 			v, err := retrieveValue()
 			if err != nil {
 				return false, err
 			}
 			value := storage.BytesToUint64(v)
-			if !lastSeenTime.IsZero() {
-				result[lastSeenTime] = value - lastSeenValue
+			if !lastReportedTime.IsZero() {
+				result[lastReportedTime] = value - lastReportedValue
 
-				if minTime.IsZero() || minTime.After(lastSeenTime) {
-					minTime = lastSeenTime
+				if minTime.IsZero() || minTime.After(lastReportedTime) {
+					minTime = lastReportedTime
 				}
-				if maxTime.IsZero() || maxTime.Before(lastSeenTime) {
-					maxTime = lastSeenTime
+				if maxTime.IsZero() || maxTime.Before(lastReportedTime) {
+					maxTime = lastReportedTime
 				}
 			}
 
-			lastSeenTime = eventTime
-			lastSeenValue = value
+			lastReportedTime = eventTime
+			lastReportedValue = value
 		}
 
 		return true, nil
@@ -352,6 +356,20 @@ func (kv *SbarStore) getCountsForRelation(encodedRelation string, binBy time.Dur
 
 	if err != nil {
 		return nil, minTime, maxTime, err
+	}
+
+	if len(lastSeenKey) > 8 {
+		currentUlid.UnmarshalBinary(lastSeenKey[8:])
+		eventTime := time.UnixMilli(int64(currentUlid.Time())).Truncate(binBy)
+		lastValue, err := storage.DefaultStorage.Get(lastSeenKey)
+		if err != nil {
+			kv.log.Error("An unexpected error occurred during iterating through storage:", err)
+		}
+		value := storage.BytesToUint64(lastValue)
+		result[eventTime] = value - lastReportedValue + 1
+		if maxTime.IsZero() || maxTime.Before(eventTime) {
+			maxTime = eventTime
+		}
 	}
 
 	return result, minTime, maxTime, nil
