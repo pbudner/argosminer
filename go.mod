@@ -21,7 +21,7 @@ require (
 	github.com/tidwall/gjson v1.14.1
 	go.uber.org/zap v1.21.0
 	gonum.org/v1/gonum v0.11.0
-	gopkg.in/yaml.v3 v3.0.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
