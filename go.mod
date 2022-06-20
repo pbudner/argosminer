@@ -15,8 +15,8 @@ require (
 	github.com/oklog/ulid/v2 v2.0.2
 	github.com/prometheus/client_golang v1.12.2
 	github.com/radovskyb/watcher v1.0.7
-	github.com/segmentio/kafka-go v0.4.31
-	github.com/stretchr/testify v1.7.1
+	github.com/segmentio/kafka-go v0.4.32
+	github.com/stretchr/testify v1.7.2
 	github.com/tamerh/xml-stream-parser v1.4.0
 	github.com/tidwall/gjson v1.14.1
 	go.uber.org/zap v1.21.0
@@ -36,7 +36,7 @@ require (
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/klauspost/compress v1.15.2 // indirect
+	github.com/klauspost/compress v1.15.6 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
@@ -57,11 +57,11 @@ require (
 	github.com/xdg/stringprep v1.0.3 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4 // indirect
+	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
 	golang.org/x/exp v0.0.0-20220310221936-9d5fb453b98c // indirect
-	golang.org/x/net v0.0.0-20220524220425-1d687d428aca // indirect
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20220422013727-9388b58f7150 // indirect
+	golang.org/x/net v0.0.0-20220531201128-c960675eff93 // indirect
+	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
