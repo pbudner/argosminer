@@ -10,12 +10,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
+	"github.com/labstack/gommon/log"
 	"github.com/pbudner/argosminer/pipeline"
 	_ "github.com/pbudner/argosminer/pipeline/transforms"
 	"github.com/pbudner/argosminer/storage"
 	"github.com/pbudner/argosminer/stores"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/radovskyb/watcher"
 	"go.uber.org/zap"
 )
 
@@ -29,7 +30,7 @@ type file struct {
 	pipeline.Publisher
 	Path             string
 	ReadFrom         string
-	Watcher          *watcher.Watcher
+	Watcher          *fsnotify.Watcher
 	lastFilePosition int64
 	log              *zap.SugaredLogger
 }
@@ -86,18 +87,16 @@ func (fs *file) Run(wg *sync.WaitGroup, ctx context.Context) {
 	}
 
 	time.Sleep(1 * time.Second)
-	fs.Watcher = watcher.New()
-	fs.Watcher.FilterOps(watcher.Write, watcher.Rename, watcher.Create)
+	var err error
+	fs.Watcher, err = fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer fs.Watcher.Close()
+
 	if err := fs.Watcher.Add(filepath.Dir(fs.Path)); err != nil {
 		fs.log.Error(err)
 	}
-
-	go func() {
-		if err := fs.Watcher.Start(time.Millisecond * 1000); err != nil {
-			fs.log.Error(err)
-		}
-	}()
 
 	fs.readFile(ctx)
 	for {
@@ -106,14 +105,18 @@ func (fs *file) Run(wg *sync.WaitGroup, ctx context.Context) {
 			fs.Close()
 			// TODO: fs.kvStore.Set([]byte(fmt.Sprintf("file-source-position-%s", fs.Path)), storage.Uint64ToBytes(uint64(fs.lastFilePosition)))
 			return
-		case event := <-fs.Watcher.Event:
-			if event.Path == fs.Path {
+		case event, ok := <-fs.Watcher.Events:
+			if !ok {
+				return
+			}
+			if event.Op&fsnotify.Write == fsnotify.Write {
 				fs.readFile(ctx)
 			}
-		case err := <-fs.Watcher.Error:
-			fs.log.Error(err)
-		case <-fs.Watcher.Closed:
-			return
+		case err, ok := <-fs.Watcher.Errors:
+			if !ok {
+				return
+			}
+			fs.log.Errorf("An unexpected error occurred: %s", err.Error())
 		}
 	}
 }
@@ -144,7 +147,6 @@ func (fs *file) readFile(ctx context.Context) {
 
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
-
 	for scanner.Scan() {
 		select {
 		case <-ctx.Done():

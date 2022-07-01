@@ -11,17 +11,17 @@ pipeline:
   read-from: start
   connects:
   - name: transforms.csv_parser
-    delimiter: ';'
+    delimiter: ','
     timestamp-column: 0
     case-id-column: 1
     activity-column: 2
-    timestamp-format: '02/01/2006 15:04:05.000'
+    timestamp-format: '02.01.2006 15:04:05.000'
     timestamp-tz-iana-key: Europe/Berlin
     connects:
     - name: transforms.event_buffer
       max-events: 500000
-      max-age: 30s
-      flush-interval: 20s
+      max-age: 5s
+      flush-interval: 5s
       connects:
       - name: sinks.dfg
       - name: sinks.event

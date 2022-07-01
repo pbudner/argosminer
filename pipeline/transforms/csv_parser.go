@@ -86,6 +86,10 @@ func (cp *csvParser) Run(wg *sync.WaitGroup, ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case input := <-cp.Consumes:
+			if input == nil {
+				continue
+			}
+
 			b, ok := input.([]byte)
 			if !ok {
 				cp.log.Errorw("Expected []byte input", "input", input)
