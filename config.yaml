@@ -3,111 +3,25 @@ listener: localhost:4711
 logger:
   level: info
 database:
-  path: /Volumes/PascalsSSD/ArgosMiner/db
-#  path: ./data
+  path: ./data
   workspace: pascal-1
-#ignore-activities:
-#  - name: 'krankenAngeboteWiederherstellen::Start'
-#  - name: '.*::Blablup'
-#    remove: true
 pipeline:
-  # - name: sources.file
-  #   path: 'data/eventlog.csv'
-  #   read-from: start
-  #   connects:
-  #     - name: transforms.csv_parser
-  #       delimiter: ';'
-  #       timestamp-column: 0
-  #       case-id-column: 1
-  #       activity-column: 2
-  #       timestamp-format: '02/01/2006 15:04:05.000'
-  #       timestamp-tz-iana-key: Europe/Berlin
-  #       connects:
-  #         - name: transforms.event_buffer
-  #           max-events: 500000
-  #           max-age: 30s
-  #           flush-interval: 20s
-  #           connects:
-  #             - name: sinks.dfg
-  #             - name: sinks.event
-  # - name: sources.xes
-  #   path: '/Users/pascalbudner/Desktop/BPI_Challenge_2019.xes'
-  #   case-id-key: concept:name
-  #   activity-key: concept:name
-  #   timestamp-key: time:timestamp
-  #   connects:
-  #     - name: transforms.event_buffer
-  #       max-events: 500000
-  #       max-age: 1m
-  #       flush-interval: 20s
-  #       connects:
-  #         - name: sinks.dfg
-  #         - name: sinks.event
-  # - name: sources.file
-  #   path: 'data/eventlog.json'
-  #   read-from: start
-  #   connects:
-  #   - name: transforms.json_parser
-  #     parsers:
-  #       - activity-path: activity
-  #         case-id-path: process_instance_id
-  #         timestamp-path: '@timestamp'
-  #         timestamp-format: '2006-01-02T15:04:05.000-0700'
-  #         timestamp-tz-iana-key: Europe/Berlin
-  #       - json-path: message
-  #         activity-path: activity
-  #         case-id-path: process_instance_id
-  #         timestamp-path: '@timestamp'
-  #         timestamp-format: '2006-01-02T15:04:05.000'
-  #         timestamp-tz-iana-key: Europe/Berlin
-  #         ignore-when:
-  #           - path: '_eventtype'
-  #             condition: '=='
-  #             value: 'beendet'
-  #     connects:
-  #       - name: transforms.event_buffer
-  #         max-events: 50000
-  #         max-age: 1m
-  #         flush-interval: 20s
-  #         ignore-events-older-than: 24h
-  #         connects:
-  #           - name: sinks.dfg
-  #           - name: sinks.event
-  - name: sources.kafka  
-    brokers: 'localhost:9092'
-    group-id: consumer-group-4711-10020
-    timeout: 5s
-    commit-interval: 1s
-    topic: pmlogs
-    min-bytes: 10e3 # 10KB
-    max-bytes: 10e6 # 10MB 
+- name: sources.file
+  path: 'data/eventlog.csv'
+  read-from: start
+  connects:
+  - name: transforms.csv_parser
+    delimiter: ';'
+    timestamp-column: 0
+    case-id-column: 1
+    activity-column: 2
+    timestamp-format: '02/01/2006 15:04:05.000'
+    timestamp-tz-iana-key: Europe/Berlin
     connects:
-      - name: transforms.json_parser
-        parsers:
-          - json-path: my_event2
-            activity-path: activity
-            case-id-path: process_instance_id
-            timestamp-path: '@timestamp'
-            timestamp-format: '2006-01-02T15:04:05.000-0700'
-            timestamp-tz-iana-key: Europe/Berlin
-          - json-path: my_event3
-            activity-path: activity
-            case-id-path: process_instance_id
-            timestamp-path: '@timestamp'
-            timestamp-format: '2006-01-02T15:04:05.000-0700'
-            timestamp-tz-iana-key: Europe/Berlin
-          - json-path: my_event
-            activity-path: activity
-            case-id-path: process_instance_id
-            timestamp-path: '@timestamp'
-            timestamp-format: '2006-01-02T15:04:05.000-0700'
-            timestamp-tz-iana-key: Europe/Berlin
-        connects:
-          - name: transforms.event_buffer
-            max-events: 100000
-            max-age: 1m
-            flush-interval: 20s
-            #ignore-events-older-than: 24h
-            connects:
-              - name: sinks.dfg
-              - name: sinks.event
+    - name: transforms.event_buffer
+      max-events: 500000
+      max-age: 30s
+      flush-interval: 20s
+      connects:
+      - name: sinks.dfg
+      - name: sinks.event

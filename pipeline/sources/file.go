@@ -78,19 +78,26 @@ func (fs *file) Run(wg *sync.WaitGroup, ctx context.Context) {
 	fs.log.Info("Starting pipeline.sources.file")
 	defer wg.Done()
 	defer fs.log.Info("Shutting down pipeline.sources.file")
+
+	// check whether the file exists
+	if _, err := os.Stat(fs.Path); err != nil {
+		fs.log.Errorf("Could not open file: %s", fs.Path)
+		return
+	}
+
 	time.Sleep(1 * time.Second)
 	fs.Watcher = watcher.New()
 	fs.Watcher.FilterOps(watcher.Write, watcher.Rename, watcher.Create)
-
 	defer fs.Watcher.Close()
-
 	if err := fs.Watcher.Add(filepath.Dir(fs.Path)); err != nil {
 		fs.log.Error(err)
 	}
 
-	if err := fs.Watcher.Start(time.Millisecond * 1000); err != nil {
-		fs.log.Error(err)
-	}
+	go func() {
+		if err := fs.Watcher.Start(time.Millisecond * 1000); err != nil {
+			fs.log.Error(err)
+		}
+	}()
 
 	fs.readFile(ctx)
 	for {

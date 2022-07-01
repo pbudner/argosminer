@@ -64,6 +64,10 @@ func main() {
 		ctx, cancelFunc = context.WithCancel(context.Background())
 	)
 
+	if _, err := os.Stat("./config.yaml"); configPath == "" && err == nil {
+		configPath = "config.yaml"
+	}
+
 	if configPath == "" {
 		cfg = config.DefaultConfig()
 	} else {
