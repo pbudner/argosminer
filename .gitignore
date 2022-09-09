@@ -6,3 +6,4 @@ data_new/
 .vscode/
 dist/
 config-*.yaml
+vendor/

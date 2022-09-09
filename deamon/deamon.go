@@ -1,4 +1,4 @@
-package main
+package deamon
 
 import (
 	"context"
@@ -7,10 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/signal"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	prom "github.com/labstack/echo-contrib/prometheus"
@@ -48,7 +46,17 @@ func init() {
 	processStartedGauge.SetToCurrentTime()
 }
 
-func main() {
+type deamon struct {
+	termChan chan bool
+}
+
+func NewDeamon() *deamon {
+	return &deamon{
+		termChan: make(chan bool, 1),
+	}
+}
+
+func (d *deamon) Run() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 	log := logger.Sugar()
@@ -157,11 +165,9 @@ func main() {
 		}
 	}()
 
-	// wait here before closing all workers
-	termChan := make(chan os.Signal, 1)
-	signal.Notify(termChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-	<-termChan // Blocks here until interrupted
-	log.Info("SIGTERM received, initiating shutdown now")
+	// wait before cancel
+	<-d.termChan
+
 	log.Info("[1/3] Shutting down webserver..")
 	ctxTimeout, cancelFunc2 := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
 	if err := e.Shutdown(ctxTimeout); err != nil {
@@ -178,6 +184,10 @@ func main() {
 	stores.GetKvStore().Close()
 	storage.DefaultStorage.Close()
 	log.Info("Graceful shutdown completed")
+}
+
+func (d *deamon) Close() {
+	d.termChan <- true
 }
 
 func instantiateComponents(parent pipeline.Component, components []config.Component, wg *sync.WaitGroup, ctx context.Context) {
